@@ -180,7 +180,7 @@ async def run_aiperf_subprocess(
     cwd: Path | None = None,
     capture_output: bool = False,
 ) -> AIPerfRunResult:
-    """Run AIPerf as a subprocess.
+    """Run AIPerf as a subprocess with coverage support.
 
     Args:
         args: Command-line arguments for aiperf
@@ -189,9 +189,18 @@ async def run_aiperf_subprocess(
         capture_output: If False, output goes to terminal in real-time
 
     Returns:
-        tuple of (returncode, stdout, stderr)
+        AIPerfRunResult with returncode, stdout, stderr, output_dir
     """
+    import os
+
     cmd = [sys.executable, "-m", "aiperf.cli"] + args
+
+    # Enable subprocess coverage if coverage is running
+    env = os.environ.copy()
+    if "COV_CORE_SOURCE" in env or "COVERAGE_PROCESS_START" in env or ".coverage" in os.listdir("."):
+        # Coverage is active - enable for subprocess
+        env["COVERAGE_PROCESS_START"] = env.get("COVERAGE_PROCESS_START", "pyproject.toml")
+        env["COVERAGE_RUN"] = "true"
 
     if capture_output:
         # Capture for validation
@@ -200,6 +209,7 @@ async def run_aiperf_subprocess(
             cwd=str(cwd) if cwd else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
 
         try:
@@ -228,6 +238,7 @@ async def run_aiperf_subprocess(
             cwd=str(cwd) if cwd else None,
             stdout=None,  # Inherit stdout
             stderr=None,  # Inherit stderr
+            env=env,
         )
 
         try:
@@ -353,9 +364,8 @@ async def run_and_validate_benchmark(
 
     if min_requests is not None:
         from tests.integration.result_validators import BenchmarkResult
-        validator = BenchmarkResult.from_directory(output.actual_dir)
-        count_metric = validator.get_metric("request_count")
-        assert count_metric.avg >= min_requests, f"Too few requests: {count_metric.avg} < {min_requests}"
+        validator = BenchmarkResult(output.actual_dir)
+        assert validator.request_count >= min_requests, f"Too few requests: {validator.request_count} < {min_requests}"
 
     return output
 

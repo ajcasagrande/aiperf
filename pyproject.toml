@@ -98,3 +98,33 @@ ignore = ["E501"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+# Enable subprocess coverage measurement
+concurrency = ["thread"]
+parallel = true
+sigterm = true
+source = ["aiperf"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+# Coverage reporting options
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "@abstract",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

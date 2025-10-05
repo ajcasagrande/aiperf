@@ -4,6 +4,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -11,7 +12,7 @@ from aiperf.common.config import UserConfig
 from aiperf.common.models import ErrorDetailsCount, InputsFile, MetricResult
 from aiperf.exporters.json_exporter import JsonExportData
 
-from .test_models import ChatCompletionPayload, MessageContentItem
+from .test_models import AudioContent, ChatCompletionPayload, ImageContent, MessageContentItem
 
 
 class MetricsView:
@@ -109,84 +110,135 @@ class BenchmarkResult:
                 pass  # Some tests may not need inputs.json
 
     @property
-    def records(self) -> dict[str, MetricResult]:
-        assert self._records, "No records found"
-        return self._records
+    def metrics(self) -> MetricsView:
+        """Metrics with natural Python protocol support.
+
+        Usage:
+            assert "ttft" in result.metrics
+            assert result.metrics["ttft"].avg >= 0
+        """
+        if not self._records:
+            raise ValueError("No metrics found")
+        return MetricsView(self._records)
 
     @property
-    def input_config(self) -> UserConfig:
-        assert self._input_config, "No input_config found"
+    def config(self) -> UserConfig:
+        """Input configuration Pydantic model.
+
+        Usage:
+            assert result.config.endpoint.streaming
+        """
+        if not self._input_config:
+            raise ValueError("No config found")
         return self._input_config
 
     @property
     def error_summary(self) -> list[ErrorDetailsCount]:
+        """List of errors with counts.
+
+        Usage:
+            for error in result.error_summary:
+                print(error.message, error.count)
+        """
         return self._error_summary or []
 
     @property
+    def has_errors(self) -> bool:
+        """Check if benchmark had any errors.
+
+        Usage:
+            assert not result.has_errors
+        """
+        return sum(e.count for e in self.error_summary) > 0
+
+    @property
+    def error_count(self) -> int:
+        """Total number of errors.
+
+        Usage:
+            assert result.error_count == 0
+            assert result.error_count <= 5
+        """
+        return sum(e.count for e in self.error_summary)
+
+    @property
     def was_cancelled(self) -> bool:
+        """Check if benchmark was cancelled.
+
+        Usage:
+            assert not result.was_cancelled
+        """
         return self._was_cancelled or False
 
     @property
-    def csv_content(self) -> str:
-        assert self._csv_content, "No CSV found"
+    def request_count(self) -> int:
+        """Total completed requests.
+
+        Usage:
+            assert result.request_count >= 10
+            assert 8 <= result.request_count <= 12
+        """
+        metric = self._records.get("request_count") if self._records else None
+        return int(metric.avg) if metric and metric.avg else 0
+
+    @property
+    def csv(self) -> str:
+        """CSV file content.
+
+        Usage:
+            assert "Request Latency" in result.csv
+        """
+        if not self._csv_content:
+            raise ValueError("No CSV found")
         return self._csv_content
 
     @property
-    def inputs_file(self) -> InputsFile:
-        assert self._inputs_file, "No inputs.json found"
+    def inputs(self) -> InputsFile:
+        """Parsed inputs.json Pydantic model.
+
+        Usage:
+            assert len(result.inputs.data) >= 1
+        """
+        if not self._inputs_file:
+            raise ValueError("No inputs.json found")
         return self._inputs_file
 
-    def assert_metric_exists(self, *metric_tags: str) -> "BenchmarkResult":
-        for tag in metric_tags:
-            assert tag in self.records, f"Metric '{tag}' not found"
-        return self
+    @property
+    def artifacts_exist(self) -> bool:
+        """Check if all artifacts exist.
 
-    def assert_metric_value(
-        self, metric_tag: str, stat: str, expected: float, tolerance: float = 0.01
-    ) -> "BenchmarkResult":
-        value = getattr(self.get_metric(metric_tag), stat)
-        assert value, f"Metric '{metric_tag}.{stat}' missing"
-        assert abs(value - expected) <= abs(expected * tolerance), \
-            f"{metric_tag}.{stat}={value} not within {tolerance*100}% of {expected}"
-        return self
+        Usage:
+            assert result.artifacts_exist
+        """
+        return all([
+            self._json_file and self._json_file.exists(),
+            self._csv_file and self._csv_file.exists(),
+            self._log_file and self._log_file.exists(),
+        ])
 
-    def assert_metric_in_range(
-        self, metric_tag: str, stat: str = "avg", min_value: float | None = None, max_value: float | None = None
-    ) -> "BenchmarkResult":
-        value = getattr(self.get_metric(metric_tag), stat)
-        assert value, f"Metric '{metric_tag}.{stat}' missing"
-        if min_value is not None:
-            assert value >= min_value, f"{metric_tag}.{stat}={value} < {min_value}"
-        if max_value is not None:
-            assert value <= max_value, f"{metric_tag}.{stat}={value} > {max_value}"
-        return self
+    @property
+    def has_images(self) -> bool:
+        """Check if inputs.json contains images.
 
-    def assert_request_count(
-        self, min_count: int | None = None, max_count: int | None = None, exact: int | None = None
-    ) -> "BenchmarkResult":
-        count = self.get_metric("request_count").avg
-        assert count, "request_count.avg is None"
-        if exact is not None:
-            assert count == exact, f"Expected {exact} requests, got {count}"
-        if min_count is not None:
-            assert count >= min_count, f"Count {count} < {min_count}"
-        if max_count is not None:
-            assert count <= max_count, f"Count {count} > {max_count}"
-        return self
+        Usage:
+            assert result.has_images
+        """
+        return any(
+            isinstance(item, ImageContent) or (hasattr(item, 'type') and item.type == "image_url")
+            for item in self._get_all_content_items()
+        )
 
-    def assert_csv_contains(self, *text_patterns: str) -> "BenchmarkResult":
-        for pattern in text_patterns:
-            assert pattern in self.csv_content, f"CSV missing '{pattern}'"
-        return self
+    @property
+    def has_audio(self) -> bool:
+        """Check if inputs.json contains audio.
 
-    def assert_inputs_json_exists(self) -> "BenchmarkResult":
-        assert self._inputs_file, "inputs.json not found"
-        return self
-
-    def assert_inputs_json_has_sessions(self, min_sessions: int = 1) -> "BenchmarkResult":
-        assert len(self.inputs_file.data) >= min_sessions, \
-            f"Expected >={min_sessions} sessions, got {len(self.inputs_file.data)}"
-        return self
+        Usage:
+            assert result.has_audio
+        """
+        return any(
+            isinstance(item, AudioContent) or (hasattr(item, 'type') and item.type == "input_audio")
+            for item in self._get_all_content_items()
+        )
 
     def _get_all_content_items(self) -> list[MessageContentItem]:
         """Extract all message content items from inputs.json using Pydantic parsing.
@@ -195,7 +247,7 @@ class BenchmarkResult:
             List of all content items (text, image, audio) from all payloads.
         """
         content_items: list[MessageContentItem] = []
-        for session in self.inputs_file.data:
+        for session in self.inputs.data:
             for payload_dict in session.payloads:
                 try:
                     payload = ChatCompletionPayload(**payload_dict)
@@ -206,59 +258,6 @@ class BenchmarkResult:
                     # Skip non-chat payloads (e.g., completions, embeddings)
                     continue
         return content_items
-
-    def assert_inputs_json_has_images(self) -> "BenchmarkResult":
-        """Assert that inputs.json contains image content using type-safe Pydantic models."""
-        content_items = self._get_all_content_items()
-        has_images = any(item.type == "image_url" for item in content_items)
-        assert has_images, "No images found in inputs.json"
-        return self
-
-    def assert_inputs_json_has_audio(self) -> "BenchmarkResult":
-        """Assert that inputs.json contains audio content using type-safe Pydantic models."""
-        content_items = self._get_all_content_items()
-        has_audio = any(item.type == "input_audio" for item in content_items)
-        assert has_audio, "No audio found in inputs.json"
-        return self
-
-    def assert_all_artifacts_exist(self) -> "BenchmarkResult":
-        assert self._json_file and self._json_file.exists(), "No JSON file"
-        assert self._csv_file and self._csv_file.exists(), "No CSV file"
-        assert self._log_file and self._log_file.exists(), "No log file"
-        return self
-
-    def assert_log_not_empty(self) -> "BenchmarkResult":
-        assert self._log_file and self._log_file.stat().st_size > 0, "Log file empty"
-        return self
-
-    def assert_config_value(self, config_path: str, expected_value: Any) -> "BenchmarkResult":
-        current = self.input_config
-        for key in config_path.split("."):
-            current = getattr(current, key)
-        assert current == expected_value, f"{config_path}={current}, expected {expected_value}"
-        return self
-
-    def assert_no_errors(self) -> "BenchmarkResult":
-        total = sum(e.count for e in self.error_summary)
-        assert total == 0, f"Found {total} errors: {self.error_summary}"
-        return self
-
-    def assert_error_count(self, min_errors: int = 0, max_errors: int | None = None) -> "BenchmarkResult":
-        total = sum(e.count for e in self.error_summary)
-        if min_errors:
-            assert total >= min_errors, f"Expected >={min_errors} errors, got {total}"
-        if max_errors is not None:
-            assert total <= max_errors, f"Expected <={max_errors} errors, got {total}"
-        return self
-
-    def assert_was_cancelled(self, expected: bool = True) -> "BenchmarkResult":
-        assert self.was_cancelled == expected, f"was_cancelled={self.was_cancelled}, expected {expected}"
-        return self
-
-    def get_metric(self, metric_tag: str) -> MetricResult:
-        metric = self.records.get(metric_tag)
-        assert metric, f"Metric '{metric_tag}' not found"
-        return metric
 
 
 class ConsoleOutputValidator:

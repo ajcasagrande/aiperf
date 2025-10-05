@@ -46,9 +46,9 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("output_sequence_length") \
-            .assert_inputs_json_has_images()
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
+        assert result.has_images
 
     async def test_chat_endpoint_with_audio_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -62,9 +62,9 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("output_sequence_length") \
-            .assert_inputs_json_has_audio()
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
+        assert result.has_audio
 
     async def test_chat_endpoint_with_mixed_multimodal_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -78,9 +78,9 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_inputs_json_has_images() \
-            .assert_inputs_json_has_audio()
+        result = BenchmarkResult(output.actual_dir)
+        assert result.has_images
+        assert result.has_audio
 
     async def test_streaming_with_image_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -94,9 +94,10 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("ttft", "inter_token_latency") \
-            .assert_metric_in_range("ttft", min_value=0)
+        result = BenchmarkResult(output.actual_dir)
+        assert "ttft" in result.metrics
+        assert "inter_token_latency" in result.metrics
+        assert result.metrics["ttft"].avg >= 0
 
     async def test_streaming_with_audio_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -110,8 +111,9 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("ttft", "inter_token_latency")
+        result = BenchmarkResult(output.actual_dir)
+        assert "ttft" in result.metrics
+        assert "inter_token_latency" in result.metrics
 
     async def test_large_image_dataset(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -179,8 +181,8 @@ class TestMultiModalWithDashboard:
             aiperf_runner, validate_aiperf_output, args, min_requests=8
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_all_artifacts_exist()
+        result = BenchmarkResult(output.actual_dir)
+        assert result.artifacts_exist
 
     async def test_dashboard_ui_with_benchmark_duration(
         self, dashboard_profile_args, aiperf_runner, validate_aiperf_output
@@ -193,9 +195,9 @@ class TestMultiModalWithDashboard:
             aiperf_runner, validate_aiperf_output, args, timeout=30.0, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("ttft") \
-            .assert_csv_contains("Benchmark Duration")
+        result = BenchmarkResult(output.actual_dir)
+        assert "ttft" in result.metrics
+        assert "Benchmark Duration" in result.csv
 
 
 @pytest.mark.integration
@@ -214,10 +216,11 @@ class TestMultiModalStressTests:
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_all_artifacts_exist() \
-            .assert_metric_exists("ttft", "inter_token_latency") \
-            .assert_inputs_json_has_sessions(min_sessions=10)
+        result = BenchmarkResult(output.actual_dir)
+        assert result.artifacts_exist
+        assert "ttft" in result.metrics
+        assert "inter_token_latency" in result.metrics
+        assert len(result.inputs.data) >= 10
 
     async def test_high_throughput_streaming_with_audio(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -230,8 +233,10 @@ class TestMultiModalStressTests:
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("ttft", "inter_token_latency", "output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        assert "ttft" in result.metrics
+        assert "inter_token_latency" in result.metrics
+        assert "output_sequence_length" in result.metrics
 
 
 @pytest.mark.integration
@@ -252,7 +257,8 @@ class TestCancellationFeatures:
             aiperf_runner, validate_aiperf_output, args, timeout=120.0
         )
 
-        BenchmarkResult.from_directory(output.actual_dir).assert_all_artifacts_exist()
+        result = BenchmarkResult(output.actual_dir)
+        assert result.artifacts_exist
 
 
 @pytest.mark.integration
@@ -272,7 +278,7 @@ class TestDeterministicBehavior:
         assert result.returncode == 0, f"Run {run_number} failed with code {result.returncode}"
 
         validated = validate_aiperf_output(output_dir)
-        return BenchmarkResult.from_directory(validated.actual_dir)
+        return BenchmarkResult(validated.actual_dir)
 
     async def test_same_seed_produces_identical_inputs(
         self, base_profile_args, aiperf_runner, validate_aiperf_output, tmp_path
@@ -293,7 +299,7 @@ class TestDeterministicBehavior:
         run2 = await self._run_aiperf_with_seed(2, base_args, tmp_path, aiperf_runner, validate_aiperf_output)
 
         # Compare inputs files
-        inputs_1, inputs_2 = run1.inputs_file, run2.inputs_file
+        inputs_1, inputs_2 = run1.inputs, run2.inputs
         assert len(inputs_1.data) == len(inputs_2.data), "Session counts differ"
 
         # Payloads identical, session_ids differ (UUIDs)

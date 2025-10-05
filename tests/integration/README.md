@@ -34,31 +34,48 @@ class TestMyFeature:
             aiperf_runner, validate_aiperf_output, args, min_requests=8
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("request_latency", "output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        assert "request_latency" in result.metrics
+        assert "output_sequence_length" in result.metrics
 ```
 
-**That's it!** 15 lines for a complete integration test.
+**That's it!** 15 lines using natural Python assertions.
 
 ## Core Concepts
 
-### 1. Pydantic Models
+### 1. Pythonic Assertions
 
-All data in integration tests uses type-safe Pydantic models:
+Use simple Python `assert` statements with pytest's introspection:
+
+```python
+result = BenchmarkResult(output.actual_dir)
+
+# Natural Python membership testing
+assert "ttft" in result.metrics
+
+# Subscript access with type-safe Pydantic models
+assert result.metrics["ttft"].avg >= 0
+
+# Boolean properties
+assert not result.has_errors
+assert result.artifacts_exist
+
+# Chained comparisons
+assert 10 <= result.request_count <= 20
+```
+
+### 2. Pydantic Models Everywhere
+
+All data uses type-safe Pydantic models:
 
 ```python
 from tests.integration.test_models import AIPerfRunResult, ValidatedOutput
 
-# Running AIPerf returns a Pydantic model
 result: AIPerfRunResult = await aiperf_runner(args)
-assert result.returncode == 0  # Type-safe access
-print(result.stdout)           # IDE autocomplete works
+assert result.returncode == 0  # Type-safe
 
-# Validation returns a Pydantic model
 output: ValidatedOutput = validate_aiperf_output(result.output_dir)
-print(output.actual_dir)   # Type-safe
-print(output.json_file)    # Type-safe
-```
+print(output.actual_dir)  # Type-safe
 
 ### 2. Fixtures
 
@@ -107,31 +124,41 @@ This automatically:
 - Adds `--workers-max 2` by default (prevents resource exhaustion)
 - Returns typed `ValidatedOutput`
 
-### 4. BenchmarkResult - Fluent Pydantic API
+### 4. BenchmarkResult - Pythonic Properties
 
-The `BenchmarkResult` class provides type-safe validation using Pydantic models:
+The `BenchmarkResult` class provides natural Python access to validated results:
 
 ```python
 from tests.integration.result_validators import BenchmarkResult
 
-validator = BenchmarkResult.from_directory(output.actual_dir)
+result = BenchmarkResult(output.actual_dir)
 ```
 
-**All properties return Pydantic models:**
+**All properties are Pythonic and type-safe:**
 ```python
 from aiperf.common.models import MetricResult, InputsFile, ErrorDetailsCount
 from aiperf.common.config import UserConfig
 
-# Get typed models
-metric: MetricResult = validator.get_metric("ttft")
-config: UserConfig = validator.input_config
-inputs: InputsFile = validator.inputs_file
-errors: list[ErrorDetailsCount] = validator.error_summary
+# Natural membership testing
+assert "ttft" in result.metrics
 
-# Access type-safe properties
-print(metric.avg, metric.p99, metric.std)  # IDE autocomplete!
-print(config.endpoint.streaming)
-print(len(inputs.data))
+# Subscript access (returns Pydantic MetricResult)
+ttft: MetricResult = result.metrics["ttft"]
+print(ttft.avg, ttft.p99, ttft.std)
+
+# Boolean properties
+assert result.artifacts_exist
+assert not result.has_errors
+assert result.has_images
+
+# Typed properties
+config: UserConfig = result.config
+inputs: InputsFile = result.inputs
+errors: list[ErrorDetailsCount] = result.error_summary
+
+# Numeric properties
+assert result.request_count >= 10
+assert result.error_count == 0
 ```
 
 ## Common Patterns
@@ -150,8 +177,8 @@ async def test_chat_endpoint(
         aiperf_runner, validate_aiperf_output, args, min_requests=18
     )
 
-    BenchmarkResult.from_directory(output.actual_dir) \
-        .assert_metric_exists("output_sequence_length")
+    result = BenchmarkResult(output.actual_dir)
+    assert "output_sequence_length" in result.metrics
 ```
 
 ### Pattern 2: Streaming Test
@@ -171,9 +198,10 @@ async def test_streaming(
         aiperf_runner, validate_aiperf_output, args
     )
 
-    BenchmarkResult.from_directory(output.actual_dir) \
-        .assert_metric_exists("ttft", "inter_token_latency") \
-        .assert_metric_in_range("ttft", min_value=0, max_value=10000)
+    result = BenchmarkResult(output.actual_dir)
+    assert "ttft" in result.metrics
+    assert "inter_token_latency" in result.metrics
+    assert 0 <= result.metrics["ttft"].avg <= 10000
 ```
 
 ### Pattern 3: Multi-Modal Test
@@ -194,9 +222,9 @@ async def test_multimodal(
         aiperf_runner, validate_aiperf_output, args
     )
 
-    BenchmarkResult.from_directory(output.actual_dir) \
-        .assert_inputs_json_has_images() \
-        .assert_inputs_json_has_audio()
+    result = BenchmarkResult(output.actual_dir)
+    assert result.has_images
+    assert result.has_audio
 ```
 
 ### Pattern 4: Dashboard UI Test
@@ -213,7 +241,8 @@ async def test_dashboard(
         aiperf_runner, validate_aiperf_output, args
     )
 
-    BenchmarkResult.from_directory(output.actual_dir).assert_all_artifacts_exist()
+    result = BenchmarkResult(output.actual_dir)
+    assert result.artifacts_exist
 ```
 
 ### Pattern 5: Stress Test (High Concurrency)
@@ -233,9 +262,10 @@ async def test_high_concurrency(
         limit_workers=False  # Don't limit workers for stress test
     )
 
-    BenchmarkResult.from_directory(output.actual_dir) \
-        .assert_all_artifacts_exist() \
-        .assert_metric_exists("ttft")
+    result = BenchmarkResult(output.actual_dir)
+    assert result.artifacts_exist
+    assert "ttft" in result.metrics
+    assert len(result.inputs.data) >= 10
 ```
 
 ## Available Constants
@@ -260,85 +290,80 @@ args = [*base_profile_args, "--endpoint-type", "chat",
 
 ## BenchmarkResult API Reference
 
-### Metric Assertions
+### Pythonic Properties
 
 ```python
-validator = BenchmarkResult.from_directory(output.actual_dir)
-
-# Check metrics exist
-validator.assert_metric_exists("ttft", "request_latency")
-
-# Validate metric ranges
-validator.assert_metric_in_range("ttft", min_value=0, max_value=10000)
-validator.assert_metric_in_range("ttft", stat="p99", max_value=15000)
-
-# Validate exact values (with tolerance)
-validator.assert_metric_value("ttft", "avg", 25.0, tolerance=0.20)  # ±20%
-
-# Validate request count
-validator.assert_request_count(min_count=10, max_count=20)
-validator.assert_request_count(exact=15)
+result = BenchmarkResult(output.actual_dir)
 ```
 
-### CSV Assertions
-
+**Metrics (MetricsView with protocol support):**
 ```python
-# Check CSV contains specific text
-validator.assert_csv_contains("Request Latency", "Time to First Token")
+# Membership testing
+assert "ttft" in result.metrics
+assert "request_latency" in result.metrics
+
+# Subscript access (returns MetricResult Pydantic model)
+ttft = result.metrics["ttft"]
+assert ttft.avg >= 0
+assert ttft.p99 <= 10000
+
+# Chained comparisons (Pythonic!)
+assert 0 <= result.metrics["ttft"].avg <= 10000
+
+# Iteration
+for metric_tag in result.metrics:
+    print(metric_tag, result.metrics[metric_tag].avg)
 ```
 
-### Artifact Assertions
-
+**Boolean Properties:**
 ```python
-# Verify all files exist
-validator.assert_all_artifacts_exist()  # JSON, CSV, log
+# Artifacts
+assert result.artifacts_exist
 
-# Check log has content
-validator.assert_log_not_empty()
+# Errors
+assert not result.has_errors
+
+# Cancellation
+assert not result.was_cancelled
+
+# Multi-modal content
+assert result.has_images
+assert result.has_audio
 ```
 
-### inputs.json Assertions
-
+**Numeric Properties:**
 ```python
-# Verify inputs.json exists and has sessions
-validator.assert_inputs_json_exists()
-validator.assert_inputs_json_has_sessions(min_sessions=10)
+# Request count
+assert result.request_count >= 10
+assert 8 <= result.request_count <= 12
 
-# Verify multi-modal content
-validator.assert_inputs_json_has_images()
-validator.assert_inputs_json_has_audio()
+# Error count
+assert result.error_count == 0
+assert result.error_count <= 5
 ```
 
-### Configuration Assertions
-
+**String Properties:**
 ```python
-# Check configuration values (dot notation)
-validator.assert_config_value("endpoint.streaming", True)
-validator.assert_config_value("loadgen.concurrency", 5)
+# CSV content
+assert "Request Latency" in result.csv
+assert "Time to First Token" in result.csv
 ```
 
-### Error Assertions
-
+**Pydantic Model Properties:**
 ```python
-# Verify no errors
-validator.assert_no_errors()
+# Configuration
+config: UserConfig = result.config
+assert result.config.endpoint.streaming
+assert result.config.loadgen.concurrency == 5
 
-# Verify error count in range
-validator.assert_error_count(min_errors=1, max_errors=5)
-```
+# Inputs
+inputs: InputsFile = result.inputs
+assert len(result.inputs.data) >= 10
 
-### Chaining
-
-All methods return `self` for chaining:
-
-```python
-BenchmarkResult.from_directory(output.actual_dir) \
-    .assert_all_artifacts_exist() \
-    .assert_metric_exists("ttft", "request_latency") \
-    .assert_metric_in_range("ttft", min_value=0) \
-    .assert_request_count(min_count=10) \
-    .assert_csv_contains("Request Throughput") \
-    .assert_no_errors()
+# Error details
+errors: list[ErrorDetailsCount] = result.error_summary
+for error in result.error_summary:
+    print(f"{error.message}: {error.count}")
 ```
 
 ## Advanced: Direct Pydantic Access
@@ -569,39 +594,42 @@ class TestMultiModalStreaming:
 
 ### ✅ DO:
 
-1. **Use `run_and_validate_benchmark()`** for all tests
-2. **Use constants** (`IMAGE_64`, `AUDIO_SHORT`, etc.)
-3. **Chain assertions** with the fluent API
-4. **Type hint** when getting Pydantic models
-5. **Use meaningful test names** that describe what's being validated
-6. **Keep docstrings concise** (one line)
+1. **Use simple `assert` statements** - Let pytest introspection handle details
+2. **Use natural Python syntax** - `in`, `[]`, properties, comparisons
+3. **Use constants** (`IMAGE_64`, `AUDIO_SHORT`, etc.)
+4. **Type hint Pydantic models** when extracting
+5. **Keep docstrings concise** (one line)
 
 ```python
-# Good
+# Good - Pythonic!
 async def test_chat_endpoint_with_images(
     self, base_profile_args, aiperf_runner, validate_aiperf_output
 ):
     """Validates chat endpoint with synthetic images."""
     args = [*base_profile_args, "--endpoint-type", "chat", *IMAGE_64]
     output = await run_and_validate_benchmark(aiperf_runner, validate_aiperf_output, args)
-    BenchmarkResult.from_directory(output.actual_dir).assert_inputs_json_has_images()
+
+    result = BenchmarkResult(output.actual_dir)
+    assert result.has_images
+    assert "output_sequence_length" in result.metrics
 ```
 
 ### ❌ DON'T:
 
-1. **Access dicts directly** - Use Pydantic models
-2. **Manual error printing** - `run_and_validate_benchmark()` handles it
-3. **Verbose docstrings** - Keep it to one line
-4. **Hardcode values** - Use constants
+1. **Use method chaining** - Unpythonic, Java-like
+2. **Use custom assert methods** - Use simple `assert` statements
+3. **Access dicts directly** - Use Pydantic models and properties
+4. **Verbose docstrings** - Keep to one line
 5. **Manual string conversions** - Constants are already strings
 
 ```python
 # Bad - Don't do this!
-result = await aiperf_runner(args)
-if result["returncode"] != 0:  # Bad! Not type-safe
-    print(result["stdout"])    # Bad! Use result.stdout
-records = output["json_results"]["records"]  # Bad! Use BenchmarkResult
-avg = records["ttft"]["avg"]  # Bad! Use Pydantic model
+BenchmarkResult.from_directory(output.actual_dir) \  # Java-like chaining!
+    .assert_metric_exists("ttft") \
+    .assert_no_errors()
+
+result["returncode"]  # Not type-safe!
+records["ttft"]["avg"]  # Dict access!
 ```
 
 ## Running Tests

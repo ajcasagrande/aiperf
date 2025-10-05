@@ -43,7 +43,8 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=8
         )
 
-        BenchmarkResult.from_directory(output.actual_dir).assert_metric_exists("output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
 
     async def test_streaming_benchmark_produces_streaming_metrics(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -56,9 +57,10 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("ttft", "inter_token_latency") \
-            .assert_metric_in_range("ttft", max_value=10000)
+        result = BenchmarkResult(output.actual_dir)
+        assert "ttft" in result.metrics
+        assert "inter_token_latency" in result.metrics
+        assert result.metrics["ttft"].avg <= 10000
 
     async def test_concurrency_benchmark_limits_concurrent_requests(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -83,7 +85,8 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        count = BenchmarkResult.from_directory(output.actual_dir).get_metric("request_count")
+        result = BenchmarkResult(output.actual_dir)
+        count = result.metrics["request_count"]
         assert 12 <= count.avg <= 15
 
     async def test_json_and_csv_export_consistency(
@@ -97,7 +100,9 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        BenchmarkResult.from_directory(output.actual_dir).assert_csv_contains("Metric", "Request Latency")
+        result = BenchmarkResult(output.actual_dir)
+        assert "Metric" in result.csv
+        assert "Request Latency" in result.csv
         assert len(output.csv_content) > 100
 
     async def test_multiple_workers_coordinate_correctly(
@@ -128,7 +133,8 @@ class TestMetricComputationIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        ttft = BenchmarkResult.from_directory(output.actual_dir).get_metric("ttft")
+        result = BenchmarkResult(output.actual_dir)
+        ttft = result.metrics["ttft"]
         assert 1 <= ttft.avg <= 1000, f"TTFT {ttft.avg}ms outside range"
         assert ttft.std is not None
 
@@ -143,7 +149,8 @@ class TestMetricComputationIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        osl = BenchmarkResult.from_directory(output.actual_dir).get_metric("output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        osl = result.metrics["output_sequence_length"]
         assert osl.avg > 0
 
 
@@ -164,7 +171,8 @@ class TestErrorHandlingIntegration:
         # May succeed or fail, but shouldn't crash
         if result.returncode == 0:
             output = validate_aiperf_output(result.output_dir)
-            errors = BenchmarkResult.from_directory(output.actual_dir).error_summary
+            result_obj = BenchmarkResult(output.actual_dir)
+            errors = result_obj.error_summary
             assert isinstance(errors, list)
 
 
@@ -213,15 +221,17 @@ class TestEndpointTypesIntegration:
         assert result.returncode == 0, f"{endpoint_type} failed: {result.stderr}"
 
         output = validate_aiperf_output(result.output_dir)
-        validator = BenchmarkResult.from_directory(output.actual_dir)
+        result_obj = BenchmarkResult(output.actual_dir)
 
-        validator.assert_metric_exists("request_count", "request_latency")
+        assert "request_count" in result_obj.metrics
+        assert "request_latency" in result_obj.metrics
 
         if verify_streaming:
-            validator.assert_metric_exists("ttft", "inter_token_latency")
+            assert "ttft" in result_obj.metrics
+            assert "inter_token_latency" in result_obj.metrics
         if verify_no_tokens:
-            assert "ttft" not in validator.records
-            assert "output_sequence_length" not in validator.records
+            assert "ttft" not in result_obj.metrics
+            assert "output_sequence_length" not in result_obj.metrics
 
         return output
 
@@ -232,7 +242,8 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "chat"
         )
-        BenchmarkResult.from_directory(output.actual_dir).assert_metric_exists("output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
 
     async def test_chat_endpoint_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -254,9 +265,9 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "completions"
         )
-        validator = BenchmarkResult.from_directory(output.actual_dir)
-        validator.assert_metric_exists("output_sequence_length")
-        validator.assert_request_count(min_count=4)
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
+        assert result.request_count >= 4
 
     async def test_completions_endpoint_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -308,7 +319,8 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "responses"
         )
-        BenchmarkResult.from_directory(output.actual_dir).assert_metric_exists("output_sequence_length")
+        result = BenchmarkResult(output.actual_dir)
+        assert "output_sequence_length" in result.metrics
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
     async def test_responses_endpoint_streaming(

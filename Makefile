@@ -16,8 +16,11 @@
 
 
 .PHONY: ruff lint ruff-fix lint-fix format fmt check-format check-fmt \
-		test test-verbose test-fast test-critical test-integration test-docs \
-		test-examples test-all coverage clean install docker docker-run \
+		test test-verbose test-fast test-critical test-integration test-integration-parallel \
+		test-docs test-examples test-all \
+		coverage coverage-unit coverage-integration coverage-all coverage-report \
+		coverage-html coverage-xml coverage-clean \
+		clean install docker docker-run \
 		first-time-setup init-files setup-venv setup-mkinit docs docs-serve \
 		validate-all internal-help help
 
@@ -120,12 +123,19 @@ test-critical: #? run the critical behavioral tests.
 	$(activate_venv) && pytest tests/critical/ -v $(args)
 	@printf "$(bold)$(green)Critical tests passed!$(reset)\n"
 
-test-integration: #? run the integration tests with mock server (slow, ~4 minutes).
-	@printf "$(bold)$(blue)Running integration tests with mock server...$(reset)\n"
-	@printf "$(yellow)Note: Integration tests take ~4 minutes due to subprocess execution$(reset)\n"
-	@printf "$(yellow)AIPerf subprocess output (progress bars and logs) will be shown in real-time$(reset)\n"
+test-integration: #? run integration tests with mock server (parallel, ~35 seconds).
+	@printf "$(bold)$(blue)Running integration tests with mock server (parallel)...$(reset)\n"
+	$(activate_venv) && pytest tests/integration/ --integration -n auto -q $(args)
+	@printf "$(bold)$(green)Integration tests passed!$(reset)\n"
+
+test-integration-verbose: #? run integration tests with verbose output (sequential, ~3 minutes).
+	@printf "$(bold)$(blue)Running integration tests (verbose, sequential)...$(reset)\n"
+	@printf "$(yellow)Note: Sequential mode shows real-time AIPerf output$(reset)\n"
 	$(activate_venv) && pytest tests/integration/ --integration -v -s --log-cli-level=INFO $(args)
 	@printf "$(bold)$(green)Integration tests passed!$(reset)\n"
+
+test-integration-parallel: #? alias for test-integration (parallel execution).
+	@$(MAKE) test-integration --no-print-directory
 
 test-docs: #? run the documentation validation tests.
 	@printf "$(bold)$(blue)Validating documentation structure...$(reset)\n"
@@ -142,8 +152,59 @@ test-all: #? run all tests including integration tests (slow, ~4 minutes).
 	$(activate_venv) && pytest tests/ --integration -v $(args)
 	@printf "$(bold)$(green)All tests passed!$(reset)\n"
 
-coverage: #? run the tests and generate an html coverage report.
-	$(activate_venv) && pytest -n auto --cov=aiperf --cov-branch --cov-report=html --cov-report=xml --cov-report=term --integration $(args)
+coverage-clean: #? remove all coverage data and reports.
+	rm -rf .coverage .coverage.* htmlcov/ coverage.xml
+
+coverage-unit: #? run unit tests with coverage (fast, ~30 seconds).
+	@printf "$(bold)$(blue)Running unit tests with coverage...$(reset)\n"
+	$(activate_venv) && pytest -n auto -m "not integration" \
+		--cov=aiperf \
+		--cov-branch \
+		--cov-context=test \
+		--cov-report=term \
+		--cov-report=html:htmlcov/unit \
+		--cov-report=xml:coverage-unit.xml \
+		$(args)
+	@printf "$(bold)$(green)Unit test coverage complete! Report: htmlcov/unit/index.html$(reset)\n"
+
+coverage-integration: #? run integration tests with coverage (parallel, ~35 seconds).
+	@printf "$(bold)$(blue)Running integration tests with coverage (parallel)...$(reset)\n"
+	$(activate_venv) && pytest tests/integration/ --integration -n auto \
+		--cov=aiperf \
+		--cov-branch \
+		--cov-context=test \
+		--cov-report=term \
+		--cov-report=html:htmlcov/integration \
+		--cov-report=xml:coverage-integration.xml \
+		$(args)
+	@printf "$(bold)$(green)Integration test coverage complete! Report: htmlcov/integration/index.html$(reset)\n"
+
+coverage-all: #? run all tests with combined coverage report.
+	@printf "$(bold)$(blue)Running complete test suite with coverage...$(reset)\n"
+	@$(MAKE) coverage-clean --no-print-directory
+	$(activate_venv) && pytest --integration -n auto \
+		--cov=aiperf \
+		--cov-branch \
+		--cov-context=test \
+		--cov-report=term \
+		--cov-report=html \
+		--cov-report=xml \
+		$(args)
+	@printf "$(bold)$(green)═══════════════════════════════════════════════════$(reset)\n"
+	@printf "$(bold)$(green)  Complete coverage report: htmlcov/index.html$(reset)\n"
+	@printf "$(bold)$(green)═══════════════════════════════════════════════════$(reset)\n"
+
+coverage coverage-report: coverage-all #? alias for coverage-all.
+
+coverage-html: #? generate HTML coverage report (requires existing .coverage file).
+	@printf "$(bold)$(blue)Generating HTML coverage report...$(reset)\n"
+	$(activate_venv) && coverage html
+	@printf "$(bold)$(green)HTML report: htmlcov/index.html$(reset)\n"
+
+coverage-xml: #? generate XML coverage report for CI/CD (requires existing .coverage file).
+	@printf "$(bold)$(blue)Generating XML coverage report...$(reset)\n"
+	$(activate_venv) && coverage xml
+	@printf "$(bold)$(green)XML report: coverage.xml$(reset)\n"
 
 install: #? install the project in editable mode.
 	$(activate_venv) && uv pip install -e ".[dev]" $(args)
@@ -183,14 +244,17 @@ validate-all: #? run all validation checks (lint, format, tests, docs, examples)
 	@printf "$(bold)$(green)  All validation checks passed successfully!$(reset)\n"
 	@printf "$(bold)$(green)═══════════════════════════════════════════════════$(reset)\n"
 
-clean: #? clean up the pytest and ruff caches, coverage reports, and *.pyc files.
+clean: #? clean up pytest/ruff caches, coverage reports, and *.pyc files.
+	@printf "$(bold)$(blue)Cleaning up caches and reports...$(reset)\n"
 	rm -rf .pytest_cache/
 	rm -rf .ruff_cache/
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
-	find . -type f -name ".coverage" -delete
+	rm -rf .coverage .coverage.*
 	rm -rf htmlcov/
+	rm -rf coverage*.xml
 	rm -rf site/
+	@printf "$(bold)$(green)Clean complete!$(reset)\n"
 
 setup-venv: #? create the virtual environment.
 	@# Install uv if it is not installed
