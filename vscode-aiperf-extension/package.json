@@ -1,0 +1,146 @@
+{
+  "name": "aiperf-developer-tools",
+  "displayName": "AIPerf Developer Tools",
+  "description": "Plugin wizard and development tools for NVIDIA AIPerf following AIP-001 specification",
+  "version": "1.0.0",
+  "publisher": "nvidia-aiperf",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "aiperf",
+    "benchmark",
+    "performance",
+    "nvidia",
+    "ai",
+    "plugin",
+    "wizard"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/pyproject.toml"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiperf.createPlugin",
+        "title": "AIPerf: Create Plugin (AIP-001)",
+        "category": "AIPerf",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aiperf.openGuidebook",
+        "title": "AIPerf: Open Developer's Guidebook",
+        "category": "AIPerf",
+        "icon": "$(book)"
+      },
+      {
+        "command": "aiperf.runTests",
+        "title": "AIPerf: Run Tests",
+        "category": "AIPerf",
+        "icon": "$(testing-run-icon)"
+      },
+      {
+        "command": "aiperf.validatePlugin",
+        "title": "AIPerf: Validate Plugin",
+        "category": "AIPerf",
+        "icon": "$(check)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "aiperf.createPlugin",
+          "when": "workspaceContains:**/pyproject.toml"
+        },
+        {
+          "command": "aiperf.openGuidebook",
+          "when": "workspaceContains:**/pyproject.toml"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "aiperf.createPlugin",
+          "group": "2_workspace",
+          "when": "explorerResourceIsFolder"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "aiperf.createPlugin",
+        "key": "ctrl+shift+alt+p",
+        "mac": "cmd+shift+alt+p"
+      }
+    ],
+    "configuration": {
+      "title": "AIPerf Developer Tools",
+      "properties": {
+        "aiperf.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python interpreter"
+        },
+        "aiperf.autoValidate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically validate plugins on save"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiperf-tools",
+          "title": "AIPerf",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiperf-tools": [
+        {
+          "id": "aiperf.plugins",
+          "name": "Plugins",
+          "icon": "$(plug)",
+          "contextualTitle": "AIPerf Plugins"
+        },
+        {
+          "id": "aiperf.guidebook",
+          "name": "Guidebook",
+          "icon": "$(book)",
+          "contextualTitle": "Developer's Guidebook"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "test": "node ./out/test/runTest.js",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@types/mocha": "^10.0.6",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-electron": "^2.3.8",
+    "esbuild": "^0.19.11",
+    "eslint": "^8.56.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
