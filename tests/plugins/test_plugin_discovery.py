@@ -50,12 +50,7 @@ class TestPluginDiscoveryBasics:
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
             # Mock empty entry points
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             result = PluginDiscovery.discover_all_plugins()
 
@@ -73,12 +68,7 @@ class TestPluginDiscoveryBasics:
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
             # Set up mock to return our plugin for the metric group
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             plugins = PluginDiscovery.discover_plugins_by_group("aiperf.metric")
 
@@ -93,12 +83,7 @@ class TestPluginDiscoveryBasics:
         WHAT: Returns empty list when no plugins for group.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             plugins = PluginDiscovery.discover_plugins_by_group("aiperf.metric")
 
@@ -113,12 +98,7 @@ class TestPluginDiscoveryBasics:
         WHAT: Can retrieve individual plugin by name within a group.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             plugin = PluginDiscovery.get_plugin_by_name("aiperf.metric", "mock_metric")
 
@@ -133,16 +113,9 @@ class TestPluginDiscoveryBasics:
         WHAT: Returns None when plugin not found.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
-            plugin = PluginDiscovery.get_plugin_by_name(
-                "aiperf.metric", "nonexistent"
-            )
+            plugin = PluginDiscovery.get_plugin_by_name("aiperf.metric", "nonexistent")
 
             assert plugin is None
 
@@ -184,14 +157,9 @@ class TestPluginMetadata:
         # This tests the fallback behavior in discovery.py line 98
         from importlib.metadata import EntryPoint
 
-        if sys.version_info >= (3, 10):
-            ep = EntryPoint(
-                name="simple_plugin", value="simple_module", group="aiperf.metric"
-            )
-        else:
-            ep = EntryPoint(
-                name="simple_plugin", value="simple_module", group="aiperf.metric"
-            )
+        ep = EntryPoint(
+            name="simple_plugin", value="simple_module", group="aiperf.metric"
+        )
 
         # Discovery code splits on ':' and falls back to name if no ':'
         attr_name = ep.value.split(":")[1] if ":" in ep.value else ep.name
@@ -224,12 +192,7 @@ class TestMultiplePlugins:
         WHAT: Discovers all plugins in a group.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             plugins = PluginDiscovery.discover_plugins_by_group("aiperf.metric")
 
@@ -257,12 +220,7 @@ class TestMultiplePlugins:
                 mock_obj.select = lambda group: all_mock_entry_points.get(group, [])
                 return mock_obj
 
-            if sys.version_info >= (3, 10):
-                mock_ep.side_effect = mock_entry_points_call
-            else:
-                mock_ep.return_value.select.side_effect = (
-                    lambda group: all_mock_entry_points.get(group, [])
-                )
+            mock_ep.side_effect = mock_entry_points_call
 
             discovered = PluginDiscovery.discover_all_plugins()
 
@@ -343,12 +301,7 @@ class TestCachingBehavior:
         WHAT: Subsequent calls return cached results.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             # First call
             result1 = PluginDiscovery.discover_all_plugins()
@@ -363,10 +316,7 @@ class TestCachingBehavior:
             # (called once per group in PLUGIN_GROUPS)
             # Number of calls depends on how many groups we scan
             call_count = mock_ep.call_count
-            if sys.version_info >= (3, 10):
-                assert call_count >= 1  # At least one call made
-            else:
-                assert call_count >= 1
+            assert call_count >= 1
 
     def test_cache_clear_works(self, mock_metric_entry_point):
         """
@@ -375,12 +325,7 @@ class TestCachingBehavior:
         WHAT: cache_clear() removes cached results.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             # Discover plugins
             result1 = PluginDiscovery.discover_all_plugins()
@@ -401,12 +346,7 @@ class TestCachingBehavior:
         WHAT: Module-level discover_plugins uses caching.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             # First call
             result1 = discover_plugins("aiperf.metric")
@@ -439,12 +379,7 @@ class TestErrorHandling:
             bad_ep.value = "invalid::format"  # Malformed value
             bad_ep.load.side_effect = ValueError("Invalid format")
 
-            if sys.version_info >= (3, 10):
-                mock_ep.side_effect = [bad_ep], [], [], [], [], []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.side_effect = [bad_ep], [], [], [], [], []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.side_effect = [bad_ep], [], [], [], [], []
 
             # Should not raise exception
             result = PluginDiscovery.discover_all_plugins()
@@ -469,12 +404,7 @@ class TestErrorHandling:
                     return [mock_endpoint_entry_point]
                 return []
 
-            if sys.version_info >= (3, 10):
-                mock_ep.side_effect = side_effect_fn
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.side_effect = side_effect_fn
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.side_effect = side_effect_fn
 
             result = PluginDiscovery.discover_all_plugins()
 
@@ -518,12 +448,7 @@ class TestPluginGroups:
         WHAT: Attempts discovery for each group in PLUGIN_GROUPS.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             PluginDiscovery.discover_all_plugins()
 

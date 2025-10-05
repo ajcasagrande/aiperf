@@ -60,7 +60,9 @@ class TestEndToEndPluginLifecycle:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             # 1. Discover
@@ -99,7 +101,9 @@ class TestEndToEndPluginLifecycle:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             # Registry does everything
@@ -126,14 +130,7 @@ class TestEndToEndPluginLifecycle:
         WHAT: Module-level functions work for common cases.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             # Discover
             plugins = discover_plugins("aiperf.metric")
@@ -164,14 +161,7 @@ class TestMultiplePluginsCoexistence:
         WHAT: All plugins in group load and work independently.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             registry = PluginRegistry()
 
@@ -183,7 +173,7 @@ class TestMultiplePluginsCoexistence:
 
             # Each should be independent
             plugin_tags = set()
-            for name, plugin_class in plugins.items():
+            for _name, plugin_class in plugins.items():
                 instance = plugin_class()
                 plugin_tags.add(instance.tag)
 
@@ -207,14 +197,7 @@ class TestMultiplePluginsCoexistence:
                 mock_obj.select = lambda group: all_mock_entry_points.get(group, [])
                 return mock_obj
 
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.side_effect = mock_entry_points_call
-            else:
-                mock_ep.return_value.select.side_effect = (
-                    lambda group: all_mock_entry_points.get(group, [])
-                )
+            mock_ep.side_effect = mock_entry_points_call
 
             registry = PluginRegistry()
 
@@ -243,14 +226,7 @@ class TestMultiplePluginsCoexistence:
         WHAT: Enable/disable controls which plugins are active.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             registry = PluginRegistry()
 
@@ -291,7 +267,9 @@ class TestPluginExecutionInContext:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -330,7 +308,9 @@ class TestPluginExecutionInContext:
             attr_name="MockEndpointPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.endpoint": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -365,7 +345,9 @@ class TestPluginExecutionInContext:
             attr_name="MockTransportPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.transport": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -397,8 +379,6 @@ class TestPluginDiscoveryPerformance:
         WHAT: Discovery completes quickly.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
             # Simulate moderate number of plugins
             mock_plugins = []
             for i in range(50):
@@ -407,12 +387,7 @@ class TestPluginDiscoveryPerformance:
                 ep.value = f"module_{i}:Plugin_{i}"
                 mock_plugins.append(ep)
 
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = mock_plugins
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = mock_plugins
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = mock_plugins
 
             start_time = time.time()
             PluginDiscovery.discover_all_plugins()
@@ -433,14 +408,7 @@ class TestPluginDiscoveryPerformance:
         WHAT: Second discovery much faster than first.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             # First discovery
             start_time = time.time()
@@ -489,7 +457,9 @@ class TestErrorRecovery:
             attr_name="NonexistentClass",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {
                 "aiperf.metric": [valid_metadata, failing_metadata]
             }
@@ -528,7 +498,9 @@ class TestErrorRecovery:
             attr_name="InvalidMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -554,18 +526,18 @@ class TestPluginSystemAPI:
         WHAT: All __all__ exports work.
         """
         from aiperf.plugins import (
+            CollectorPluginProtocol,
+            DataExporterPluginProtocol,
+            EndpointPluginProtocol,
+            MetricPluginProtocol,
             PluginDiscovery,
             PluginLoader,
             PluginMetadata,
+            PluginRegistry,
+            ProcessorPluginProtocol,
+            TransportPluginProtocol,
             discover_plugins,
             load_plugin,
-            PluginRegistry,
-            MetricPluginProtocol,
-            EndpointPluginProtocol,
-            DataExporterPluginProtocol,
-            TransportPluginProtocol,
-            ProcessorPluginProtocol,
-            CollectorPluginProtocol,
         )
 
         # All should be importable
@@ -624,7 +596,9 @@ class TestRealWorldScenarios:
             attr_name="CustomLatencyMetric",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             # AIPerf discovers it automatically
@@ -647,7 +621,9 @@ class TestRealWorldScenarios:
 
         WHAT: Can enumerate all available plugins.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -669,14 +645,7 @@ class TestRealWorldScenarios:
         WHAT: Can enable/disable plugins programmatically.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             registry = PluginRegistry()
 

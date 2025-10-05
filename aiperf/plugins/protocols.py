@@ -7,8 +7,8 @@ Defines type-safe contracts for all AIPerf plugin types.
 All protocols use structural subtyping (Protocol) for flexibility.
 """
 
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
 from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
 # Type imports moved to avoid circular dependency
 
@@ -22,7 +22,7 @@ class PluginMetadataProtocol(Protocol):
     """
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """
         Return plugin metadata for discovery and validation.
 
@@ -65,10 +65,10 @@ class MetricPluginProtocol(Protocol):
     flags: Any
 
     # Optional class attributes
-    short_header: Optional[str]
-    display_unit: Optional[Any]
-    display_order: Optional[int]
-    required_metrics: Optional[set]
+    short_header: str | None
+    display_unit: Any | None
+    display_order: int | None
+    required_metrics: set | None
 
     def _parse_record(
         self,
@@ -96,7 +96,7 @@ class EndpointPluginProtocol(Protocol):
     """
 
     @staticmethod
-    def endpoint_metadata() -> Dict[str, Any]:
+    def endpoint_metadata() -> dict[str, Any]:
         """
         Return endpoint metadata.
 
@@ -111,8 +111,8 @@ class EndpointPluginProtocol(Protocol):
     async def send_request(
         self,
         endpoint_info: Any,
-        payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Send request to endpoint.
 
@@ -142,7 +142,7 @@ class DataExporterPluginProtocol(Protocol):
         ...         return output_path
     """
 
-    def __init__(self, output_dir: Path, config: Dict[str, Any]):
+    def __init__(self, output_dir: Path, config: dict[str, Any]):
         """
         Initialize exporter.
 
@@ -165,7 +165,7 @@ class DataExporterPluginProtocol(Protocol):
         ...
 
     @staticmethod
-    def get_export_info() -> Dict[str, Any]:
+    def get_export_info() -> dict[str, Any]:
         """
         Return export format metadata.
 
@@ -264,7 +264,7 @@ class CollectorPluginProtocol(Protocol):
         ...         pass
     """
 
-    def collect(self, metrics: Dict[str, Any]) -> None:
+    def collect(self, metrics: dict[str, Any]) -> None:
         """
         Collect and send metrics.
 

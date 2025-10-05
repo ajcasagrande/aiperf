@@ -26,32 +26,31 @@ Features:
 - Best practices enforcement
 """
 
-import os
-import sys
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any, List
 import re
+import sys
+from pathlib import Path
+from typing import Any
 
 
 class Colors:
     """ANSI color codes for terminal output."""
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    CYAN = '\033[96m'
-    MAGENTA = '\033[95m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
+
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    CYAN = "\033[96m"
+    MAGENTA = "\033[95m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    END = "\033[0m"
 
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.END}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 70}{Colors.END}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text.center(70)}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.END}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 70}{Colors.END}\n")
 
 
 def print_step(step: int, text: str):
@@ -74,7 +73,7 @@ def print_warning(text: str):
     print(f"{Colors.YELLOW}⚠{Colors.END} {text}")
 
 
-def prompt(question: str, default: str = None, choices: List[str] = None) -> str:
+def prompt(question: str, default: str = None, choices: list[str] = None) -> str:
     """
     Prompt user for input with optional default and choices.
 
@@ -92,7 +91,9 @@ def prompt(question: str, default: str = None, choices: List[str] = None) -> str
             print(f"  {Colors.CYAN}{i}.{Colors.END} {choice}")
 
         while True:
-            response = input(f"{Colors.YELLOW}Select (1-{len(choices)}){Colors.END}: ").strip()
+            response = input(
+                f"{Colors.YELLOW}Select (1-{len(choices)}){Colors.END}: "
+            ).strip()
             if response.isdigit() and 1 <= int(response) <= len(choices):
                 return choices[int(response) - 1]
             print_error(f"Please enter a number between 1 and {len(choices)}")
@@ -118,12 +119,16 @@ def confirm(question: str, default: bool = True) -> bool:
         True for yes, False for no
     """
     default_str = "Y/n" if default else "y/N"
-    response = input(f"{Colors.YELLOW}{question} [{default_str}]{Colors.END}: ").strip().lower()
+    response = (
+        input(f"{Colors.YELLOW}{question} [{default_str}]{Colors.END}: ")
+        .strip()
+        .lower()
+    )
 
     if not response:
         return default
 
-    return response in ('y', 'yes')
+    return response in ("y", "yes")
 
 
 def validate_identifier(name: str) -> bool:
@@ -133,49 +138,51 @@ def validate_identifier(name: str) -> bool:
 
 def to_snake_case(text: str) -> str:
     """Convert text to snake_case."""
-    text = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', text)
-    text = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', text)
-    text = re.sub(r'[^\w]', '_', text)
-    return text.lower().strip('_')
+    text = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", text)
+    text = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", text)
+    text = re.sub(r"[^\w]", "_", text)
+    return text.lower().strip("_")
 
 
 def to_pascal_case(text: str) -> str:
     """Convert text to PascalCase."""
-    return ''.join(word.capitalize() for word in text.split('_'))
+    return "".join(word.capitalize() for word in text.split("_"))
 
 
-def create_metric_plugin(config: Dict[str, Any]) -> Dict[str, str]:
+def create_metric_plugin(config: dict[str, Any]) -> dict[str, str]:
     """
     Create metric plugin files.
 
     Returns:
         Dict mapping file paths to content
     """
-    metric_name = config['metric_name']
-    class_name = to_pascal_case(metric_name) + 'Metric'
-    metric_type = config['metric_type']
+    metric_name = config["metric_name"]
+    class_name = to_pascal_case(metric_name) + "Metric"
+    metric_type = config["metric_type"]
 
     # Determine base class
-    if metric_type == 'record':
-        base_class = 'BaseRecordMetric'
-        method_name = '_parse_record'
-        method_params = 'self, record: ParsedResponseRecord, record_metrics: MetricRecordDict'
-        method_return = config['value_type']
-    elif metric_type == 'aggregate':
-        base_class = 'BaseAggregateMetric'
-        method_name = '_parse_record and _aggregate_value'
-        method_params = 'self, ...'
-        method_return = config['value_type']
-    elif metric_type == 'derived':
-        base_class = 'BaseDerivedMetric'
-        method_name = '_derive_value'
-        method_params = 'self, metric_results: MetricResultsDict'
-        method_return = config['value_type']
+    if metric_type == "record":
+        base_class = "BaseRecordMetric"
+        method_name = "_parse_record"
+        method_params = (
+            "self, record: ParsedResponseRecord, record_metrics: MetricRecordDict"
+        )
+        method_return = config["value_type"]
+    elif metric_type == "aggregate":
+        base_class = "BaseAggregateMetric"
+        method_name = "_parse_record and _aggregate_value"
+        method_params = "self, ..."
+        method_return = config["value_type"]
+    elif metric_type == "derived":
+        base_class = "BaseDerivedMetric"
+        method_name = "_derive_value"
+        method_params = "self, metric_results: MetricResultsDict"
+        method_return = config["value_type"]
     else:  # counter
-        base_class = 'BaseAggregateCounterMetric'
+        base_class = "BaseAggregateCounterMetric"
         method_name = None
         method_params = None
-        method_return = 'int'
+        method_return = "int"
 
     # Generate imports
     imports = [
@@ -183,35 +190,43 @@ def create_metric_plugin(config: Dict[str, Any]) -> Dict[str, str]:
         "# SPDX-License-Identifier: Apache-2.0",
         f'"""{config["metric_display_name"]} metric implementation.',
         "",
-        "This metric computes " + config.get('description', 'custom values') + ".",
+        "This metric computes " + config.get("description", "custom values") + ".",
         '"""',
         "",
     ]
 
-    if metric_type in ['record', 'aggregate']:
-        imports.extend([
-            "from aiperf.common.enums import MetricFlags, " + config['unit_import'],
-            "from aiperf.common.exceptions import NoMetricValue",
-            "from aiperf.common.models import ParsedResponseRecord",
-            f"from aiperf.metrics import {base_class}",
-            "from aiperf.metrics.metric_dicts import MetricRecordDict",
-        ])
-    elif metric_type == 'derived':
-        imports.extend([
-            "from aiperf.common.enums import MetricFlags, " + config['unit_import'],
-            "from aiperf.common.exceptions import NoMetricValue",
-            f"from aiperf.metrics import {base_class}",
-            "from aiperf.metrics.metric_dicts import MetricResultsDict",
-        ])
+    if metric_type in ["record", "aggregate"]:
+        imports.extend(
+            [
+                "from aiperf.common.enums import MetricFlags, " + config["unit_import"],
+                "from aiperf.common.exceptions import NoMetricValue",
+                "from aiperf.common.models import ParsedResponseRecord",
+                f"from aiperf.metrics import {base_class}",
+                "from aiperf.metrics.metric_dicts import MetricRecordDict",
+            ]
+        )
+    elif metric_type == "derived":
+        imports.extend(
+            [
+                "from aiperf.common.enums import MetricFlags, " + config["unit_import"],
+                "from aiperf.common.exceptions import NoMetricValue",
+                f"from aiperf.metrics import {base_class}",
+                "from aiperf.metrics.metric_dicts import MetricResultsDict",
+            ]
+        )
         # Add required metric imports
-        for req_metric in config.get('required_metrics', []):
-            metric_class = to_pascal_case(req_metric) + 'Metric'
-            imports.append(f"from aiperf.metrics.types.{req_metric} import {metric_class}")
+        for req_metric in config.get("required_metrics", []):
+            metric_class = to_pascal_case(req_metric) + "Metric"
+            imports.append(
+                f"from aiperf.metrics.types.{req_metric} import {metric_class}"
+            )
     else:  # counter
-        imports.extend([
-            "from aiperf.common.enums import GenericMetricUnit, MetricFlags",
-            "from aiperf.metrics.base_aggregate_counter_metric import BaseAggregateCounterMetric",
-        ])
+        imports.extend(
+            [
+                "from aiperf.common.enums import GenericMetricUnit, MetricFlags",
+                "from aiperf.metrics.base_aggregate_counter_metric import BaseAggregateCounterMetric",
+            ]
+        )
 
     imports.append("")
     imports.append("")
@@ -223,84 +238,96 @@ def create_metric_plugin(config: Dict[str, Any]) -> Dict[str, str]:
         "    ",
     ]
 
-    if config.get('formula'):
-        class_def.append(f"    Formula:")
+    if config.get("formula"):
+        class_def.append("    Formula:")
         class_def.append(f"        {config['formula']}")
         class_def.append("    ")
 
-    class_def.extend([
-        '    """',
-        "",
-        f'    tag = "{metric_name}"',
-        f'    header = "{config["metric_display_name"]}"',
-    ])
+    class_def.extend(
+        [
+            '    """',
+            "",
+            f'    tag = "{metric_name}"',
+            f'    header = "{config["metric_display_name"]}"',
+        ]
+    )
 
-    if config.get('short_header'):
+    if config.get("short_header"):
         class_def.append(f'    short_header = "{config["short_header"]}"')
 
-    class_def.extend([
-        f'    unit = {config["unit"]}',
-    ])
+    class_def.extend(
+        [
+            f"    unit = {config['unit']}",
+        ]
+    )
 
-    if config.get('display_unit'):
-        class_def.append(f'    display_unit = {config["display_unit"]}')
+    if config.get("display_unit"):
+        class_def.append(f"    display_unit = {config['display_unit']}")
 
-    if config.get('display_order'):
-        class_def.append(f'    display_order = {config["display_order"]}')
+    if config.get("display_order"):
+        class_def.append(f"    display_order = {config['display_order']}")
 
-    class_def.append(f'    flags = {config["flags"]}')
+    class_def.append(f"    flags = {config['flags']}")
 
-    if config.get('required_metrics'):
-        req_metrics_str = ', '.join(f'"{m}"' for m in config['required_metrics'])
-        class_def.append(f'    required_metrics = {{{req_metrics_str}}}')
+    if config.get("required_metrics"):
+        req_metrics_str = ", ".join(f'"{m}"' for m in config["required_metrics"])
+        class_def.append(f"    required_metrics = {{{req_metrics_str}}}")
     else:
-        class_def.append('    required_metrics = None')
+        class_def.append("    required_metrics = None")
 
     # Add method implementation for non-counter metrics
-    if metric_type != 'counter':
-        class_def.extend([
-            "",
-            f"    def {method_name}(",
-            f"        {method_params}",
-            f"    ) -> {method_return}:",
-            '        """',
-        ])
+    if metric_type != "counter":
+        class_def.extend(
+            [
+                "",
+                f"    def {method_name}(",
+                f"        {method_params}",
+                f"    ) -> {method_return}:",
+                '        """',
+            ]
+        )
 
-        if metric_type == 'record':
-            class_def.extend([
-                "        Compute the metric value for a single record.",
-                "        ",
-                "        Args:",
-                "            record: The parsed response record",
-                "            record_metrics: Previously computed metrics",
-                "        ",
-                "        Returns:",
-                f"            The computed {config['metric_display_name']} value",
-                "        ",
-                "        Raises:",
-                "            NoMetricValue: If metric cannot be computed for this record",
-            ])
-        elif metric_type == 'derived':
-            class_def.extend([
-                "        Derive metric value from other computed metrics.",
-                "        ",
-                "        Args:",
-                "            metric_results: Dictionary of all computed metrics",
-                "        ",
-                "        Returns:",
-                f"            The computed {config['metric_display_name']} value",
-                "        ",
-                "        Raises:",
-                "            NoMetricValue: If required metrics are missing",
-            ])
+        if metric_type == "record":
+            class_def.extend(
+                [
+                    "        Compute the metric value for a single record.",
+                    "        ",
+                    "        Args:",
+                    "            record: The parsed response record",
+                    "            record_metrics: Previously computed metrics",
+                    "        ",
+                    "        Returns:",
+                    f"            The computed {config['metric_display_name']} value",
+                    "        ",
+                    "        Raises:",
+                    "            NoMetricValue: If metric cannot be computed for this record",
+                ]
+            )
+        elif metric_type == "derived":
+            class_def.extend(
+                [
+                    "        Derive metric value from other computed metrics.",
+                    "        ",
+                    "        Args:",
+                    "            metric_results: Dictionary of all computed metrics",
+                    "        ",
+                    "        Returns:",
+                    f"            The computed {config['metric_display_name']} value",
+                    "        ",
+                    "        Raises:",
+                    "            NoMetricValue: If required metrics are missing",
+                ]
+            )
 
-        class_def.extend([
-            '        """',
-            "        # TODO: Implement metric calculation",
-            f'        raise NotImplementedError("{config["metric_display_name"]} calculation not implemented")',
-        ])
+        class_def.extend(
+            [
+                '        """',
+                "        # TODO: Implement metric calculation",
+                f'        raise NotImplementedError("{config["metric_display_name"]} calculation not implemented")',
+            ]
+        )
 
-    metric_content = '\n'.join(imports + class_def)
+    metric_content = "\n".join(imports + class_def)
 
     # Generate test file
     test_content = generate_metric_test(config, class_name)
@@ -311,9 +338,9 @@ def create_metric_plugin(config: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
-def generate_metric_test(config: Dict[str, Any], class_name: str) -> str:
+def generate_metric_test(config: dict[str, Any], class_name: str) -> str:
     """Generate test file for metric."""
-    metric_name = config['metric_name']
+    metric_name = config["metric_name"]
 
     test_lines = [
         "# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.",
@@ -349,7 +376,7 @@ def generate_metric_test(config: Dict[str, Any], class_name: str) -> str:
         "        pytest.skip('Add parametrized test cases')",
     ]
 
-    return '\n'.join(test_lines)
+    return "\n".join(test_lines)
 
 
 def main():
@@ -372,10 +399,10 @@ def main():
             "Service - New AIPerf service",
             "Request Converter - API payload formatting",
             "Response Parser - Response extraction",
-        ]
+        ],
     )
 
-    plugin_category = plugin_type.split(' - ')[0]
+    plugin_category = plugin_type.split(" - ")[0]
 
     if plugin_category.startswith("Metric"):
         files = create_metric_wizard()
@@ -386,15 +413,15 @@ def main():
     else:
         print_error(f"{plugin_category} creation not yet implemented")
         print("Use the code snippets in VS Code instead:")
-        print(f"  1. Open a .py file in VS Code")
-        print(f"  2. Type the snippet prefix (e.g., 'metric-record')")
-        print(f"  3. Press Tab and fill in the template")
+        print("  1. Open a .py file in VS Code")
+        print("  2. Type the snippet prefix (e.g., 'metric-record')")
+        print("  3. Press Tab and fill in the template")
         return
 
     # Step: Confirm and create files
     print_step("Final", "Review and Create")
     print(f"\n{Colors.BOLD}Files to be created:{Colors.END}")
-    for filepath in files.keys():
+    for filepath in files:
         print(f"  {Colors.CYAN}•{Colors.END} {filepath}")
 
     if not confirm("\nCreate these files?", default=True):
@@ -422,16 +449,18 @@ def main():
     print_header("Plugin Created Successfully!")
 
     print(f"{Colors.GREEN}{Colors.BOLD}Next Steps:{Colors.END}")
-    print(f"  1. Implement the TODO sections in the generated files")
-    print(f"  2. Run the tests: {Colors.CYAN}pytest {created_files[1] if len(created_files) > 1 else 'tests/'}{Colors.END}")
-    print(f"  3. Import and use your new plugin")
+    print("  1. Implement the TODO sections in the generated files")
+    print(
+        f"  2. Run the tests: {Colors.CYAN}pytest {created_files[1] if len(created_files) > 1 else 'tests/'}{Colors.END}"
+    )
+    print("  3. Import and use your new plugin")
     print(f"\n{Colors.BOLD}Documentation:{Colors.END}")
-    print(f"  • Metrics Guide: guidebook/chapter-44-custom-metrics-development.md")
-    print(f"  • Testing Guide: guidebook/chapter-40-testing-strategies.md")
-    print(f"  • Contributing: CONTRIBUTING.md")
+    print("  • Metrics Guide: guidebook/chapter-44-custom-metrics-development.md")
+    print("  • Testing Guide: guidebook/chapter-40-testing-strategies.md")
+    print("  • Contributing: CONTRIBUTING.md")
 
 
-def create_metric_wizard() -> Dict[str, str]:
+def create_metric_wizard() -> dict[str, str]:
     """Interactive wizard for creating metrics."""
     config = {}
 
@@ -441,24 +470,20 @@ def create_metric_wizard() -> Dict[str, str]:
     while True:
         metric_name = prompt("Metric tag (snake_case, e.g., 'my_latency')")
         if validate_identifier(metric_name):
-            config['metric_name'] = metric_name
+            config["metric_name"] = metric_name
             break
         print_error("Must be valid Python identifier (letters, numbers, underscores)")
 
-    config['metric_display_name'] = prompt(
+    config["metric_display_name"] = prompt(
         "Display name (e.g., 'My Latency Metric')",
-        default=metric_name.replace('_', ' ').title()
+        default=metric_name.replace("_", " ").title(),
     )
 
-    config['short_header'] = prompt(
-        "Short header for dashboard (optional, e.g., 'My Lat')",
-        default=None
+    config["short_header"] = prompt(
+        "Short header for dashboard (optional, e.g., 'My Lat')", default=None
     )
 
-    config['description'] = prompt(
-        "Brief description",
-        default="custom metric values"
-    )
+    config["description"] = prompt("Brief description", default="custom metric values")
 
     # Step 3: Metric type
     print_step(3, "Metric Type Selection")
@@ -469,17 +494,17 @@ def create_metric_wizard() -> Dict[str, str]:
             "Derived - Computed from other metrics (e.g., throughput)",
             "Aggregate - Accumulated values (e.g., max timestamp)",
             "Counter - Simple counting (e.g., request count)",
-        ]
+        ],
     )
-    config['metric_type'] = metric_type_choice.split(' - ')[0].lower()
+    config["metric_type"] = metric_type_choice.split(" - ")[0].lower()
 
     # Step 4: Value type
     print_step(4, "Value Type")
     value_type = prompt(
         "What type of value does this metric return?",
-        choices=["int", "float", "bool", "list[int]", "list[float]"]
+        choices=["int", "float", "bool", "list[int]", "list[float]"],
     )
-    config['value_type'] = value_type
+    config["value_type"] = value_type
 
     # Step 5: Unit
     print_step(5, "Unit of Measurement")
@@ -492,8 +517,8 @@ def create_metric_wizard() -> Dict[str, str]:
             "Ratio",
             "Tokens per second",
             "Requests per second",
-            "Custom"
-        ]
+            "Custom",
+        ],
     )
 
     unit_map = {
@@ -501,21 +526,27 @@ def create_metric_wizard() -> Dict[str, str]:
         "Tokens": ("GenericMetricUnit.TOKENS", "GenericMetricUnit"),
         "Requests": ("GenericMetricUnit.REQUESTS", "GenericMetricUnit"),
         "Ratio": ("GenericMetricUnit.RATIO", "GenericMetricUnit"),
-        "Tokens per second": ("MetricOverTimeUnit.TOKENS_PER_SECOND", "MetricOverTimeUnit"),
-        "Requests per second": ("MetricOverTimeUnit.REQUESTS_PER_SECOND", "MetricOverTimeUnit"),
+        "Tokens per second": (
+            "MetricOverTimeUnit.TOKENS_PER_SECOND",
+            "MetricOverTimeUnit",
+        ),
+        "Requests per second": (
+            "MetricOverTimeUnit.REQUESTS_PER_SECOND",
+            "MetricOverTimeUnit",
+        ),
     }
 
     if unit_choice != "Custom":
-        config['unit'], config['unit_import'] = unit_map[unit_choice]
+        config["unit"], config["unit_import"] = unit_map[unit_choice]
     else:
-        config['unit'] = "GenericMetricUnit.COUNT"
-        config['unit_import'] = "GenericMetricUnit"
+        config["unit"] = "GenericMetricUnit.COUNT"
+        config["unit_import"] = "GenericMetricUnit"
 
     # Display unit
     if unit_choice == "Time (nanoseconds)":
-        config['display_unit'] = "MetricTimeUnit.MILLISECONDS"
+        config["display_unit"] = "MetricTimeUnit.MILLISECONDS"
     else:
-        config['display_unit'] = None
+        config["display_unit"] = None
 
     # Step 6: Flags
     print_step(6, "Metric Flags")
@@ -536,36 +567,44 @@ def create_metric_wizard() -> Dict[str, str]:
     if confirm("Is higher value better? (for throughput, counts)", default=False):
         flags.append("MetricFlags.LARGER_IS_BETTER")
 
-    config['flags'] = ' | '.join(flags) if flags else 'MetricFlags.NONE'
+    config["flags"] = " | ".join(flags) if flags else "MetricFlags.NONE"
 
     # Step 7: Dependencies (for non-counter metrics)
-    if config['metric_type'] != 'counter':
+    if config["metric_type"] != "counter":
         print_step(7, "Dependencies")
         if confirm("Does this metric depend on other metrics?", default=False):
-            deps = prompt("Enter comma-separated metric tags (e.g., 'ttft,request_latency')")
-            config['required_metrics'] = [d.strip() for d in deps.split(',') if d.strip()]
+            deps = prompt(
+                "Enter comma-separated metric tags (e.g., 'ttft,request_latency')"
+            )
+            config["required_metrics"] = [
+                d.strip() for d in deps.split(",") if d.strip()
+            ]
         else:
-            config['required_metrics'] = []
+            config["required_metrics"] = []
 
     # Step 8: Display order
     print_step(8, "Display Settings")
-    config['display_order'] = prompt("Display order (100-900, lower=earlier)", default="500")
+    config["display_order"] = prompt(
+        "Display order (100-900, lower=earlier)", default="500"
+    )
 
     # Step 9: Formula/description
-    config['formula'] = prompt("Formula or calculation description (optional)", default=None)
+    config["formula"] = prompt(
+        "Formula or calculation description (optional)", default=None
+    )
 
     # Generate files
     return create_metric_plugin(config)
 
 
-def create_dataset_wizard() -> Dict[str, str]:
+def create_dataset_wizard() -> dict[str, str]:
     """Interactive wizard for dataset loaders."""
     print_warning("Dataset loader wizard not yet implemented")
     print("Use the 'dataset-loader' snippet in VS Code instead")
     return {}
 
 
-def create_service_wizard() -> Dict[str, str]:
+def create_service_wizard() -> dict[str, str]:
     """Interactive wizard for services."""
     print_warning("Service wizard not yet implemented")
     print("Use the 'service' snippet in VS Code instead")
@@ -581,5 +620,6 @@ if __name__ == "__main__":
     except Exception as e:
         print_error(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

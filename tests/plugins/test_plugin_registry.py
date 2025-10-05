@@ -25,9 +25,7 @@ discovery/loading mechanisms (those have their own tests).
 """
 
 import threading
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from aiperf.plugins.registry import PluginRegistry, get_plugin_registry
 
@@ -57,11 +55,13 @@ class TestSingletonPattern:
 
         WHAT: __init__ doesn't re-run on subsequent calls.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
-            registry1 = PluginRegistry()
-            registry2 = PluginRegistry()
+            PluginRegistry()
+            PluginRegistry()
 
             # Should only discover once
             assert mock_discover.call_count == 1
@@ -125,10 +125,12 @@ class TestRegistryInitialization:
 
         WHAT: Calls discover_all_plugins during initialization.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
-            registry = PluginRegistry()
+            PluginRegistry()
 
             mock_discover.assert_called_once()
 
@@ -150,7 +152,9 @@ class TestRegistryInitialization:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -188,7 +192,9 @@ class TestLoadingPlugins:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -203,7 +209,9 @@ class TestLoadingPlugins:
 
         WHAT: Returns None when plugin not found.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -229,7 +237,9 @@ class TestLoadingPlugins:
             attr_name="InvalidMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -247,14 +257,7 @@ class TestLoadingPlugins:
         WHAT: load_all_plugins loads entire group.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             registry = PluginRegistry()
             plugins = registry.load_all_plugins("aiperf.metric")
@@ -287,7 +290,9 @@ class TestEnableDisable:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -300,7 +305,9 @@ class TestEnableDisable:
 
         WHAT: enable_plugin marks plugin as enabled.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -314,7 +321,9 @@ class TestEnableDisable:
 
         WHAT: disable_plugin marks plugin as disabled.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -332,7 +341,9 @@ class TestEnableDisable:
 
         WHAT: Each plugin tracks its own enabled state.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -354,7 +365,9 @@ class TestEnableDisable:
 
         WHAT: get_enabled_plugins returns list of enabled names.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -388,7 +401,9 @@ class TestEnableDisable:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -423,7 +438,9 @@ class TestMetadataRetrieval:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -439,7 +456,9 @@ class TestMetadataRetrieval:
 
         WHAT: Returns None when plugin not found.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -465,7 +484,9 @@ class TestMetadataRetrieval:
             attr_name="NoMetadataPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -482,9 +503,7 @@ class TestErrorHandling:
     WHY TEST THIS: Registry must handle errors gracefully.
     """
 
-    def test_get_load_errors(
-        self, isolated_plugin_environment, failing_entry_point
-    ):
+    def test_get_load_errors(self, isolated_plugin_environment, failing_entry_point):
         """
         WHY: Need visibility into load failures.
 
@@ -500,7 +519,9 @@ class TestErrorHandling:
             attr_name="NonexistentClass",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -536,7 +557,9 @@ class TestThreadSafety:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
@@ -570,7 +593,9 @@ class TestThreadSafety:
 
         WHAT: Concurrent enable/disable operations work correctly.
         """
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {}
 
             registry = PluginRegistry()
@@ -631,14 +656,16 @@ class TestRegistryDiscoveryIntegration:
             attr_name="MockMetricPlugin",
         )
 
-        with patch("aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins") as mock_discover:
+        with patch(
+            "aiperf.plugins.discovery.PluginDiscovery.discover_all_plugins"
+        ) as mock_discover:
             mock_discover.return_value = {"aiperf.metric": [mock_metadata]}
 
             registry = PluginRegistry()
 
             # Access discovered plugins multiple times
-            plugins1 = registry.get_discovered_plugins("aiperf.metric")
-            plugins2 = registry.get_discovered_plugins("aiperf.metric")
+            registry.get_discovered_plugins("aiperf.metric")
+            registry.get_discovered_plugins("aiperf.metric")
 
             # Discovery should only happen once (during init)
             assert mock_discover.call_count == 1

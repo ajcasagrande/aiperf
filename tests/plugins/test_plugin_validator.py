@@ -21,8 +21,6 @@ We test VALIDATION OUTCOMES (accept valid, reject invalid) not
 implementation details. We verify correct error detection.
 """
 
-import pytest
-
 from aiperf.plugins.validator import PluginValidator
 
 
@@ -523,7 +521,7 @@ class TestProtocolMapCompleteness:
         """
         from aiperf.plugins.validator import PROTOCOL_MAP
 
-        for group, protocol in PROTOCOL_MAP.items():
+        for _group, protocol in PROTOCOL_MAP.items():
             # Protocols should be classes
             assert isinstance(protocol, type)
             # Should be marked as runtime_checkable

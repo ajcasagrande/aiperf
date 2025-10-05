@@ -7,11 +7,10 @@ Implements entry point based plugin discovery using importlib.metadata.
 Supports lazy loading and caching for optimal performance.
 """
 
-import sys
 from dataclasses import dataclass
-from importlib.metadata import entry_points, EntryPoint
-from typing import Any, Dict, List, Optional, Type
-from functools import lru_cache
+from functools import cache, lru_cache
+from importlib.metadata import EntryPoint, entry_points
+from typing import Any
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 
@@ -63,7 +62,7 @@ class PluginDiscovery:
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def discover_all_plugins() -> Dict[str, List[PluginMetadata]]:
+    def discover_all_plugins() -> dict[str, list[PluginMetadata]]:
         """
         Discover all AIPerf plugins via entry points.
 
@@ -78,15 +77,10 @@ class PluginDiscovery:
         """
         discovered = {}
 
-        for group_key, group_name in PLUGIN_GROUPS.items():
+        for _group_key, group_name in PLUGIN_GROUPS.items():
             try:
                 # Discover plugins for this group
-                if sys.version_info >= (3, 10):
-                    # Python 3.10+: Use group parameter
-                    eps = entry_points(group=group_name)
-                else:
-                    # Python 3.9: Use select method
-                    eps = entry_points().select(group=group_name)
+                eps = entry_points(group=group_name)
 
                 plugins = []
                 for ep in eps:
@@ -94,8 +88,10 @@ class PluginDiscovery:
                         name=ep.name,
                         entry_point=ep,
                         group=group_name,
-                        module_name=ep.value.split(':')[0],
-                        attr_name=ep.value.split(':')[1] if ':' in ep.value else ep.name,
+                        module_name=ep.value.split(":")[0],
+                        attr_name=ep.value.split(":")[1]
+                        if ":" in ep.value
+                        else ep.name,
                     )
                     plugins.append(metadata)
 
@@ -118,7 +114,7 @@ class PluginDiscovery:
         return discovered
 
     @staticmethod
-    def discover_plugins_by_group(group: str) -> List[PluginMetadata]:
+    def discover_plugins_by_group(group: str) -> list[PluginMetadata]:
         """
         Discover plugins for a specific entry point group.
 
@@ -132,7 +128,7 @@ class PluginDiscovery:
         return all_plugins.get(group, [])
 
     @staticmethod
-    def get_plugin_by_name(group: str, name: str) -> Optional[PluginMetadata]:
+    def get_plugin_by_name(group: str, name: str) -> PluginMetadata | None:
         """
         Get specific plugin by name within a group.
 
@@ -156,10 +152,10 @@ class PluginLoader:
     """
 
     def __init__(self):
-        self._loaded_plugins: Dict[str, Any] = {}
-        self._load_errors: Dict[str, Exception] = {}
+        self._loaded_plugins: dict[str, Any] = {}
+        self._load_errors: dict[str, Exception] = {}
 
-    def load_plugin(self, metadata: PluginMetadata) -> Optional[Any]:
+    def load_plugin(self, metadata: PluginMetadata) -> Any | None:
         """
         Load a plugin from its metadata (lazy loading).
 
@@ -191,14 +187,18 @@ class PluginLoader:
 
         try:
             # Lazy load via entry point
-            logger.debug(f"Loading plugin '{metadata.name}' from {metadata.entry_point.value}")
+            logger.debug(
+                f"Loading plugin '{metadata.name}' from {metadata.entry_point.value}"
+            )
             plugin = metadata.entry_point.load()
 
             # Cache the loaded plugin
             self._loaded_plugins[cache_key] = plugin
             metadata.is_loaded = True
 
-            logger.info(f"Successfully loaded plugin '{metadata.name}' from group '{metadata.group}'")
+            logger.info(
+                f"Successfully loaded plugin '{metadata.name}' from group '{metadata.group}'"
+            )
             return plugin
 
         except Exception as e:
@@ -206,9 +206,7 @@ class PluginLoader:
             self._load_errors[cache_key] = e
             return None
 
-    def load_all_for_group(
-        self, group: str
-    ) -> Dict[str, Any]:
+    def load_all_for_group(self, group: str) -> dict[str, Any]:
         """
         Load all plugins for a specific group.
 
@@ -228,14 +226,14 @@ class PluginLoader:
 
         return loaded
 
-    def get_load_errors(self) -> Dict[str, Exception]:
+    def get_load_errors(self) -> dict[str, Exception]:
         """Get all plugin loading errors."""
         return self._load_errors.copy()
 
 
 # Convenience functions
-@lru_cache(maxsize=None)
-def discover_plugins(group: str) -> List[PluginMetadata]:
+@cache
+def discover_plugins(group: str) -> list[PluginMetadata]:
     """
     Discover plugins for a group (cached).
 
@@ -248,7 +246,7 @@ def discover_plugins(group: str) -> List[PluginMetadata]:
     return PluginDiscovery.discover_plugins_by_group(group)
 
 
-def load_plugin(group: str, name: str) -> Optional[Any]:
+def load_plugin(group: str, name: str) -> Any | None:
     """
     Load a specific plugin by name.
 

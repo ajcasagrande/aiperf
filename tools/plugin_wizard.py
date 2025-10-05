@@ -26,31 +26,30 @@ Usage:
     Ctrl+Shift+P → "AIPerf: Create Plugin"
 """
 
-import os
-import sys
-import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 # ANSI Colors
 class C:
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    CYAN = '\033[96m'
-    MAGENTA = '\033[95m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    CYAN = "\033[96m"
+    MAGENTA = "\033[95m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    END = "\033[0m"
 
 
 @dataclass
 class PluginConfig:
     """Configuration for plugin generation."""
+
     plugin_type: str
     plugin_name: str
     plugin_class_name: str
@@ -60,14 +59,14 @@ class PluginConfig:
     author: str
     email: str
     version: str
-    extra_config: Dict[str, Any]
+    extra_config: dict[str, Any]
 
 
 def header(text: str):
     """Print formatted header."""
-    print(f"\n{C.BOLD}{C.BLUE}{'='*70}{C.END}")
+    print(f"\n{C.BOLD}{C.BLUE}{'=' * 70}{C.END}")
     print(f"{C.BOLD}{C.BLUE}{text.center(70)}{C.END}")
-    print(f"{C.BOLD}{C.BLUE}{'='*70}{C.END}\n")
+    print(f"{C.BOLD}{C.BLUE}{'=' * 70}{C.END}\n")
 
 
 def step(num: int, text: str):
@@ -90,7 +89,9 @@ def warn(text: str):
     print(f"{C.YELLOW}⚠{C.END} {text}")
 
 
-def ask(question: str, default: Optional[str] = None, choices: Optional[List[str]] = None) -> str:
+def ask(
+    question: str, default: str | None = None, choices: list[str] | None = None
+) -> str:
     """Prompt for input."""
     if choices:
         print(f"\n{C.BOLD}{question}{C.END}")
@@ -116,22 +117,22 @@ def confirm(question: str, default: bool = True) -> bool:
     """Ask yes/no question."""
     default_str = "Y/n" if default else "y/N"
     resp = input(f"{C.YELLOW}{question} [{default_str}]{C.END}: ").strip().lower()
-    return resp in ('y', 'yes') if resp else default
+    return resp in ("y", "yes") if resp else default
 
 
 def to_snake_case(text: str) -> str:
     """Convert to snake_case."""
-    text = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', text)
-    text = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', text)
-    return re.sub(r'[^\w]', '_', text).lower().strip('_')
+    text = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", text)
+    text = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", text)
+    return re.sub(r"[^\w]", "_", text).lower().strip("_")
 
 
 def to_pascal_case(text: str) -> str:
     """Convert to PascalCase."""
-    return ''.join(word.capitalize() for word in text.split('_'))
+    return "".join(word.capitalize() for word in text.split("_"))
 
 
-def create_plugin_package_structure(config: PluginConfig) -> Dict[str, str]:
+def create_plugin_package_structure(config: PluginConfig) -> dict[str, str]:
     """
     Create complete plugin package structure following AIP-001.
 
@@ -145,12 +146,18 @@ def create_plugin_package_structure(config: PluginConfig) -> Dict[str, str]:
     files[f"{package_dir}/pyproject.toml"] = generate_pyproject_toml(config)
 
     # 2. Main plugin module
-    files[f"{package_dir}/src/{config.package_name}/__init__.py"] = generate_init_py(config)
-    files[f"{package_dir}/src/{config.package_name}/{config.plugin_name}.py"] = generate_plugin_module(config)
+    files[f"{package_dir}/src/{config.package_name}/__init__.py"] = generate_init_py(
+        config
+    )
+    files[f"{package_dir}/src/{config.package_name}/{config.plugin_name}.py"] = (
+        generate_plugin_module(config)
+    )
 
     # 3. Tests
     files[f"{package_dir}/tests/__init__.py"] = "# Test package\n"
-    files[f"{package_dir}/tests/test_{config.plugin_name}.py"] = generate_test_file(config)
+    files[f"{package_dir}/tests/test_{config.plugin_name}.py"] = generate_test_file(
+        config
+    )
 
     # 4. Documentation
     files[f"{package_dir}/README.md"] = generate_readme(config)
@@ -177,7 +184,9 @@ def generate_pyproject_toml(config: PluginConfig) -> str:
     }.get(config.plugin_type, "aiperf.metric")
 
     entry_point_name = config.plugin_name
-    entry_point_value = f"{config.package_name}.{config.plugin_name}:{config.plugin_class_name}"
+    entry_point_value = (
+        f"{config.package_name}.{config.plugin_name}:{config.plugin_class_name}"
+    )
 
     return f'''# SPDX-FileCopyrightText: Copyright (c) 2025 {config.author}
 # SPDX-License-Identifier: Apache-2.0
@@ -260,17 +269,17 @@ def generate_plugin_module(config: PluginConfig) -> str:
 
 def generate_metric_plugin(config: PluginConfig) -> str:
     """Generate metric plugin following AIP-001."""
-    metric_type = config.extra_config.get('metric_type', 'record')
-    value_type = config.extra_config.get('value_type', 'float')
+    metric_type = config.extra_config.get("metric_type", "record")
+    value_type = config.extra_config.get("value_type", "float")
 
     base_class_map = {
-        'record': 'BaseRecordMetric',
-        'derived': 'BaseDerivedMetric',
-        'aggregate': 'BaseAggregateMetric',
-        'counter': 'BaseAggregateCounterMetric',
+        "record": "BaseRecordMetric",
+        "derived": "BaseDerivedMetric",
+        "aggregate": "BaseAggregateMetric",
+        "counter": "BaseAggregateCounterMetric",
     }
 
-    base_class = base_class_map.get(metric_type, 'BaseRecordMetric')
+    base_class = base_class_map.get(metric_type, "BaseRecordMetric")
 
     return f'''# SPDX-FileCopyrightText: Copyright (c) 2025 {config.author}
 # SPDX-License-Identifier: Apache-2.0
@@ -305,7 +314,7 @@ class {config.plugin_class_name}({base_class}[{value_type}]):
     tag = "{config.plugin_name}"
     header = "{config.display_name}"
     unit = GenericMetricUnit.COUNT  # TODO: Configure appropriate unit
-    display_order = {config.extra_config.get('display_order', 500)}
+    display_order = {config.extra_config.get("display_order", 500)}
     flags = MetricFlags.NONE  # TODO: Configure flags
     required_metrics = None  # TODO: Add dependencies if needed
 
@@ -533,7 +542,7 @@ def plugin_metadata():
         "name": "{config.plugin_name}",
         "display_name": "{config.display_name}",
         "version": "{config.version}",
-        "plugin_type": "{config.plugin_type.lower().replace(' ', '_')}",
+        "plugin_type": "{config.plugin_type.lower().replace(" ", "_")}",
         "aip_version": "001",
     }}
 '''
@@ -577,7 +586,7 @@ class Test{config.plugin_class_name}:
 
 def generate_readme(config: PluginConfig) -> str:
     """Generate README for plugin package."""
-    return f'''# {config.display_name}
+    return f"""# {config.display_name}
 
 {config.description}
 
@@ -586,7 +595,7 @@ def generate_readme(config: PluginConfig) -> str:
 This package provides an AIPerf plugin following the official AIP-001 Plugin Architecture specification.
 
 **Plugin Type**: {config.plugin_type}
-**Entry Point Group**: aiperf.{config.plugin_type.lower().replace(' ', '_')}
+**Entry Point Group**: aiperf.{config.plugin_type.lower().replace(" ", "_")}
 
 ## Installation
 
@@ -661,13 +670,13 @@ Contributions welcome! Please ensure:
 ## Version
 
 {config.version}
-'''
+"""
 
 
 def generate_license() -> str:
     """Generate Apache 2.0 license."""
     year = datetime.now().year
-    return f'''Apache License
+    return f"""Apache License
 Version 2.0, January 2004
 http://www.apache.org/licenses/
 
@@ -684,12 +693,12 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-'''
+"""
 
 
 def generate_github_actions(config: PluginConfig) -> str:
     """Generate GitHub Actions CI workflow."""
-    return f'''# SPDX-FileCopyrightText: Copyright (c) 2025 {config.author}
+    return f"""# SPDX-FileCopyrightText: Copyright (c) 2025 {config.author}
 # SPDX-License-Identifier: Apache-2.0
 
 name: Tests
@@ -733,12 +742,12 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
-'''
+"""
 
 
 def generate_precommit_config() -> str:
     """Generate pre-commit configuration."""
-    return '''# SPDX-FileCopyrightText: Copyright (c) 2025
+    return """# SPDX-FileCopyrightText: Copyright (c) 2025
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
@@ -758,14 +767,16 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
-'''
+"""
 
 
 def run_wizard():
     """Run the interactive plugin creation wizard."""
     header("AIPerf Plugin Wizard (AIP-001)")
 
-    print(f"{C.BOLD}Create AIPerf plugins following the official AIP-001 specification{C.END}")
+    print(
+        f"{C.BOLD}Create AIPerf plugins following the official AIP-001 specification{C.END}"
+    )
     print("This wizard will guide you through creating a complete plugin package.\n")
 
     # Step 1: Plugin type
@@ -779,10 +790,10 @@ def run_wizard():
             "Transport - Communication protocols",
             "Processor - Data processors",
             "Collector - Data collection (e.g., Prometheus)",
-        ]
+        ],
     )
 
-    plugin_type = plugin_type.split(' - ')[0]
+    plugin_type = plugin_type.split(" - ")[0]
 
     # Step 2: Basic information
     step(2, "Basic Information")
@@ -815,17 +826,17 @@ def run_wizard():
 
         metric_type = ask(
             "Metric calculation type?",
-            choices=["record", "derived", "aggregate", "counter"]
+            choices=["record", "derived", "aggregate", "counter"],
         )
-        extra_config['metric_type'] = metric_type
+        extra_config["metric_type"] = metric_type
 
         value_type = ask(
             "Return value type?",
-            choices=["int", "float", "bool", "list[int]", "list[float]"]
+            choices=["int", "float", "bool", "list[int]", "list[float]"],
         )
-        extra_config['value_type'] = value_type
+        extra_config["value_type"] = value_type
 
-        extra_config['display_order'] = ask("Display order (100-900)", default="500")
+        extra_config["display_order"] = ask("Display order (100-900)", default="500")
 
     # Create config object
     config = PluginConfig(
@@ -861,10 +872,13 @@ def run_wizard():
     # Create directory structure
     output_dir = Path.cwd() / config.package_name
     if output_dir.exists():
-        if not confirm(f"\nDirectory '{config.package_name}' exists. Overwrite?", default=False):
+        if not confirm(
+            f"\nDirectory '{config.package_name}' exists. Overwrite?", default=False
+        ):
             warn("Cancelled")
             return
         import shutil
+
         shutil.rmtree(output_dir)
 
     # Write files
@@ -887,16 +901,18 @@ def run_wizard():
     print(f"  3. Add tests in tests/test_{config.plugin_name}.py")
     print(f"  4. Run: {C.CYAN}pytest{C.END}")
     print(f"  5. Install: {C.CYAN}pip install -e '.[dev]'{C.END}")
-    print(f"  6. Verify AIPerf discovers it: {C.CYAN}python -c 'import importlib.metadata; print(list(importlib.metadata.entry_points(group=\"aiperf.{plugin_type.lower().replace(' ', '_')}\")))){C.END}")
+    print(
+        f'  6. Verify AIPerf discovers it: {C.CYAN}python -c \'import importlib.metadata; print(list(importlib.metadata.entry_points(group="aiperf.{plugin_type.lower().replace(" ", "_")}")))){C.END}'
+    )
 
     print(f"\n{C.BOLD}Documentation:{C.END}")
-    print(f"  • AIP-001 Spec: https://github.com/ai-dynamo/enhancements/pull/43")
-    print(f"  • Plugin Guide: guidebook/chapter-47-extending-aiperf.md")
-    print(f"  • Metrics Guide: guidebook/chapter-44-custom-metrics-development.md")
+    print("  • AIP-001 Spec: https://github.com/ai-dynamo/enhancements/pull/43")
+    print("  • Plugin Guide: guidebook/chapter-47-extending-aiperf.md")
+    print("  • Metrics Guide: guidebook/chapter-44-custom-metrics-development.md")
 
     print(f"\n{C.BOLD}Publishing (Optional):{C.END}")
-    print(f"  1. Update README.md with examples")
-    print(f"  2. Test thoroughly")
+    print("  1. Update README.md with examples")
+    print("  2. Test thoroughly")
     print(f"  3. Build: {C.CYAN}python -m build{C.END}")
     print(f"  4. Publish: {C.CYAN}python -m twine upload dist/*{C.END}")
 
@@ -910,5 +926,6 @@ if __name__ == "__main__":
     except Exception as e:
         error(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

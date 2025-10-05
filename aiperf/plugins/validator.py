@@ -8,20 +8,12 @@ Ensures type safety and contract compliance.
 """
 
 import inspect
-from typing import Any, TYPE_CHECKING, get_origin, get_args, Union
+from typing import TYPE_CHECKING, Any, Union, get_args, get_origin
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 
 if TYPE_CHECKING:
-    from aiperf.plugins.protocols import (
-        PluginMetadataProtocol,
-        MetricPluginProtocol,
-        EndpointPluginProtocol,
-        DataExporterPluginProtocol,
-        TransportPluginProtocol,
-        ProcessorPluginProtocol,
-        CollectorPluginProtocol,
-    )
+    pass
 
 logger = AIPerfLogger(__name__)
 
@@ -29,18 +21,20 @@ logger = AIPerfLogger(__name__)
 # Lazy load protocols to avoid circular imports
 _PROTOCOL_MAP = None
 
+
 def _get_protocol_map():
     """Lazy load protocol map to avoid circular imports."""
     global _PROTOCOL_MAP
     if _PROTOCOL_MAP is None:
         from aiperf.plugins.protocols import (
-            MetricPluginProtocol,
-            EndpointPluginProtocol,
-            DataExporterPluginProtocol,
-            TransportPluginProtocol,
-            ProcessorPluginProtocol,
             CollectorPluginProtocol,
+            DataExporterPluginProtocol,
+            EndpointPluginProtocol,
+            MetricPluginProtocol,
+            ProcessorPluginProtocol,
+            TransportPluginProtocol,
         )
+
         _PROTOCOL_MAP = {
             "aiperf.metric": MetricPluginProtocol,
             "aiperf.endpoint": EndpointPluginProtocol,
@@ -61,7 +55,7 @@ def get_protocol_map():
 # Module-level __getattr__ to support lazy loading of PROTOCOL_MAP
 def __getattr__(name):
     """Support lazy loading of PROTOCOL_MAP."""
-    if name == 'PROTOCOL_MAP':
+    if name == "PROTOCOL_MAP":
         return _get_protocol_map()
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
@@ -93,25 +87,22 @@ class PluginValidator:
             return False
 
         # Additional validation
-        if not self._validate_aip_version(plugin):
-            return False
-
-        return True
+        return self._validate_aip_version(plugin)
 
     def _validate_metadata(self, plugin: Any) -> bool:
         """Check plugin has valid metadata."""
         # Check if plugin has plugin_metadata method
-        if not hasattr(plugin, 'plugin_metadata') or not callable(getattr(plugin, 'plugin_metadata')):
-            logger.error(
-                f"Plugin {plugin} does not implement plugin_metadata() method"
-            )
+        if not hasattr(plugin, "plugin_metadata") or not callable(
+            plugin.plugin_metadata
+        ):
+            logger.error(f"Plugin {plugin} does not implement plugin_metadata() method")
             return False
 
         try:
             metadata = plugin.plugin_metadata()
 
             # Required fields
-            required = ['name', 'aip_version']
+            required = ["name", "aip_version"]
             for field in required:
                 if field not in metadata:
                     logger.error(f"Plugin metadata missing required field: {field}")
@@ -149,7 +140,7 @@ class PluginValidator:
         attributes and methods defined in the protocol.
         """
         # Get protocol annotations to check required attributes
-        protocol_attrs = getattr(protocol, '__annotations__', {})
+        protocol_attrs = getattr(protocol, "__annotations__", {})
 
         # Check all required attributes exist on the plugin
         # Skip Optional attributes (type is Union[X, None])
@@ -165,7 +156,7 @@ class PluginValidator:
         # Only check methods defined directly in the protocol, not inherited
         for attr_name, attr_value in inspect.getmembers(protocol):
             # Skip private/special methods
-            if attr_name.startswith('_'):
+            if attr_name.startswith("_"):
                 continue
 
             # Skip class variables (already checked via annotations)
@@ -195,13 +186,11 @@ class PluginValidator:
         """Check AIP version is supported."""
         try:
             metadata = plugin.plugin_metadata()
-            aip_version = metadata.get('aip_version')
+            aip_version = metadata.get("aip_version")
 
             # Currently only support AIP-001
-            if aip_version != '001':
-                logger.warning(
-                    f"Plugin uses unsupported AIP version: {aip_version}"
-                )
+            if aip_version != "001":
+                logger.warning(f"Plugin uses unsupported AIP version: {aip_version}")
                 return False
 
             return True

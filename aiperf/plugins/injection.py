@@ -10,8 +10,9 @@ Note: This is a simplified implementation. For full DI framework,
 consider integrating with dependency-injector library.
 """
 
-from typing import Any, Callable, Dict, Optional, Type
 import inspect
+from collections.abc import Callable
+from typing import Any
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 
@@ -36,8 +37,8 @@ class PluginInjector:
 
     def __init__(self):
         """Initialize injector with empty dependency registry."""
-        self._dependencies: Dict[str, Any] = {}
-        self._factories: Dict[str, Callable[[], Any]] = {}
+        self._dependencies: dict[str, Any] = {}
+        self._factories: dict[str, Callable[[], Any]] = {}
 
     def register(self, name: str, instance: Any):
         """
@@ -67,7 +68,7 @@ class PluginInjector:
         self._factories[name] = factory
         logger.debug(f"Registered factory for: {name}")
 
-    def instantiate(self, plugin_class: Type, **extra_kwargs) -> Any:
+    def instantiate(self, plugin_class: type, **extra_kwargs) -> Any:
         """
         Instantiate plugin with dependency injection.
 
@@ -92,7 +93,7 @@ class PluginInjector:
         kwargs = {}
 
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             # Use extra_kwargs if provided
@@ -109,7 +110,9 @@ class PluginInjector:
                 instance = self._factories[param_name]()
                 self._dependencies[param_name] = instance  # Cache it
                 kwargs[param_name] = instance
-                logger.debug(f"Created and injected dependency from factory: {param_name}")
+                logger.debug(
+                    f"Created and injected dependency from factory: {param_name}"
+                )
             elif param.default is not inspect.Parameter.empty:
                 # Has default value, don't inject
                 pass
@@ -126,7 +129,7 @@ class PluginInjector:
             logger.error(f"Failed to instantiate {plugin_class.__name__}: {e}")
             raise
 
-    def get_dependency(self, name: str) -> Optional[Any]:
+    def get_dependency(self, name: str) -> Any | None:
         """
         Get a registered dependency.
 
@@ -154,7 +157,7 @@ class PluginInjector:
 
 
 # Global injector instance
-_global_injector: Optional[PluginInjector] = None
+_global_injector: PluginInjector | None = None
 
 
 def get_plugin_injector() -> PluginInjector:

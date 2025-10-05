@@ -8,14 +8,13 @@ Provides thread-safe access to plugins with validation.
 """
 
 import threading
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.plugins.discovery import (
     PluginDiscovery,
     PluginLoader,
     PluginMetadata,
-    PLUGIN_GROUPS,
 )
 from aiperf.plugins.validator import PluginValidator
 
@@ -35,7 +34,7 @@ class PluginRegistry:
         >>> my_plugin = registry.get_plugin('aiperf.metric', 'my_metric')
     """
 
-    _instance: Optional['PluginRegistry'] = None
+    _instance: Optional["PluginRegistry"] = None
     _lock = threading.Lock()
 
     def __new__(cls):
@@ -52,10 +51,12 @@ class PluginRegistry:
         if self._initialized:
             return
 
-        self._discovered: Dict[str, List[PluginMetadata]] = {}
+        self._discovered: dict[str, list[PluginMetadata]] = {}
         self._loader = PluginLoader()
         self._validator = PluginValidator()
-        self._enabled_plugins: Dict[str, List[str]] = {}  # group -> enabled plugin names
+        self._enabled_plugins: dict[
+            str, list[str]
+        ] = {}  # group -> enabled plugin names
 
         # Discover plugins on initialization
         self._discover_all()
@@ -69,14 +70,16 @@ class PluginRegistry:
         self._discovered = PluginDiscovery.discover_all_plugins()
 
         total_count = sum(len(plugins) for plugins in self._discovered.values())
-        logger.info(f"Discovered {total_count} total plugin(s) across {len(self._discovered)} group(s)")
+        logger.info(
+            f"Discovered {total_count} total plugin(s) across {len(self._discovered)} group(s)"
+        )
 
         # Log details
         for group, plugins in self._discovered.items():
             plugin_names = [p.name for p in plugins]
             logger.debug(f"  {group}: {', '.join(plugin_names)}")
 
-    def get_discovered_plugins(self, group: str) -> List[PluginMetadata]:
+    def get_discovered_plugins(self, group: str) -> list[PluginMetadata]:
         """
         Get all discovered plugins for a group (not loaded).
 
@@ -88,7 +91,7 @@ class PluginRegistry:
         """
         return self._discovered.get(group, [])
 
-    def load_plugin(self, group: str, name: str) -> Optional[Any]:
+    def load_plugin(self, group: str, name: str) -> Any | None:
         """
         Load a specific plugin by name.
 
@@ -115,7 +118,7 @@ class PluginRegistry:
 
         return plugin
 
-    def load_all_plugins(self, group: str) -> Dict[str, Any]:
+    def load_all_plugins(self, group: str) -> dict[str, Any]:
         """
         Load all plugins for a group.
 
@@ -171,7 +174,7 @@ class PluginRegistry:
 
         return name in self._enabled_plugins[group]
 
-    def get_enabled_plugins(self, group: str) -> List[str]:
+    def get_enabled_plugins(self, group: str) -> list[str]:
         """
         Get list of enabled plugin names for a group.
 
@@ -187,7 +190,7 @@ class PluginRegistry:
 
         return self._enabled_plugins[group].copy()
 
-    def get_plugin_metadata(self, group: str, name: str) -> Optional[Dict[str, Any]]:
+    def get_plugin_metadata(self, group: str, name: str) -> dict[str, Any] | None:
         """
         Get metadata for a loaded plugin.
 
@@ -203,7 +206,7 @@ class PluginRegistry:
             return None
 
         # Try to get metadata from plugin
-        if hasattr(plugin, 'plugin_metadata'):
+        if hasattr(plugin, "plugin_metadata"):
             try:
                 return plugin.plugin_metadata()
             except Exception as e:
@@ -211,13 +214,13 @@ class PluginRegistry:
 
         return None
 
-    def get_load_errors(self) -> Dict[str, Exception]:
+    def get_load_errors(self) -> dict[str, Exception]:
         """Get all plugin loading errors."""
         return self._loader.get_load_errors()
 
 
 # Global registry instance
-_global_registry: Optional[PluginRegistry] = None
+_global_registry: PluginRegistry | None = None
 _registry_lock = threading.Lock()
 
 

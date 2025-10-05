@@ -19,9 +19,7 @@ import pytest
 
 from tests.integration.conftest import (
     DEFAULT_CONCURRENCY,
-    DEFAULT_MODEL,
     DEFAULT_REQUEST_COUNT,
-    DEFAULT_UI,
     assert_basic_metrics,
     assert_no_token_metrics,
     assert_streaming_metrics,
@@ -57,7 +55,9 @@ class TestFullBenchmarkIntegration:
             print(f"\n=== STDOUT ===\n{result['stdout']}")
             print(f"\n=== STDERR ===\n{result['stderr']}")
 
-        assert result["returncode"] == 0, f"Benchmark failed with returncode {result['returncode']}"
+        assert result["returncode"] == 0, (
+            f"Benchmark failed with returncode {result['returncode']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]
@@ -66,7 +66,9 @@ class TestFullBenchmarkIntegration:
 
         if min_requests is not None:
             completed = records["request_count"].get("avg", 0)
-            assert completed >= min_requests, f"Too few requests: {completed} < {min_requests}"
+            assert completed >= min_requests, (
+                f"Too few requests: {completed} < {min_requests}"
+            )
 
         return output
 
@@ -493,7 +495,9 @@ class TestEndpointTypesIntegration:
             args.extend(extra_args)
 
         result = await aiperf_runner(args)
-        assert result["returncode"] == 0, f"{endpoint_type} test failed: {result['stderr']}"
+        assert result["returncode"] == 0, (
+            f"{endpoint_type} test failed: {result['stderr']}"
+        )
 
         output = validate_aiperf_output(result["output_dir"])
         records = output["json_results"]["records"]

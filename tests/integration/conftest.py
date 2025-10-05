@@ -12,7 +12,6 @@ Provides utilities to:
 
 import asyncio
 import json
-import os
 import socket
 import sys
 import time
@@ -27,16 +26,6 @@ DEFAULT_MODEL = "openai/gpt-oss-20b"
 DEFAULT_CONCURRENCY = 2
 DEFAULT_REQUEST_COUNT = 5
 DEFAULT_UI = "simple"
-
-
-def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
-    """Check if a port is already in use."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind((host, port))
-            return False
-        except OSError:
-            return True
 
 
 async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
@@ -57,71 +46,93 @@ async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
 async def mock_server_port() -> int:
     """Get an available port for mock server.
 
-    Uses a wider port range to avoid conflicts in parallel test execution.
+    Uses OS-assigned ephemeral port by binding to port 0,
+    which is more reliable than random selection.
     """
-    import random
+    # Let OS pick a free port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        port = s.getsockname()[1]
 
-    # Randomize starting port to reduce collision probability
-    start_port = random.randint(30000, 50000)
-    for offset in range(1000):
-        port = start_port + offset
-        if 1024 < port < 65535 and not is_port_in_use(port):
-            return port
-    raise RuntimeError("No available ports found in range")
+    # Small window where port could be taken, but much better than random selection
+    return port
 
 
 @pytest.fixture
 async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
     """Start fakeai mock server and return connection info.
 
+    Uses fakeai package from PyPI (version 0.0.5+) which provides
+    an OpenAI-compatible API server for testing.
+
     Yields:
         dict with 'host', 'port', 'url', 'process'
+
+    Note:
+        Some flakiness may occur due to rapid server process creation/destruction
+        in test suites. Run with `pytest -n 0` to disable parallel execution if needed.
     """
     host = "127.0.0.1"
     url = f"http://{host}:{mock_server_port}"
 
-    # Start fakeai server
-    cmd = ["fakeai-server"]
+    # Start fakeai server using CLI flags (more reliable than env vars in subprocess)
+    cmd = [
+        "fakeai",
+        "server",
+        "--host",
+        host,
+        "--port",
+        str(mock_server_port),
+        "--response-delay",
+        "0.01",  # Small delay for realistic behavior
+    ]
 
-    # Configure fakeai via environment variables
-    env = {
-        **dict(os.environ),
-        "FAKEAI_HOST": host,
-        "FAKEAI_PORT": str(mock_server_port),
-        "FAKEAI_DEBUG": "false",
-        "FAKEAI_RESPONSE_DELAY": "0.01",  # Small delay for realistic behavior
-    }
-
+    # Create server process with stdout/stderr redirected to DEVNULL
+    # to avoid buffer blocking issues
     process = await asyncio.create_subprocess_exec(
         *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env=env,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
 
     try:
-        # Wait for server to be ready
+        # Wait for server to be ready with TCP connection check
         ready = await wait_for_server(host, mock_server_port, timeout=30.0)
         if not ready:
-            # Capture any error output from the server
-            stdout = stderr = ""
             if process.returncode is None:
                 process.terminate()
-                try:
-                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                        process.communicate(), timeout=2.0
-                    )
-                    stdout = stdout_bytes.decode("utf-8", errors="replace")
-                    stderr = stderr_bytes.decode("utf-8", errors="replace")
-                except asyncio.TimeoutError:
-                    pass
-            raise RuntimeError(
-                f"FakeAI server failed to start on {url}\n"
-                f"STDOUT: {stdout}\nSTDERR: {stderr}"
-            )
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(process.wait(), timeout=2.0)
+            raise RuntimeError(f"FakeAI server failed to bind to {url}")
 
-        # Give it a moment to fully initialize
-        await asyncio.sleep(1.0)
+        # Verify server is responding to HTTP with retries
+        import aiohttp
+
+        # Give server extra time to fully initialize
+        await asyncio.sleep(1.5)
+
+        for attempt in range(30):
+            # Check if process crashed
+            if process.returncode is not None:
+                raise RuntimeError(
+                    f"FakeAI server process exited with code {process.returncode}"
+                )
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{url}/health", timeout=aiohttp.ClientTimeout(total=2)
+                    ) as response:
+                        if response.status == 200:
+                            # Server is up and responding
+                            break
+            except (aiohttp.ClientError, asyncio.TimeoutError):
+                if attempt == 29:
+                    raise RuntimeError(
+                        f"FakeAI server not responding after {attempt + 1} attempts at {url}/health"
+                    )
+                await asyncio.sleep(0.2)
 
         yield {
             "host": host,
@@ -131,14 +142,19 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
         }
 
     finally:
-        # Cleanup: Stop the server
+        # Cleanup: Gracefully stop server
         if process.returncode is None:
             process.terminate()
             try:
                 await asyncio.wait_for(process.wait(), timeout=5.0)
             except asyncio.TimeoutError:
+                # Force kill if termination hangs
                 process.kill()
-                await process.wait()
+                with suppress(Exception):
+                    await process.wait()
+
+        # Brief delay to allow port release
+        await asyncio.sleep(0.1)
 
 
 @pytest.fixture

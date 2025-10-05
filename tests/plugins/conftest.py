@@ -6,16 +6,13 @@ Shared fixtures for testing AIPerf plugin system.
 Provides mock plugins, entry points, and testing utilities for AIP-001 plugin testing.
 """
 
-import sys
-from importlib.metadata import EntryPoint
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.metric_dicts import MetricRecordDict
-
 
 # ============================================================================
 # Mock Plugin Classes
@@ -46,7 +43,7 @@ class MockMetricPlugin:
         return 42.0
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_metric",
@@ -63,7 +60,7 @@ class MockEndpointPlugin:
     """Mock endpoint plugin for testing."""
 
     @staticmethod
-    def endpoint_metadata() -> Dict[str, Any]:
+    def endpoint_metadata() -> dict[str, Any]:
         """Return endpoint metadata."""
         return {
             "api_version": "v1",
@@ -72,13 +69,13 @@ class MockEndpointPlugin:
         }
 
     async def send_request(
-        self, endpoint_info: Any, payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, endpoint_info: Any, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Mock send request."""
         return {"status": "success", "data": "mock_response"}
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_endpoint",
@@ -102,7 +99,7 @@ class MockDataExporterPlugin:
         return "/mock/export/path.json"
 
     @staticmethod
-    def get_export_info() -> Dict[str, Any]:
+    def get_export_info() -> dict[str, Any]:
         """Return export format info."""
         return {
             "format": "mock_format",
@@ -112,7 +109,7 @@ class MockDataExporterPlugin:
         }
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_exporter",
@@ -139,7 +136,7 @@ class MockTransportPlugin:
         pass
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_transport",
@@ -158,7 +155,7 @@ class MockProcessorPlugin:
         return {"processed": data}
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_processor",
@@ -172,7 +169,7 @@ class MockProcessorPlugin:
 class MockCollectorPlugin:
     """Mock collector plugin for testing."""
 
-    def collect(self, metrics: Dict[str, Any]) -> None:
+    def collect(self, metrics: dict[str, Any]) -> None:
         """Mock collect."""
         pass
 
@@ -181,7 +178,7 @@ class MockCollectorPlugin:
         pass
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "mock_collector",
@@ -204,7 +201,7 @@ class InvalidMetricPlugin:
     tag = "invalid_metric"
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata."""
         return {
             "name": "invalid_metric",
@@ -241,7 +238,7 @@ class OldAIPVersionPlugin:
         return 1.0
 
     @staticmethod
-    def plugin_metadata() -> Dict[str, Any]:
+    def plugin_metadata() -> dict[str, Any]:
         """Return plugin metadata with old AIP version."""
         return {
             "name": "old_aip",
@@ -488,7 +485,13 @@ def multiple_plugins_same_group(mock_metric_entry_point):
         load_result=type(
             "MockMetricPlugin2",
             (MockMetricPlugin,),
-            {"tag": "mock_metric_2", "plugin_metadata": lambda: {"name": "mock_metric_2", "aip_version": "001"}},
+            {
+                "tag": "mock_metric_2",
+                "plugin_metadata": lambda: {
+                    "name": "mock_metric_2",
+                    "aip_version": "001",
+                },
+            },
         ),
     )
 
@@ -499,7 +502,13 @@ def multiple_plugins_same_group(mock_metric_entry_point):
         load_result=type(
             "MockMetricPlugin3",
             (MockMetricPlugin,),
-            {"tag": "mock_metric_3", "plugin_metadata": lambda: {"name": "mock_metric_3", "aip_version": "001"}},
+            {
+                "tag": "mock_metric_3",
+                "plugin_metadata": lambda: {
+                    "name": "mock_metric_3",
+                    "aip_version": "001",
+                },
+            },
         ),
     )
 

@@ -23,9 +23,7 @@ We verify the plugin is callable/usable, not internal state.
 """
 
 import threading
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from aiperf.plugins.discovery import PluginLoader, PluginMetadata, load_plugin
 
@@ -286,14 +284,7 @@ class TestLoadAllForGroup:
         loader = PluginLoader()
 
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = multiple_plugins_same_group
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = multiple_plugins_same_group
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = multiple_plugins_same_group
 
             result = loader.load_all_for_group("aiperf.metric")
 
@@ -315,14 +306,7 @@ class TestLoadAllForGroup:
         loader = PluginLoader()
 
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             result = loader.load_all_for_group("aiperf.metric")
 
@@ -339,17 +323,7 @@ class TestLoadAllForGroup:
         loader = PluginLoader()
 
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point, failing_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [
-                    mock_metric_entry_point,
-                    failing_entry_point,
-                ]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point, failing_entry_point]
 
             result = loader.load_all_for_group("aiperf.metric")
 
@@ -366,23 +340,14 @@ class TestConvenienceFunction:
     WHY TEST THIS: load_plugin() function provides simpler API.
     """
 
-    def test_load_plugin_function(
-        self, clear_discovery_cache, mock_metric_entry_point
-    ):
+    def test_load_plugin_function(self, clear_discovery_cache, mock_metric_entry_point):
         """
         WHY: Convenience function simplifies common use case.
 
         WHAT: Module-level load_plugin() works correctly.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = [mock_metric_entry_point]
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = [mock_metric_entry_point]
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = [mock_metric_entry_point]
 
             result = load_plugin("aiperf.metric", "mock_metric")
 
@@ -396,14 +361,7 @@ class TestConvenienceFunction:
         WHAT: Returns None when plugin not found.
         """
         with patch("aiperf.plugins.discovery.entry_points") as mock_ep:
-            import sys
-
-            if sys.version_info >= (3, 10):
-                mock_ep.return_value = []
-            else:
-                mock_ep_obj = MagicMock()
-                mock_ep_obj.select.return_value = []
-                mock_ep.return_value = mock_ep_obj
+            mock_ep.return_value = []
 
             result = load_plugin("aiperf.metric", "nonexistent")
 
