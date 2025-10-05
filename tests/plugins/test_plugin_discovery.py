@@ -300,7 +300,9 @@ class TestPythonVersionCompatibility:
             plugins = PluginDiscovery.discover_plugins_by_group("aiperf.metric")
 
             # Verify 3.10+ API was used (group parameter)
-            mock_ep.assert_called_with(group="aiperf.metric")
+            # Use assert_any_call since discover_plugins_by_group calls discover_all_plugins
+            # which queries all plugin groups
+            mock_ep.assert_any_call(group="aiperf.metric")
             assert len(plugins) == 1
 
     @pytest.mark.skipif(
