@@ -366,6 +366,64 @@ def base_profile_args(mock_server) -> list[str]:
 
 
 @pytest.fixture
+def dashboard_profile_args(mock_server) -> list[str]:
+    """Provide base arguments for profile command with dashboard UI."""
+    return [
+        "profile",
+        "--model",
+        DEFAULT_MODEL,
+        "--url",
+        mock_server["url"],
+        "--ui",
+        "dashboard",
+    ]
+
+
+async def run_and_validate_benchmark(
+    aiperf_runner,
+    validate_aiperf_output,
+    args: list[str],
+    timeout: float = 60.0,
+    min_requests: int | None = None,
+) -> dict:
+    """Helper to run benchmark and validate with error printing.
+
+    Args:
+        aiperf_runner: Runner fixture
+        validate_aiperf_output: Validator fixture
+        args: Command line arguments
+        timeout: Timeout in seconds
+        min_requests: Minimum expected completed requests
+
+    Returns:
+        Validated output dict
+
+    Raises:
+        AssertionError: If benchmark fails or validation fails
+    """
+    result = await aiperf_runner(args, timeout=timeout)
+
+    if result["returncode"] != 0:
+        print(f"\n=== STDOUT ===\n{result['stdout']}")
+        print(f"\n=== STDERR ===\n{result['stderr']}")
+
+    assert result["returncode"] == 0, (
+        f"Benchmark failed with returncode {result['returncode']}"
+    )
+
+    output = validate_aiperf_output(result["output_dir"])
+
+    if min_requests is not None:
+        records = output["json_results"]["records"]
+        completed = records.get("request_count", {}).get("avg", 0)
+        assert completed >= min_requests, (
+            f"Too few requests: {completed} < {min_requests}"
+        )
+
+    return output
+
+
+@pytest.fixture
 def create_rankings_dataset(tmp_path) -> Callable[[int], Path]:
     """Factory fixture to create rankings dataset files."""
 
