@@ -8,22 +8,24 @@ SPDX-License-Identifier: Apache-2.0
 ## Quick Start
 
 ```python
-from tests.integration.conftest import run_and_validate_benchmark
+from tests.integration.conftest import IMAGE_64, AUDIO_SHORT, run_and_validate_benchmark
 from tests.integration.result_validators import BenchmarkResult
 
-# Run and validate in one step (handles error printing automatically)
+# Build args with constants
+args = [*base_profile_args, "--endpoint-type", "chat",
+        "--request-count", "10", "--concurrency", "5",
+        *IMAGE_64, *AUDIO_SHORT]
+
+# Run and validate (handles errors automatically)
 output = await run_and_validate_benchmark(
-    aiperf_runner, validate_aiperf_output, args, min_requests=10
+    aiperf_runner, validate_aiperf_output, args, min_requests=8
 )
 
-# Then use fluent API for comprehensive validation
+# Fluent Pydantic-powered validation
 BenchmarkResult.from_directory(output["actual_dir"]) \
-    .assert_all_artifacts_exist() \
-    .assert_metric_exists("ttft", "request_latency") \
-    .assert_metric_in_range("ttft", min_value=0, max_value=5000) \
-    .assert_csv_contains("Time to First Token") \
-    .assert_inputs_json_has_images() \
-    .assert_no_errors()
+    .assert_metric_exists("ttft") \
+    .assert_metric_in_range("ttft", min_value=0) \
+    .assert_inputs_json_has_images()
 ```
 
 ## Architecture
