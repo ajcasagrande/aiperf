@@ -45,7 +45,7 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("output_sequence_length") \
             .assert_inputs_json_has_images()
 
@@ -61,7 +61,7 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("output_sequence_length") \
             .assert_inputs_json_has_audio()
 
@@ -77,7 +77,7 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_inputs_json_has_images() \
             .assert_inputs_json_has_audio()
 
@@ -93,7 +93,7 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("ttft", "inter_token_latency") \
             .assert_metric_in_range("ttft", min_value=0)
 
@@ -109,7 +109,7 @@ class TestMultiModalIntegration:
             aiperf_runner, validate_aiperf_output, args, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("ttft", "inter_token_latency")
 
     async def test_large_image_dataset(
@@ -178,7 +178,7 @@ class TestMultiModalWithDashboard:
             aiperf_runner, validate_aiperf_output, args, min_requests=8
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_all_artifacts_exist()
 
     async def test_dashboard_ui_with_benchmark_duration(
@@ -192,7 +192,7 @@ class TestMultiModalWithDashboard:
             aiperf_runner, validate_aiperf_output, args, timeout=30.0, min_requests=3
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("ttft") \
             .assert_csv_contains("Benchmark Duration")
 
@@ -213,7 +213,7 @@ class TestMultiModalStressTests:
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_all_artifacts_exist() \
             .assert_metric_exists("ttft", "inter_token_latency") \
             .assert_inputs_json_has_sessions(min_sessions=10)
@@ -229,7 +229,7 @@ class TestMultiModalStressTests:
             aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]) \
+        BenchmarkResult.from_directory(output.actual_dir) \
             .assert_metric_exists("ttft", "inter_token_latency", "output_sequence_length")
 
 
@@ -251,7 +251,7 @@ class TestCancellationFeatures:
             aiperf_runner, validate_aiperf_output, args, timeout=120.0
         )
 
-        BenchmarkResult.from_directory(output["actual_dir"]).assert_all_artifacts_exist()
+        BenchmarkResult.from_directory(output.actual_dir).assert_all_artifacts_exist()
 
 
 @pytest.mark.integration

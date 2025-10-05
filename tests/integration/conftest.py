@@ -21,6 +21,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.integration.test_models import AIPerfRunResult, MockServerInfo, ValidatedOutput
+
 # Test constants
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 DEFAULT_CONCURRENCY = "2"
@@ -64,7 +66,7 @@ async def mock_server_port() -> int:
 
 
 @pytest.fixture
-async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
+async def mock_server(mock_server_port: int) -> AsyncGenerator[MockServerInfo, None]:
     """Start fakeai mock server and return connection info.
 
     Uses fakeai package from PyPI (version 0.0.5+) which provides
@@ -138,12 +140,12 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[dict, None]:
                     )
                 await asyncio.sleep(0.2)
 
-        yield {
-            "host": host,
-            "port": mock_server_port,
-            "url": url,
-            "process": process,
-        }
+        yield MockServerInfo(
+            host=host,
+            port=mock_server_port,
+            url=url,
+            process=process,
+        )
 
     finally:
         # Cleanup: Gracefully stop server
@@ -174,7 +176,7 @@ async def run_aiperf_subprocess(
     timeout: float = 60.0,
     cwd: Path | None = None,
     capture_output: bool = False,
-) -> tuple[int, str, str]:
+) -> AIPerfRunResult:
     """Run AIPerf as a subprocess.
 
     Args:
@@ -201,9 +203,12 @@ async def run_aiperf_subprocess(
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 process.communicate(), timeout=timeout
             )
-            stdout = stdout_bytes.decode("utf-8", errors="replace")
-            stderr = stderr_bytes.decode("utf-8", errors="replace")
-            return process.returncode, stdout, stderr
+            return AIPerfRunResult(
+                returncode=process.returncode or 0,
+                stdout=stdout_bytes.decode("utf-8", errors="replace"),
+                stderr=stderr_bytes.decode("utf-8", errors="replace"),
+                output_dir=Path(),  # Not used in capture mode
+            )
 
         except asyncio.TimeoutError as timeout_error:
             # Kill the process on timeout
@@ -224,7 +229,12 @@ async def run_aiperf_subprocess(
 
         try:
             await asyncio.wait_for(process.wait(), timeout=timeout)
-            return process.returncode, "", ""
+            return AIPerfRunResult(
+                returncode=process.returncode or 0,
+                stdout="",
+                stderr="",
+                output_dir=Path(),  # Not used
+            )
 
         except asyncio.TimeoutError as timeout_error:
             with suppress(Exception):
@@ -244,97 +254,72 @@ async def aiperf_runner(temp_output_dir: Path):
         timeout: float = 60.0,
         add_artifact_dir: bool = True,
         capture_output: bool = False,
-    ) -> dict:
-        """Run AIPerf and return results.
+    ) -> AIPerfRunResult:
+        """Run AIPerf and return Pydantic result model."""
+        full_args = args + ["--artifact-dir", str(temp_output_dir)] if add_artifact_dir else args
 
-        Args:
-            args: AIPerf command-line arguments
-            timeout: Maximum execution time
-            add_artifact_dir: Whether to add --artifact-dir
-            capture_output: If False, stream output to terminal
+        result = await run_aiperf_subprocess(full_args, timeout=timeout, capture_output=capture_output)
 
-        Returns:
-            dict with 'returncode', 'stdout', 'stderr', 'output_dir'
-        """
-        # Add output directory unless disabled
-        if add_artifact_dir:
-            full_args = args + ["--artifact-dir", str(temp_output_dir)]
-        else:
-            full_args = args
-
-        returncode, stdout, stderr = await run_aiperf_subprocess(
-            full_args,
-            timeout=timeout,
-            capture_output=capture_output,
+        return AIPerfRunResult(
+            returncode=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            output_dir=temp_output_dir,
         )
-
-        return {
-            "returncode": returncode,
-            "stdout": stdout,
-            "stderr": stderr,
-            "output_dir": temp_output_dir,
-        }
 
     return runner
 
 
 @pytest.fixture
 def validate_aiperf_output():
-    """Validate AIPerf output files exist and have basic structure."""
+    """Validate AIPerf output and return Pydantic model."""
 
-    def validator(output_dir: Path) -> dict:
-        """Validate output and return artifact paths.
-
-        Returns:
-            dict with: json_results, csv_content, actual_dir, log_file, json_file, csv_file
-        """
+    def validator(output_dir: Path) -> ValidatedOutput:
         json_file = next(output_dir.glob("**/*aiperf.json"))
         csv_file = next(output_dir.glob("**/*aiperf.csv"))
         log_file = next(output_dir.glob("**/logs/aiperf.log"))
 
-        with open(json_file) as f:
-            json_results = json.load(f)
-        with open(csv_file) as f:
-            csv_content = f.read()
+        json_results = json.loads(json_file.read_text())
+        csv_content = csv_file.read_text()
 
         assert "records" in json_results and "input_config" in json_results
         assert "Metric" in csv_content and log_file.stat().st_size > 0
 
-        return {
-            "json_results": json_results,
-            "csv_content": csv_content,
-            "actual_dir": json_file.parent,
-            "log_file": log_file,
-            "json_file": json_file,
-            "csv_file": csv_file,
-        }
+        return ValidatedOutput(
+            json_results=json_results,
+            csv_content=csv_content,
+            actual_dir=json_file.parent,
+            log_file=log_file,
+            json_file=json_file,
+            csv_file=csv_file,
+        )
 
     return validator
 
 
 @pytest.fixture
-def base_profile_args(mock_server) -> list[str]:
+def base_profile_args(mock_server: MockServerInfo) -> list[str]:
     """Provide base arguments for profile command."""
     return [
         "profile",
         "--model",
         DEFAULT_MODEL,
         "--url",
-        mock_server["url"],
+        mock_server.url,
         "--ui",
         DEFAULT_UI,
     ]
 
 
 @pytest.fixture
-def dashboard_profile_args(mock_server) -> list[str]:
-    """Provide base arguments for profile command with dashboard UI."""
+def dashboard_profile_args(mock_server: MockServerInfo) -> list[str]:
+    """Provide base arguments with dashboard UI."""
     return [
         "profile",
         "--model",
         DEFAULT_MODEL,
         "--url",
-        mock_server["url"],
+        mock_server.url,
         "--ui",
         "dashboard",
     ]
@@ -346,112 +331,46 @@ async def run_and_validate_benchmark(
     args: list[str],
     timeout: float = 60.0,
     min_requests: int | None = None,
-) -> dict:
-    """Helper to run benchmark and validate with error printing.
+) -> ValidatedOutput:
+    """Run benchmark and validate, returning Pydantic model."""
+    result: AIPerfRunResult = await aiperf_runner(args, timeout=timeout)
 
-    Args:
-        aiperf_runner: Runner fixture
-        validate_aiperf_output: Validator fixture
-        args: Command line arguments
-        timeout: Timeout in seconds
-        min_requests: Minimum expected completed requests
+    if result.returncode != 0:
+        print(f"\n=== STDOUT ===\n{result.stdout}")
+        print(f"\n=== STDERR ===\n{result.stderr}")
 
-    Returns:
-        Validated output dict
+    assert result.returncode == 0, f"Benchmark failed with returncode {result.returncode}"
 
-    Raises:
-        AssertionError: If benchmark fails or validation fails
-    """
-    result = await aiperf_runner(args, timeout=timeout)
-
-    if result["returncode"] != 0:
-        print(f"\n=== STDOUT ===\n{result['stdout']}")
-        print(f"\n=== STDERR ===\n{result['stderr']}")
-
-    assert result["returncode"] == 0, (
-        f"Benchmark failed with returncode {result['returncode']}"
-    )
-
-    output = validate_aiperf_output(result["output_dir"])
+    output: ValidatedOutput = validate_aiperf_output(result.output_dir)
 
     if min_requests is not None:
-        records = output["json_results"]["records"]
-        completed = records.get("request_count", {}).get("avg", 0)
-        assert completed >= min_requests, (
-            f"Too few requests: {completed} < {min_requests}"
-        )
+        from tests.integration.result_validators import BenchmarkResult
+        validator = BenchmarkResult.from_directory(output.actual_dir)
+        count_metric = validator.get_metric("request_count")
+        assert count_metric.avg >= min_requests, f"Too few requests: {count_metric.avg} < {min_requests}"
 
     return output
 
 
 @pytest.fixture
 def create_rankings_dataset(tmp_path) -> Callable[[int], Path]:
-    """Factory fixture to create rankings dataset files."""
+    """Create rankings dataset files."""
 
     def _create_dataset(num_entries: int = 5) -> Path:
-        """Create a rankings dataset with query and passages.
-
-        Args:
-            num_entries: Number of ranking entries to create
-
-        Returns:
-            Path to the created dataset file
-        """
         dataset_path = tmp_path / "rankings.jsonl"
         with open(dataset_path, "w") as f:
             for i in range(num_entries):
                 entry = {
                     "texts": [
-                        {
-                            "name": "query",
-                            "contents": [f"What is artificial intelligence topic {i}?"],
-                        },
-                        {
-                            "name": "passages",
-                            "contents": [
-                                f"AI is a branch of computer science {i}",
-                                f"Machine learning is a subset of AI {i}",
-                                f"Deep learning uses neural networks {i}",
-                            ],
-                        },
+                        {"name": "query", "contents": [f"What is AI topic {i}?"]},
+                        {"name": "passages", "contents": [
+                            f"AI is computer science {i}",
+                            f"ML is subset of AI {i}",
+                            f"DL uses neural networks {i}",
+                        ]},
                     ]
                 }
                 f.write(json.dumps(entry) + "\n")
         return dataset_path
 
     return _create_dataset
-
-
-def assert_basic_metrics(records: dict, *metric_names: str) -> None:
-    """Assert that basic metrics exist in records.
-
-    Args:
-        records: The metrics records dictionary
-        *metric_names: Variable number of metric names to check
-    """
-    assert isinstance(records, dict), "records should be a dict"
-    for metric_name in metric_names:
-        assert metric_name in records, f"Missing {metric_name} metric"
-
-
-def assert_streaming_metrics(records: dict) -> None:
-    """Assert that streaming-specific metrics exist and are valid.
-
-    Args:
-        records: The metrics records dictionary
-    """
-    assert_basic_metrics(records, "ttft", "inter_token_latency")
-    assert records["ttft"]["avg"] > 0, "TTFT should be positive"
-
-
-def assert_no_token_metrics(records: dict) -> None:
-    """Assert that token-producing metrics are NOT present.
-
-    Args:
-        records: The metrics records dictionary
-    """
-    assert "ttft" not in records, "Should not have TTFT"
-    assert "inter_token_latency" not in records, "Should not have ITL"
-    assert "output_sequence_length" not in records, (
-        "Should not have output_sequence_length"
-    )
