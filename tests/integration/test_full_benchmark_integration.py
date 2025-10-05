@@ -60,24 +60,6 @@ class TestFullBenchmarkIntegration:
             .assert_metric_exists("ttft", "inter_token_latency") \
             .assert_metric_in_range("ttft", max_value=10000)
 
-    @pytest.mark.skip(
-        reason="Request rate timing test - sensitivity to timing variance"
-    )
-    async def test_request_rate_benchmark_respects_rate(
-        self, mock_server, aiperf_runner, validate_aiperf_output
-    ):
-        """Test that request-rate mode respects configured rate.
-
-        WHY TEST THIS:
-        - Validates credit issuance timing
-        - Ensures rate limiting works
-        - Verifies throughput doesn't exceed rate
-
-        NOTE: Skipped in CI due to timing sensitivity.
-        Rate limiting is tested at unit level in timing_manager tests.
-        """
-        pass
-
     async def test_concurrency_benchmark_limits_concurrent_requests(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
@@ -88,13 +70,6 @@ class TestFullBenchmarkIntegration:
         await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, min_requests=15
         )
-
-    @pytest.mark.skip(reason="Custom dataset test - CLI flag validation needed")
-    async def test_benchmark_with_custom_dataset(
-        self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
-    ):
-        """Validates custom dataset loading."""
-        pass
 
     async def test_warmup_and_profiling_phases(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
@@ -209,14 +184,6 @@ class TestConfigurationIntegration:
         assert result.returncode == 0
 
         assert list(temp_output_dir.glob("**/*aiperf.json"))
-
-    @pytest.mark.skip(reason="Deterministic test - timing makes exact comparison difficult")
-    async def test_random_seed_produces_deterministic_results(
-        self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
-    ):
-        """Validates random seed determinism."""
-        pass
-
 
 @pytest.mark.integration
 @pytest.mark.asyncio
