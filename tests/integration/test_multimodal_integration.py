@@ -639,3 +639,135 @@ class TestMultiModalWithDashboard:
         # Verify some requests were completed (at least a few in 10 seconds)
         completed = records["request_count"].get("avg", 0)
         assert completed >= 3, f"Too few requests in duration test: {completed}"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+class TestMultiModalStressTests:
+    """Stress tests for multi-modal content with high concurrency."""
+
+    async def test_high_throughput_streaming_1000_concurrency(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+    ):
+        """Test high throughput with 1000 requests at 1000 concurrency, streaming.
+
+        WHY TEST THIS:
+        - Validates system handles extreme concurrency (1000 concurrent workers)
+        - Ensures streaming works under maximum load
+        - Tests worker coordination at scale with multi-modal content
+        - Verifies credit system doesn't deadlock under high concurrency
+        - Validates ZMQ message bus handles 1000+ concurrent connections
+        """
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "1000",
+            "--concurrency",
+            "1000",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+        ]
+
+        result = await aiperf_runner(args, timeout=180.0)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, (
+            f"High throughput 1000 concurrency test failed: {result['returncode']}"
+        )
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics exist
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        # Verify streaming metrics exist
+        assert_basic_metrics(records, "ttft", "inter_token_latency")
+
+        # Verify we completed most requests (allow some failures under extreme load)
+        completed = records["request_count"].get("avg", 0)
+        assert completed >= 950, (
+            f"Too few requests completed under high load: {completed} < 950"
+        )
+
+        # Verify output sequence length exists
+        avg_osl = records.get("output_sequence_length", {}).get("avg", 0)
+        assert avg_osl > 0, f"OSL should be positive, got {avg_osl}"
+
+    async def test_high_throughput_streaming_with_audio(
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+    ):
+        """Test high throughput with 1000 requests at 1000 concurrency, with audio.
+
+        WHY TEST THIS:
+        - Validates system handles extreme concurrency with audio content
+        - Ensures streaming metrics (TTFT, ITL) work correctly at scale
+        - Tests multi-modal content (text + image + audio) under maximum load
+        - Verifies system stability with 1000 concurrent workers + audio
+        - Tests that complex payloads don't cause memory issues at scale
+        """
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "1000",
+            "--concurrency",
+            "1000",
+            "--image-width-mean",
+            "64",
+            "--image-height-mean",
+            "64",
+            "--audio-length-mean",
+            "0.1",
+            "--audio-format",
+            "wav",
+        ]
+
+        result = await aiperf_runner(args, timeout=180.0)
+
+        if result["returncode"] != 0:
+            print(f"\n=== STDOUT ===\n{result['stdout']}")
+            print(f"\n=== STDERR ===\n{result['stderr']}")
+
+        assert result["returncode"] == 0, (
+            f"High throughput with audio test failed: {result['returncode']}"
+        )
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics exist
+        assert_basic_metrics(records, "request_count", "request_latency")
+
+        # Verify streaming metrics exist
+        assert_basic_metrics(records, "ttft", "inter_token_latency")
+
+        # Verify we completed most requests (allow some failures under extreme load)
+        completed = records["request_count"].get("avg", 0)
+        assert completed >= 950, (
+            f"Too few requests completed under high load: {completed} < 950"
+        )
+
+        # Verify inter-token latency was computed
+        itl_avg = records.get("inter_token_latency", {}).get("avg", 0)
+        assert itl_avg > 0, "ITL should be computed with streaming"
+
+        # Verify output tokens were generated
+        avg_osl = records.get("output_sequence_length", {}).get("avg", 0)
+        assert avg_osl > 0, "Output tokens should be generated"
