@@ -770,19 +770,42 @@ class TestEndpointTypesIntegration:
         assert "ttft" not in records, "Embeddings should not have TTFT"
         assert "inter_token_latency" not in records, "Embeddings should not have ITL"
 
-    @pytest.mark.skip(
-        reason="Rankings endpoint requires special Text object with name='query' - needs custom dataset"
-    )
     async def test_rankings_endpoint(
-        self, mock_server, aiperf_runner, validate_aiperf_output
+        self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
     ):
-        """Test rankings endpoint.
+        """Test rankings endpoint with custom dataset.
 
         WHY TEST THIS:
         - Validates /v1/ranking endpoint
         - Ensures ranking requests work
         - Verifies reranking endpoint handling
+        - Tests custom dataset with named Text objects
         """
+        # Create custom rankings dataset
+        import json
+
+        rankings_dataset = tmp_path / "rankings.jsonl"
+        with open(rankings_dataset, "w") as f:
+            # Write rankings entries with query and passages
+            for i in range(5):
+                entry = {
+                    "texts": [
+                        {
+                            "name": "query",
+                            "contents": [f"What is artificial intelligence topic {i}?"],
+                        },
+                        {
+                            "name": "passages",
+                            "contents": [
+                                f"AI is a branch of computer science {i}",
+                                f"Machine learning is a subset of AI {i}",
+                                f"Deep learning uses neural networks {i}",
+                            ],
+                        },
+                    ]
+                }
+                f.write(json.dumps(entry) + "\n")
+
         result = await aiperf_runner(
             [
                 "profile",
@@ -792,8 +815,10 @@ class TestEndpointTypesIntegration:
                 mock_server["url"],
                 "--endpoint-type",
                 "rankings",
-                "--request-count",
-                "5",
+                "--input-file",
+                str(rankings_dataset),
+                "--custom-dataset-type",
+                "single_turn",
                 "--concurrency",
                 "2",
                 "--ui",
