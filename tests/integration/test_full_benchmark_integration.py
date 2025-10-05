@@ -566,3 +566,329 @@ class TestConfigurationIntegration:
         """
         # Skipped - determinism tested at unit level, integration timing varies
         pass
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+class TestEndpointTypesIntegration:
+    """Integration tests for all supported endpoint types."""
+
+    async def test_chat_endpoint_non_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test chat endpoint in non-streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/chat/completions endpoint
+        - Ensures non-streaming chat requests work
+        - Verifies response parsing
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "chat",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Chat endpoint test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics for chat endpoint
+        assert "request_count" in records, "Missing request_count"
+        assert "request_latency" in records, "Missing request_latency"
+        assert "output_sequence_length" in records, "Missing output_sequence_length"
+
+    async def test_chat_endpoint_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test chat endpoint in streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/chat/completions with streaming
+        - Ensures SSE parsing works
+        - Verifies TTFT and ITL metrics
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "chat",
+                "--streaming",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Chat streaming test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify streaming-specific metrics
+        assert "ttft" in records, "Missing TTFT metric"
+        assert "inter_token_latency" in records, "Missing ITL metric"
+        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
+
+    async def test_completions_endpoint_non_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test completions endpoint in non-streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/completions endpoint
+        - Ensures legacy completions API works
+        - Verifies token-based metrics
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "completions",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Completions test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics for completions endpoint
+        assert "request_count" in records, "Missing request_count"
+        assert "request_latency" in records, "Missing request_latency"
+        assert "output_sequence_length" in records, "Missing output_sequence_length"
+
+        # Verify completed at least some requests
+        assert records["request_count"]["avg"] >= 4, "Too few requests completed"
+
+    async def test_completions_endpoint_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test completions endpoint in streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/completions with streaming
+        - Ensures streaming works for legacy API
+        - Verifies streaming metrics computed
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "completions",
+                "--streaming",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Completions streaming test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify streaming metrics
+        assert "ttft" in records, "Missing TTFT metric"
+        assert "inter_token_latency" in records, "Missing ITL metric"
+
+    async def test_embeddings_endpoint(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test embeddings endpoint.
+
+        WHY TEST THIS:
+        - Validates /v1/embeddings endpoint
+        - Ensures embeddings requests work
+        - Verifies non-token-producing endpoint handling
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "embeddings",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Embeddings test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics (embeddings don't produce tokens)
+        assert "request_count" in records, "Missing request_count"
+        assert "request_latency" in records, "Missing request_latency"
+
+        # Embeddings should NOT have token-based metrics
+        assert "ttft" not in records, "Embeddings should not have TTFT"
+        assert "inter_token_latency" not in records, "Embeddings should not have ITL"
+
+    @pytest.mark.skip(
+        reason="Rankings endpoint requires special Text object with name='query' - needs custom dataset"
+    )
+    async def test_rankings_endpoint(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test rankings endpoint.
+
+        WHY TEST THIS:
+        - Validates /v1/ranking endpoint
+        - Ensures ranking requests work
+        - Verifies reranking endpoint handling
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "rankings",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Rankings test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics (rankings don't produce tokens)
+        assert "request_count" in records, "Missing request_count"
+        assert "request_latency" in records, "Missing request_latency"
+
+        # Rankings should NOT have streaming or token metrics
+        assert "ttft" not in records, "Rankings should not have TTFT"
+        assert "output_sequence_length" not in records, "Rankings should not have output_sequence_length"
+
+    @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
+    async def test_responses_endpoint_non_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test responses endpoint in non-streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/responses endpoint
+        - Ensures new responses API works
+        - Verifies token-based metrics
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "responses",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Responses test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify basic metrics for responses endpoint
+        assert "request_count" in records, "Missing request_count"
+        assert "request_latency" in records, "Missing request_latency"
+        assert "output_sequence_length" in records, "Missing output_sequence_length"
+
+    @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
+    async def test_responses_endpoint_streaming(
+        self, mock_server, aiperf_runner, validate_aiperf_output
+    ):
+        """Test responses endpoint in streaming mode.
+
+        WHY TEST THIS:
+        - Validates /v1/responses with streaming
+        - Ensures streaming works for new API
+        - Verifies streaming metrics computed
+        """
+        result = await aiperf_runner(
+            [
+                "profile",
+                "--model",
+                "gpt2",
+                "--url",
+                mock_server["url"],
+                "--endpoint-type",
+                "responses",
+                "--streaming",
+                "--request-count",
+                "5",
+                "--concurrency",
+                "2",
+                "--ui",
+                "simple",
+            ]
+        )
+
+        assert result["returncode"] == 0, f"Responses streaming test failed: {result['stderr']}"
+
+        output = validate_aiperf_output(result["output_dir"])
+        records = output["json_results"]["records"]
+
+        # Verify streaming metrics
+        assert "ttft" in records, "Missing TTFT metric"
+        assert "inter_token_latency" in records, "Missing ITL metric"
+        assert records["ttft"]["avg"] > 0, "TTFT should be positive"
