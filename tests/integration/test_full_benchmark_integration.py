@@ -35,13 +35,7 @@ class TestFullBenchmarkIntegration:
     async def test_simple_benchmark_completes_successfully(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that a simple benchmark completes and produces valid output.
-
-        WHY TEST THIS:
-        - Validates complete pipeline works
-        - Catches integration issues between components
-        - Verifies subprocess execution works
-        """
+        """Validates complete benchmark pipeline."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
 
@@ -54,13 +48,7 @@ class TestFullBenchmarkIntegration:
     async def test_streaming_benchmark_produces_streaming_metrics(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that streaming benchmarks produce TTFT and ITL metrics.
-
-        WHY TEST THIS:
-        - Validates streaming endpoint handling
-        - Ensures SSE parsing works
-        - Verifies streaming-specific metrics computed
-        """
+        """Validates streaming produces TTFT and ITL metrics."""
         args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
                 "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
 
@@ -93,13 +81,7 @@ class TestFullBenchmarkIntegration:
     async def test_concurrency_benchmark_limits_concurrent_requests(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that concurrency limit is respected.
-
-        WHY TEST THIS:
-        - Validates semaphore-based concurrency control
-        - Ensures system doesn't overload
-        - Verifies worker coordination
-        """
+        """Validates concurrency limit is respected."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--concurrency", "3", "--request-count", "20"]
 
@@ -111,13 +93,7 @@ class TestFullBenchmarkIntegration:
     async def test_benchmark_with_custom_dataset(
         self, mock_server, aiperf_runner, validate_aiperf_output, tmp_path
     ):
-        """Test benchmark with custom single-turn dataset.
-
-        WHY TEST THIS:
-        - Validates dataset loading pipeline
-        - Ensures custom datasets work end-to-end
-        - Verifies file-based input handling
-        """
+        """Validates custom dataset loading."""
         pass
 
     async def test_warmup_and_profiling_phases(
@@ -169,13 +145,7 @@ class TestMetricComputationIntegration:
     async def test_ttft_computation_accuracy(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that TTFT is computed accurately.
-
-        WHY TEST THIS:
-        - Validates timing precision end-to-end
-        - Ensures mock server TTFT setting is reflected in metrics
-        - Verifies no timing bugs in pipeline
-        """
+        """Validates TTFT computation accuracy."""
         args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
                 "--request-count", "10", "--concurrency", "1"]
 
@@ -190,13 +160,7 @@ class TestMetricComputationIntegration:
     async def test_output_token_count_matches_input(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that output token counting is accurate.
-
-        WHY TEST THIS:
-        - Validates tokenization pipeline
-        - Ensures token counts used for throughput are correct
-        - Verifies parser extracts tokens correctly
-        """
+        """Validates output token counting accuracy."""
         args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
                 "--request-count", "10", "--concurrency", "1"]
 
