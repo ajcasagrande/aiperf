@@ -8,20 +8,20 @@ SPDX-License-Identifier: Apache-2.0
 ## Quick Start
 
 ```python
-from tests.integration.result_validators import BenchmarkResult, ConsoleOutputValidator
+from tests.integration.conftest import run_and_validate_benchmark
+from tests.integration.result_validators import BenchmarkResult
 
-# Run benchmark
-result = await aiperf_runner(args)
-assert result["returncode"] == 0
-output = validate_aiperf_output(result["output_dir"])
+# Run and validate in one step (handles error printing automatically)
+output = await run_and_validate_benchmark(
+    aiperf_runner, validate_aiperf_output, args, min_requests=10
+)
 
-# Validate with fluent API (chainable, Pydantic-powered)
+# Then use fluent API for comprehensive validation
 BenchmarkResult.from_directory(output["actual_dir"]) \
     .assert_all_artifacts_exist() \
     .assert_metric_exists("ttft", "request_latency") \
     .assert_metric_in_range("ttft", min_value=0, max_value=5000) \
-    .assert_request_count(min_count=95, max_count=105) \
-    .assert_csv_contains("Time to First Token", "Request Latency") \
+    .assert_csv_contains("Time to First Token") \
     .assert_inputs_json_has_images() \
     .assert_no_errors()
 ```
@@ -91,13 +91,16 @@ console.assert_contains("NVIDIA AIPerf", "Metric") \
 
 ## Patterns
 
-### Basic Test
+### Basic Test (Use Helper)
 ```python
-output = validate_aiperf_output(result["output_dir"])
+# run_and_validate_benchmark handles error printing and basic validation
+output = await run_and_validate_benchmark(
+    aiperf_runner, validate_aiperf_output, args, min_requests=10
+)
+
 BenchmarkResult.from_directory(output["actual_dir"]) \
     .assert_all_artifacts_exist() \
-    .assert_metric_exists("request_latency") \
-    .assert_request_count(min_count=10)
+    .assert_metric_exists("request_latency")
 ```
 
 ### Streaming Test
@@ -134,16 +137,41 @@ for s1, s2 in zip(inputs_1.data, inputs_2.data):
     assert s1.payloads == s2.payloads  # Identical with same seed
 ```
 
+## Helper Functions
+
+### run_and_validate_benchmark
+
+Replaces repetitive boilerplate:
+```python
+# OLD (repetitive):
+result = await aiperf_runner(args)
+if result["returncode"] != 0:
+    print(f"\n=== STDOUT ===\n{result['stdout']}")
+    print(f"\n=== STDERR ===\n{result['stderr']}")
+assert result["returncode"] == 0
+output = validate_aiperf_output(result["output_dir"])
+
+# NEW (clean):
+output = await run_and_validate_benchmark(
+    aiperf_runner, validate_aiperf_output, args, min_requests=10
+)
+```
+
+### Fixtures
+
+- `base_profile_args` - Simple UI (for most tests)
+- `dashboard_profile_args` - Dashboard UI (no manual UI replacement needed)
+
 ## Rules
 
-1. **Always use fluent API** - Chainable assertions are clearer
-2. **Use `actual_dir` not `output_dir`** - From `validate_aiperf_output()`
-3. **Test artifacts exist** - Call `assert_all_artifacts_exist()` early
-4. **Validate both JSON and CSV** - Different export formats may have bugs
-5. **Check inputs.json for multi-modal** - Verify content made it through pipeline
-6. **Use ranges not exact values** - Timing varies, allow tolerance
-7. **Don't validate internal metrics** - Only test user-facing metrics
-8. **Trust Pydantic validation** - Use `.input_config`, `.inputs_file`, `.error_summary` properties for type-safe access
+1. **Use `run_and_validate_benchmark()`** - Eliminates error printing boilerplate
+2. **Use `dashboard_profile_args` for dashboard tests** - No manual UI replacement
+3. **Use fluent API for validation** - Chainable assertions are clearer
+4. **Use `actual_dir` not `output_dir`** - From `validate_aiperf_output()`
+5. **Validate both JSON and CSV** - Different export formats may have bugs
+6. **Check inputs.json for multi-modal** - Verify content made it through pipeline
+7. **Use ranges not exact values** - Timing varies, allow tolerance
+8. **Trust Pydantic validation** - Use `.input_config`, `.inputs_file`, `.error_summary` for type-safe access
 
 ## Anti-Patterns
 
