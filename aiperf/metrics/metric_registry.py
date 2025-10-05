@@ -460,3 +460,12 @@ with exit_on_error(
 ):
     MetricRegistry._validate_dependencies()
     MetricRegistry.create_dependency_order()
+
+
+# Import plugin integration at module level (after MetricRegistry is defined)
+try:
+    from aiperf.metrics.plugin_integration import discover_and_register_metric_plugins
+    # Call during module initialization
+    discover_and_register_metric_plugins(MetricRegistry)
+except Exception as e:
+    _logger.debug(f"Plugin system not initialized: {e}")

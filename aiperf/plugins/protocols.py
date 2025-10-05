@@ -10,8 +10,7 @@ All protocols use structural subtyping (Protocol) for flexibility.
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 from pathlib import Path
 
-from aiperf.common.models import ParsedResponseRecord, ProfileResults
-from aiperf.metrics.metric_dicts import MetricRecordDict, MetricResultsDict
+# Type imports moved to avoid circular dependency
 
 
 @runtime_checkable
@@ -73,8 +72,8 @@ class MetricPluginProtocol(Protocol):
 
     def _parse_record(
         self,
-        record: ParsedResponseRecord,
-        record_metrics: MetricRecordDict,
+        record: Any,  # ParsedResponseRecord
+        record_metrics: Any,  # MetricRecordDict
     ) -> Any:
         """Compute metric value for a record."""
         ...
@@ -153,7 +152,7 @@ class DataExporterPluginProtocol(Protocol):
         """
         ...
 
-    async def export(self, results: ProfileResults) -> Path:
+    async def export(self, results: Any) -> Path:
         """
         Export benchmark results.
 
