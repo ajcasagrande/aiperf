@@ -7,30 +7,48 @@ Validates plugins conform to their respective protocols.
 Ensures type safety and contract compliance.
 """
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from aiperf.common.aiperf_logger import AIPerfLogger
-from aiperf.plugins.protocols import (
-    PluginMetadataProtocol,
-    MetricPluginProtocol,
-    EndpointPluginProtocol,
-    DataExporterPluginProtocol,
-    TransportPluginProtocol,
-    ProcessorPluginProtocol,
-    CollectorPluginProtocol,
-)
+
+if TYPE_CHECKING:
+    from aiperf.plugins.protocols import (
+        PluginMetadataProtocol,
+        MetricPluginProtocol,
+        EndpointPluginProtocol,
+        DataExporterPluginProtocol,
+        TransportPluginProtocol,
+        ProcessorPluginProtocol,
+        CollectorPluginProtocol,
+    )
 
 logger = AIPerfLogger(__name__)
 
 
-PROTOCOL_MAP = {
-    "aiperf.metric": MetricPluginProtocol,
-    "aiperf.endpoint": EndpointPluginProtocol,
-    "aiperf.data_exporter": DataExporterPluginProtocol,
-    "aiperf.transport": TransportPluginProtocol,
-    "aiperf.processor": ProcessorPluginProtocol,
-    "aiperf.collector": CollectorPluginProtocol,
-}
+# Lazy load protocols to avoid circular imports
+_PROTOCOL_MAP = None
+
+def _get_protocol_map():
+    """Lazy load protocol map to avoid circular imports."""
+    global _PROTOCOL_MAP
+    if _PROTOCOL_MAP is None:
+        from aiperf.plugins.protocols import (
+            MetricPluginProtocol,
+            EndpointPluginProtocol,
+            DataExporterPluginProtocol,
+            TransportPluginProtocol,
+            ProcessorPluginProtocol,
+            CollectorPluginProtocol,
+        )
+        _PROTOCOL_MAP = {
+            "aiperf.metric": MetricPluginProtocol,
+            "aiperf.endpoint": EndpointPluginProtocol,
+            "aiperf.data_exporter": DataExporterPluginProtocol,
+            "aiperf.transport": TransportPluginProtocol,
+            "aiperf.processor": ProcessorPluginProtocol,
+            "aiperf.collector": CollectorPluginProtocol,
+        }
+    return _PROTOCOL_MAP
 
 
 class PluginValidator:
@@ -67,7 +85,8 @@ class PluginValidator:
 
     def _validate_metadata(self, plugin: Any) -> bool:
         """Check plugin has valid metadata."""
-        if not isinstance(plugin, PluginMetadataProtocol):
+        # Check if plugin has plugin_metadata method
+        if not hasattr(plugin, 'plugin_metadata') or not callable(getattr(plugin, 'plugin_metadata')):
             logger.error(
                 f"Plugin {plugin} does not implement plugin_metadata() method"
             )
@@ -91,7 +110,8 @@ class PluginValidator:
 
     def _validate_protocol(self, plugin: Any, group: str) -> bool:
         """Check plugin conforms to group protocol."""
-        protocol = PROTOCOL_MAP.get(group)
+        protocol_map = _get_protocol_map()
+        protocol = protocol_map.get(group)
         if protocol is None:
             logger.warning(f"No protocol defined for group '{group}'")
             return True  # Allow if no protocol defined
