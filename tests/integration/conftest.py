@@ -33,6 +33,9 @@ DEFAULT_UI = "simple"
 IMAGE_64 = ["--image-width-mean", "64", "--image-height-mean", "64"]
 AUDIO_SHORT = ["--audio-length-mean", "0.1"]
 
+# Limit workers for integration tests to avoid exhausting system resources
+MAX_WORKERS = ["--workers-max", "2"]
+
 
 async def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
     """Wait for server to be ready."""
@@ -331,8 +334,13 @@ async def run_and_validate_benchmark(
     args: list[str],
     timeout: float = 60.0,
     min_requests: int | None = None,
+    limit_workers: bool = True,
 ) -> ValidatedOutput:
     """Run benchmark and validate, returning Pydantic model."""
+    # Add worker limit for integration tests to avoid resource exhaustion during parallel runs
+    if limit_workers and "--workers-max" not in args:
+        args = [*args, *MAX_WORKERS]
+
     result: AIPerfRunResult = await aiperf_runner(args, timeout=timeout)
 
     if result.returncode != 0:

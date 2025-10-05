@@ -118,31 +118,12 @@ class TestFullBenchmarkIntegration:
         - Ensures custom datasets work end-to-end
         - Verifies file-based input handling
         """
-        # Skipped pending CLI flag verification
-        pass
-
-    @pytest.mark.skip(reason="Error handling test - verifies graceful failure")
-    async def test_benchmark_error_handling(self, aiperf_runner, temp_output_dir):
-        """Test that AIPerf handles connection errors gracefully.
-
-        WHY TEST THIS:
-        - Validates error handling when endpoint unavailable
-        - Ensures proper error reporting
-        - Verifies graceful failure
-        """
-        # Skipped - error handling verified through other means
         pass
 
     async def test_warmup_and_profiling_phases(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that warmup and profiling phases execute correctly.
-
-        WHY TEST THIS:
-        - Validates phase management
-        - Ensures warmup completes before profiling
-        - Verifies phase statistics tracking
-        """
+        """Validates warmup completes before profiling."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--warmup-request-count", "5", "--request-count", "15",
                 "--concurrency", DEFAULT_CONCURRENCY]
@@ -151,20 +132,13 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        # Profiling requests should be ~15 (warmup excluded)
         count = BenchmarkResult.from_directory(output.actual_dir).get_metric("request_count")
-        assert 12 <= count.avg <= 15, f"Expected ~15 requests, got {count.avg}"
+        assert 12 <= count.avg <= 15
 
     async def test_json_and_csv_export_consistency(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that JSON and CSV exports contain consistent data.
-
-        WHY TEST THIS:
-        - Validates both export formats work
-        - Ensures data consistency across formats
-        - Verifies export pipeline integrity
-        """
+        """Validates both JSON and CSV export formats."""
         args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
                 "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
 
@@ -172,26 +146,18 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        BenchmarkResult.from_directory(output.actual_dir) \
-            .assert_metric_exists("request_count") \
-            .assert_csv_contains("Metric", "Request Latency")
+        BenchmarkResult.from_directory(output.actual_dir).assert_csv_contains("Metric", "Request Latency")
         assert len(output.csv_content) > 100
 
     async def test_multiple_workers_coordinate_correctly(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test that multiple workers coordinate via ZMQ.
-
-        WHY TEST THIS:
-        - Validates multiprocess architecture
-        - Ensures credit distribution works
-        - Verifies result aggregation from multiple workers
-        """
+        """Validates multiprocess architecture with 4 workers."""
         args = [*base_profile_args, "--endpoint-type", "chat",
                 "--request-count", "50", "--concurrency", "10", "--workers-max", "4"]
 
         await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=45
+            aiperf_runner, validate_aiperf_output, args, min_requests=45, limit_workers=False
         )
 
 
@@ -469,35 +435,18 @@ class TestEndpointTypesIntegration:
     async def test_responses_endpoint_non_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test responses endpoint in non-streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/responses endpoint
-        - Ensures new responses API works
-        - Verifies token-based metrics
-        """
+        """Validates /v1/responses endpoint."""
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "responses"
         )
-        records = output["json_results"]["records"]
-        assert_basic_metrics(records, "output_sequence_length")
+        BenchmarkResult.from_directory(output.actual_dir).assert_metric_exists("output_sequence_length")
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")
     async def test_responses_endpoint_streaming(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
-        """Test responses endpoint in streaming mode.
-
-        WHY TEST THIS:
-        - Validates /v1/responses with streaming
-        - Ensures streaming works for new API
-        - Verifies streaming metrics computed
-        """
+        """Validates /v1/responses with streaming."""
         await self._test_endpoint(
-            base_profile_args,
-            aiperf_runner,
-            validate_aiperf_output,
-            "responses",
-            streaming=True,
-            verify_streaming=True,
+            base_profile_args, aiperf_runner, validate_aiperf_output, "responses",
+            streaming=True, verify_streaming=True
         )
