@@ -16,8 +16,8 @@
 
 
 .PHONY: ruff lint ruff-fix lint-fix format fmt check-format check-fmt \
-		test test-verbose test-fast test-critical test-integration test-integration-parallel \
-		test-docs test-examples test-all \
+		test test-verbose test-info test-fast test-critical test-integration test-integration-parallel \
+		test-integration-verbose test-docs test-examples test-all \
 		coverage coverage-unit coverage-integration coverage-all coverage-report \
 		coverage-html coverage-xml coverage-clean \
 		clean install docker docker-run \
@@ -114,6 +114,9 @@ test: #? run the unit tests (excludes integration tests).
 
 test-verbose: #? run the tests using pytest-xdist with DEBUG logging.
 	$(activate_venv) && pytest -n auto -v -s --log-cli-level DEBUG -m "not integration"
+
+test-info: #? run the tests using pytest-xdist with INFO logging.
+	$(activate_venv) && pytest -n auto -v -s --log-cli-level INFO -m "not integration"
 
 test-fast: #? run the fastest tests (unit tests, no parallel, fail fast).
 	$(activate_venv) && pytest tests/ -x -m "not integration" $(args)
