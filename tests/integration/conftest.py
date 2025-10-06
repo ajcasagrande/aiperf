@@ -330,6 +330,19 @@ def validate_aiperf_output():
 
 
 @pytest.fixture
+def runner(aiperf_runner, validate_aiperf_output):
+    """BenchmarkRunner with fixtures injected for clean test code.
+
+    Example:
+        result = await runner.chat(base_profile_args, streaming=True, images=True)
+        assert "ttft" in result.metrics
+    """
+    from .helpers import BenchmarkRunner
+
+    return BenchmarkRunner(aiperf_runner, validate_aiperf_output)
+
+
+@pytest.fixture
 def base_profile_args(mock_server: MockServerInfo) -> list[str]:
     """Provide base arguments for profile command."""
     return [
