@@ -18,11 +18,9 @@ fakeai mock server and verify real multi-modal behavior.
 
 import pytest
 
-from tests.integration.conftest import IMAGE_64, AUDIO_SHORT
+from tests.integration.conftest import AUDIO_SHORT, IMAGE_64
 from tests.integration.helpers import (
-    assert_non_streaming_metrics,
     assert_streaming_metrics,
-    run_benchmark,
     run_chat_benchmark,
     run_dashboard_benchmark,
 )
@@ -40,8 +38,11 @@ class TestMultiModalIntegration:
     ):
         """Validates synthetic image generation and end-to-end image handling."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            images=True, min_requests=3
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            images=True,
+            min_requests=3,
         )
 
         assert "output_sequence_length" in result.metrics
@@ -52,8 +53,11 @@ class TestMultiModalIntegration:
     ):
         """Validates synthetic audio generation and end-to-end audio handling."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            audio=True, min_requests=3
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            audio=True,
+            min_requests=3,
         )
 
         assert "output_sequence_length" in result.metrics
@@ -64,8 +68,12 @@ class TestMultiModalIntegration:
     ):
         """Validates text + image + audio together in single request."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            images=True, audio=True, min_requests=3
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            images=True,
+            audio=True,
+            min_requests=3,
         )
 
         assert result.has_images
@@ -76,8 +84,12 @@ class TestMultiModalIntegration:
     ):
         """Validates streaming + TTFT/ITL metrics with images."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            streaming=True, images=True, min_requests=3
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            streaming=True,
+            images=True,
+            min_requests=3,
         )
 
         assert_streaming_metrics(result)
@@ -88,8 +100,12 @@ class TestMultiModalIntegration:
     ):
         """Validates streaming + TTFT/ITL metrics with audio."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            streaming=True, audio=True, min_requests=3
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            streaming=True,
+            audio=True,
+            min_requests=3,
         )
 
         assert_streaming_metrics(result)
@@ -99,9 +115,14 @@ class TestMultiModalIntegration:
     ):
         """Validates image handling scales to 20 requests."""
         await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            request_count="20", concurrency="4", images=True,
-            timeout=120.0, min_requests=16
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            request_count="20",
+            concurrency="4",
+            images=True,
+            timeout=120.0,
+            min_requests=16,
         )
 
     async def test_concurrency_with_multimodal_content(
@@ -109,9 +130,15 @@ class TestMultiModalIntegration:
     ):
         """Validates 5 concurrent workers with multi-modal content."""
         await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            request_count="15", concurrency="5", images=True, audio=True,
-            timeout=120.0, min_requests=12
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            request_count="15",
+            concurrency="5",
+            images=True,
+            audio=True,
+            timeout=120.0,
+            min_requests=12,
         )
 
 
@@ -125,9 +152,12 @@ class TestMultiModalSyntheticGeneration:
     ):
         """Validates JPEG format support."""
         await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            concurrency="1", image_format="jpeg",
-            extra_args=["--image-width-mean", "128", "--image-height-mean", "128"]
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            concurrency="1",
+            image_format="jpeg",
+            extra_args=["--image-width-mean", "128", "--image-height-mean", "128"],
         )
 
     async def test_audio_format_variations(
@@ -135,9 +165,13 @@ class TestMultiModalSyntheticGeneration:
     ):
         """Validates MP3 format support."""
         await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            concurrency="1", audio=True, audio_format="mp3",
-            extra_args=["--audio-sample-rates", "44.1"]
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            concurrency="1",
+            audio=True,
+            audio_format="mp3",
+            extra_args=["--audio-sample-rates", "44.1"],
         )
 
 
@@ -151,8 +185,13 @@ class TestMultiModalWithDashboard:
     ):
         """Validates dashboard UI with request-count limit."""
         result = await run_dashboard_benchmark(
-            dashboard_profile_args, aiperf_runner, validate_aiperf_output,
-            request_count="10", images=True, audio=True, min_requests=8
+            dashboard_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            request_count="10",
+            images=True,
+            audio=True,
+            min_requests=8,
         )
 
         assert result.artifacts_exist
@@ -162,9 +201,16 @@ class TestMultiModalWithDashboard:
     ):
         """Validates dashboard UI with duration-based limit (10 seconds)."""
         result = await run_dashboard_benchmark(
-            dashboard_profile_args, aiperf_runner, validate_aiperf_output,
-            duration="10", streaming=True, concurrency="3",
-            images=True, audio=True, timeout=30.0, min_requests=3
+            dashboard_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            duration="10",
+            streaming=True,
+            concurrency="3",
+            images=True,
+            audio=True,
+            timeout=30.0,
+            min_requests=3,
         )
 
         assert "ttft" in result.metrics
@@ -181,9 +227,16 @@ class TestMultiModalStressTests:
     ):
         """Validates 1000 concurrent workers with streaming + images."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            streaming=True, request_count="1000", concurrency="1000", images=True,
-            timeout=180.0, min_requests=950, limit_workers=False
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            streaming=True,
+            request_count="1000",
+            concurrency="1000",
+            images=True,
+            timeout=180.0,
+            min_requests=950,
+            limit_workers=False,
         )
 
         assert result.artifacts_exist
@@ -195,9 +248,17 @@ class TestMultiModalStressTests:
     ):
         """Validates 1000 concurrent workers with streaming + images + audio."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            streaming=True, request_count="1000", concurrency="1000",
-            images=True, audio=True, timeout=180.0, min_requests=950, limit_workers=False
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            streaming=True,
+            request_count="1000",
+            concurrency="1000",
+            images=True,
+            audio=True,
+            timeout=180.0,
+            min_requests=950,
+            limit_workers=False,
         )
 
         assert_streaming_metrics(result)
@@ -214,12 +275,20 @@ class TestCancellationFeatures:
     ):
         """Validates 30% request cancellation doesn't break pipeline."""
         result = await run_chat_benchmark(
-            base_profile_args, aiperf_runner, validate_aiperf_output,
-            streaming=True, request_count="50", concurrency="5", images=True,
-            timeout=120.0, extra_args=[
-                "--request-cancellation-rate", "0.3",
-                "--request-cancellation-delay", "0.5"
-            ]
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            streaming=True,
+            request_count="50",
+            concurrency="5",
+            images=True,
+            timeout=120.0,
+            extra_args=[
+                "--request-cancellation-rate",
+                "0.3",
+                "--request-cancellation-delay",
+                "0.5",
+            ],
         )
 
         assert result.artifacts_exist
@@ -231,7 +300,12 @@ class TestDeterministicBehavior:
     """Integration tests for deterministic behavior with random seeds."""
 
     async def _run_aiperf_with_seed(
-        self, run_number: int, base_args: list[str], tmp_path, aiperf_runner, validate_aiperf_output
+        self,
+        run_number: int,
+        base_args: list[str],
+        tmp_path,
+        aiperf_runner,
+        validate_aiperf_output,
     ) -> BenchmarkResult:
         """Helper to run AIPerf and return BenchmarkResult."""
         output_dir = tmp_path / f"run{run_number}"
@@ -239,7 +313,9 @@ class TestDeterministicBehavior:
         args = [*base_args, "--artifact-dir", str(output_dir)]
 
         result: AIPerfRunResult = await aiperf_runner(args, add_artifact_dir=False)
-        assert result.returncode == 0, f"Run {run_number} failed with code {result.returncode}"
+        assert result.returncode == 0, (
+            f"Run {run_number} failed with code {result.returncode}"
+        )
 
         validated = validate_aiperf_output(output_dir)
         return BenchmarkResult(validated.actual_dir)
@@ -250,17 +326,25 @@ class TestDeterministicBehavior:
         """Validates --random-seed produces identical payloads (except session UUIDs)."""
         base_args = [
             *base_profile_args,
-            "--endpoint-type", "chat",
-            "--request-count", "10",
-            "--concurrency", "2",
-            "--random-seed", "42",
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "2",
+            "--random-seed",
+            "42",
             *IMAGE_64,
             *AUDIO_SHORT,
         ]
 
         # Run twice with same seed
-        run1 = await self._run_aiperf_with_seed(1, base_args, tmp_path, aiperf_runner, validate_aiperf_output)
-        run2 = await self._run_aiperf_with_seed(2, base_args, tmp_path, aiperf_runner, validate_aiperf_output)
+        run1 = await self._run_aiperf_with_seed(
+            1, base_args, tmp_path, aiperf_runner, validate_aiperf_output
+        )
+        run2 = await self._run_aiperf_with_seed(
+            2, base_args, tmp_path, aiperf_runner, validate_aiperf_output
+        )
 
         # Compare inputs files
         inputs_1, inputs_2 = run1.inputs, run2.inputs
@@ -268,5 +352,7 @@ class TestDeterministicBehavior:
 
         # Payloads identical, session_ids differ (UUIDs)
         for s1, s2 in zip(inputs_1.data, inputs_2.data, strict=True):
-            assert s1.session_id != s2.session_id, "Session IDs should be different (UUIDs)"
+            assert s1.session_id != s2.session_id, (
+                "Session IDs should be different (UUIDs)"
+            )
             assert s1.payloads == s2.payloads, "Payloads should be identical"

@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """Seamless helpers for writing integration tests with minimal boilerplate."""
 
-from pathlib import Path
 from typing import Literal
 
-from .conftest import AUDIO_SHORT, DEFAULT_CONCURRENCY, DEFAULT_REQUEST_COUNT, IMAGE_64, run_and_validate_benchmark
+from .conftest import (
+    AUDIO_SHORT,
+    DEFAULT_CONCURRENCY,
+    DEFAULT_REQUEST_COUNT,
+    IMAGE_64,
+    run_and_validate_benchmark,
+)
 from .result_validators import BenchmarkResult
-from .test_models import ValidatedOutput
 
 EndpointType = Literal["chat", "completions", "embeddings", "rankings", "responses"]
 
@@ -90,8 +94,12 @@ async def run_chat_benchmark(
         args.extend(extra_args)
 
     output = await run_and_validate_benchmark(
-        aiperf_runner, validate_aiperf_output, args,
-        timeout=timeout, min_requests=min_requests, **kwargs
+        aiperf_runner,
+        validate_aiperf_output,
+        args,
+        timeout=timeout,
+        min_requests=min_requests,
+        **kwargs,
     )
 
     return BenchmarkResult(output.actual_dir)
@@ -137,9 +145,12 @@ async def run_benchmark(
     """
     args = [
         *base_profile_args,
-        "--endpoint-type", endpoint,
-        "--request-count", request_count,
-        "--concurrency", concurrency,
+        "--endpoint-type",
+        endpoint,
+        "--request-count",
+        request_count,
+        "--concurrency",
+        concurrency,
     ]
 
     if streaming:
@@ -149,8 +160,12 @@ async def run_benchmark(
         args.extend(extra_args)
 
     output = await run_and_validate_benchmark(
-        aiperf_runner, validate_aiperf_output, args,
-        timeout=timeout, min_requests=min_requests, **kwargs
+        aiperf_runner,
+        validate_aiperf_output,
+        args,
+        timeout=timeout,
+        min_requests=min_requests,
+        **kwargs,
     )
 
     return BenchmarkResult(output.actual_dir)
@@ -220,14 +235,19 @@ async def run_dashboard_benchmark(
         args.extend(AUDIO_SHORT)
 
     output = await run_and_validate_benchmark(
-        aiperf_runner, validate_aiperf_output, args,
-        timeout=timeout, min_requests=min_requests, **kwargs
+        aiperf_runner,
+        validate_aiperf_output,
+        args,
+        timeout=timeout,
+        min_requests=min_requests,
+        **kwargs,
     )
 
     return BenchmarkResult(output.actual_dir)
 
 
 # Convenient assertion helpers (complement Pythonic properties)
+
 
 def assert_streaming_metrics(result: BenchmarkResult) -> None:
     """Assert streaming metrics exist and are valid.

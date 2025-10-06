@@ -68,15 +68,15 @@ class ResponseSizeMetric(BaseRecordMetric[int]):
         # Sum up all response text lengths
         total_size = 0
         for response in record.responses:
-            if hasattr(response, 'data') and hasattr(response.data, 'content'):
+            if hasattr(response, "data") and hasattr(response.data, "content"):
                 # Handle structured response data
                 content = response.data.content
                 if isinstance(content, str):
-                    total_size += len(content.encode('utf-8'))
-            elif hasattr(response, 'text'):
+                    total_size += len(content.encode("utf-8"))
+            elif hasattr(response, "text"):
                 # Handle simple text responses
                 if response.text:
-                    total_size += len(response.text.encode('utf-8'))
+                    total_size += len(response.text.encode("utf-8"))
 
         return total_size
 

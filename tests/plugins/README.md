@@ -1,3 +1,7 @@
+<!--
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
 # AIPerf Plugin System Tests (AIP-001)
 
 This directory contains comprehensive tests for the AIPerf plugin architecture (AIP-001).

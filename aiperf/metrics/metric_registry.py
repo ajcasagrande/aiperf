@@ -131,7 +131,9 @@ class MetricRegistry:
         plugin_group = "aiperf.metric"
 
         try:
-            plugin_metadata_list = PluginDiscovery.discover_plugins_by_group(plugin_group)
+            plugin_metadata_list = PluginDiscovery.discover_plugins_by_group(
+                plugin_group
+            )
 
             if not plugin_metadata_list:
                 _logger.debug("No metric plugins discovered via entry points")
@@ -155,14 +157,18 @@ class MetricRegistry:
                     plugin_class = cls._plugin_loader.load_plugin(plugin_metadata)
 
                     if plugin_class is None:
-                        _logger.warning(f"Failed to load metric plugin '{plugin_metadata.name}'")
+                        _logger.warning(
+                            f"Failed to load metric plugin '{plugin_metadata.name}'"
+                        )
                         failed_count += 1
                         continue
 
                     loaded_count += 1
 
                     # Validate the plugin conforms to MetricPluginProtocol
-                    if not cls._plugin_validator.validate_plugin(plugin_class, plugin_group):
+                    if not cls._plugin_validator.validate_plugin(
+                        plugin_class, plugin_group
+                    ):
                         _logger.error(
                             f"Metric plugin '{plugin_metadata.name}' failed validation and will not be registered"
                         )
@@ -172,7 +178,7 @@ class MetricRegistry:
                     # Register the plugin with the MetricRegistry
                     # The plugin class should automatically register via __init_subclass__ if it inherits from BaseMetric
                     # However, we need to ensure it's actually registered
-                    if hasattr(plugin_class, 'tag'):
+                    if hasattr(plugin_class, "tag"):
                         tag = plugin_class.tag
 
                         # Check if already registered (could happen if plugin inherits from BaseMetric)
@@ -211,7 +217,7 @@ class MetricRegistry:
                     # Catch all exceptions to prevent plugin loading from breaking the entire discovery process
                     _logger.error(
                         f"Error loading metric plugin '{plugin_metadata.name}': {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     cls._plugin_load_errors[plugin_metadata.name] = e
                     failed_count += 1
@@ -228,10 +234,7 @@ class MetricRegistry:
 
         except Exception as e:
             # Catch all exceptions during discovery to ensure built-in metrics still work
-            _logger.error(
-                f"Error during metric plugin discovery: {e}",
-                exc_info=True
-            )
+            _logger.error(f"Error during metric plugin discovery: {e}", exc_info=True)
             _logger.warning(
                 "Metric plugin discovery failed, but built-in metrics will continue to work normally"
             )
@@ -465,6 +468,7 @@ with exit_on_error(
 # Import plugin integration at module level (after MetricRegistry is defined)
 try:
     from aiperf.metrics.plugin_integration import discover_and_register_metric_plugins
+
     # Call during module initialization
     discover_and_register_metric_plugins(MetricRegistry)
 except Exception as e:

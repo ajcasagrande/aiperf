@@ -3,8 +3,8 @@
 """Pythonic validation for AIPerf results using natural Python syntax and Pydantic models."""
 
 import json
+from contextlib import suppress
 from pathlib import Path
-from typing import Any
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -12,7 +12,12 @@ from aiperf.common.config import UserConfig
 from aiperf.common.models import ErrorDetailsCount, InputsFile, MetricResult
 from aiperf.exporters.json_exporter import JsonExportData
 
-from .test_models import AudioContent, ChatCompletionPayload, ImageContent, MessageContentItem
+from .test_models import (
+    AudioContent,
+    ChatCompletionPayload,
+    ImageContent,
+    MessageContentItem,
+)
 
 
 class MetricsView:
@@ -79,17 +84,15 @@ class BenchmarkResult:
                 if json_data.get("records"):
                     self._records = {}
                     for tag, metric_dict in json_data["records"].items():
-                        try:
+                        with suppress(ValidationError):
                             self._records[tag] = MetricResult(**metric_dict)
-                        except ValidationError:
-                            pass  # Skip timestamp metrics with datetime strings
 
                 if json_data.get("input_config"):
                     self._input_config = UserConfig(**json_data["input_config"])
                 if json_data.get("error_summary"):
-                    self._error_summary = TypeAdapter(list[ErrorDetailsCount]).validate_python(
-                        json_data["error_summary"]
-                    )
+                    self._error_summary = TypeAdapter(
+                        list[ErrorDetailsCount]
+                    ).validate_python(json_data["error_summary"])
                 self._was_cancelled = json_data.get("was_cancelled")
 
         # Load CSV
@@ -104,10 +107,8 @@ class BenchmarkResult:
         # Load and parse inputs.json
         inputs_file = next(self.artifacts_dir.glob("**/inputs.json"), None)
         if inputs_file:
-            try:
+            with suppress(ValidationError, json.JSONDecodeError):
                 self._inputs_file = InputsFile(**json.loads(inputs_file.read_text()))
-            except ValidationError:
-                pass  # Some tests may not need inputs.json
 
     @property
     def metrics(self) -> MetricsView:
@@ -210,11 +211,13 @@ class BenchmarkResult:
         Usage:
             assert result.artifacts_exist
         """
-        return all([
-            self._json_file and self._json_file.exists(),
-            self._csv_file and self._csv_file.exists(),
-            self._log_file and self._log_file.exists(),
-        ])
+        return all(
+            [
+                self._json_file and self._json_file.exists(),
+                self._csv_file and self._csv_file.exists(),
+                self._log_file and self._log_file.exists(),
+            ]
+        )
 
     @property
     def has_images(self) -> bool:
@@ -224,7 +227,8 @@ class BenchmarkResult:
             assert result.has_images
         """
         return any(
-            isinstance(item, ImageContent) or (hasattr(item, 'type') and item.type == "image_url")
+            isinstance(item, ImageContent)
+            or (hasattr(item, "type") and item.type == "image_url")
             for item in self._get_all_content_items()
         )
 
@@ -236,7 +240,8 @@ class BenchmarkResult:
             assert result.has_audio
         """
         return any(
-            isinstance(item, AudioContent) or (hasattr(item, 'type') and item.type == "input_audio")
+            isinstance(item, AudioContent)
+            or (hasattr(item, "type") and item.type == "input_audio")
             for item in self._get_all_content_items()
         )
 
@@ -254,7 +259,7 @@ class BenchmarkResult:
                     for message in payload.messages:
                         if isinstance(message.content, list):
                             content_items.extend(message.content)
-                except ValidationError:
+                except (ValidationError, json.JSONDecodeError):
                     # Skip non-chat payloads (e.g., completions, embeddings)
                     continue
         return content_items
@@ -277,5 +282,7 @@ class ConsoleOutputValidator:
         return self
 
     def assert_table_displayed(self) -> "ConsoleOutputValidator":
-        assert any(p in self.output for p in ["┃", "Metric", "avg"]), "No table in output"
+        assert any(p in self.output for p in ["┃", "Metric", "avg"]), (
+            "No table in output"
+        )
         return self

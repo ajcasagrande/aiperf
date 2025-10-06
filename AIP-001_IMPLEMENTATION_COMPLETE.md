@@ -1,3 +1,7 @@
+<!--
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+-->
 # AIP-001 Plugin Architecture - Complete Implementation
 
 ## Status: PRODUCTION READY

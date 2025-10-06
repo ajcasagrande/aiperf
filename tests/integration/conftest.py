@@ -21,7 +21,11 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.test_models import AIPerfRunResult, MockServerInfo, ValidatedOutput
+from tests.integration.test_models import (
+    AIPerfRunResult,
+    MockServerInfo,
+    ValidatedOutput,
+)
 
 # Test constants
 DEFAULT_MODEL = "openai/gpt-oss-20b"
@@ -129,18 +133,20 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[MockServerInfo, N
                 )
 
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.get(
                         f"{url}/health", timeout=aiohttp.ClientTimeout(total=2)
-                    ) as response:
-                        if response.status == 200:
-                            # Server is up and responding
-                            break
-            except (aiohttp.ClientError, asyncio.TimeoutError):
+                    ) as response,
+                ):
+                    if response.status == 200:
+                        # Server is up and responding
+                        break
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if attempt == 29:
                     raise RuntimeError(
                         f"FakeAI server not responding after {attempt + 1} attempts at {url}/health"
-                    )
+                    ) from e
                 await asyncio.sleep(0.2)
 
         yield MockServerInfo(
@@ -197,9 +203,15 @@ async def run_aiperf_subprocess(
 
     # Enable subprocess coverage if coverage is running
     env = os.environ.copy()
-    if "COV_CORE_SOURCE" in env or "COVERAGE_PROCESS_START" in env or ".coverage" in os.listdir("."):
+    if (
+        "COV_CORE_SOURCE" in env
+        or "COVERAGE_PROCESS_START" in env
+        or ".coverage" in os.listdir(".")
+    ):
         # Coverage is active - enable for subprocess
-        env["COVERAGE_PROCESS_START"] = env.get("COVERAGE_PROCESS_START", "pyproject.toml")
+        env["COVERAGE_PROCESS_START"] = env.get(
+            "COVERAGE_PROCESS_START", "pyproject.toml"
+        )
         env["COVERAGE_RUN"] = "true"
 
     if capture_output:
@@ -270,9 +282,15 @@ async def aiperf_runner(temp_output_dir: Path):
         capture_output: bool = False,
     ) -> AIPerfRunResult:
         """Run AIPerf and return Pydantic result model."""
-        full_args = args + ["--artifact-dir", str(temp_output_dir)] if add_artifact_dir else args
+        full_args = (
+            args + ["--artifact-dir", str(temp_output_dir)]
+            if add_artifact_dir
+            else args
+        )
 
-        result = await run_aiperf_subprocess(full_args, timeout=timeout, capture_output=capture_output)
+        result = await run_aiperf_subprocess(
+            full_args, timeout=timeout, capture_output=capture_output
+        )
 
         return AIPerfRunResult(
             returncode=result.returncode,
@@ -358,14 +376,19 @@ async def run_and_validate_benchmark(
         print(f"\n=== STDOUT ===\n{result.stdout}")
         print(f"\n=== STDERR ===\n{result.stderr}")
 
-    assert result.returncode == 0, f"Benchmark failed with returncode {result.returncode}"
+    assert result.returncode == 0, (
+        f"Benchmark failed with returncode {result.returncode}"
+    )
 
     output: ValidatedOutput = validate_aiperf_output(result.output_dir)
 
     if min_requests is not None:
         from tests.integration.result_validators import BenchmarkResult
+
         validator = BenchmarkResult(output.actual_dir)
-        assert validator.request_count >= min_requests, f"Too few requests: {validator.request_count} < {min_requests}"
+        assert validator.request_count >= min_requests, (
+            f"Too few requests: {validator.request_count} < {min_requests}"
+        )
 
     return output
 
@@ -381,11 +404,14 @@ def create_rankings_dataset(tmp_path) -> Callable[[int], Path]:
                 entry = {
                     "texts": [
                         {"name": "query", "contents": [f"What is AI topic {i}?"]},
-                        {"name": "passages", "contents": [
-                            f"AI is computer science {i}",
-                            f"ML is subset of AI {i}",
-                            f"DL uses neural networks {i}",
-                        ]},
+                        {
+                            "name": "passages",
+                            "contents": [
+                                f"AI is computer science {i}",
+                                f"ML is subset of AI {i}",
+                                f"DL uses neural networks {i}",
+                            ],
+                        },
                     ]
                 }
                 f.write(json.dumps(entry) + "\n")

@@ -31,13 +31,19 @@ from tests.integration.test_models import AIPerfRunResult, ValidatedOutput
 class TestFullBenchmarkIntegration:
     """Full end-to-end integration tests."""
 
-
     async def test_simple_benchmark_completes_successfully(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates complete benchmark pipeline."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            DEFAULT_CONCURRENCY,
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, min_requests=8
@@ -50,8 +56,16 @@ class TestFullBenchmarkIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates streaming produces TTFT and ITL metrics."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            DEFAULT_CONCURRENCY,
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
@@ -66,8 +80,15 @@ class TestFullBenchmarkIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates concurrency limit is respected."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--concurrency", "3", "--request-count", "20"]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--concurrency",
+            "3",
+            "--request-count",
+            "20",
+        ]
 
         await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args, min_requests=15
@@ -77,9 +98,17 @@ class TestFullBenchmarkIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates warmup completes before profiling."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--warmup-request-count", "5", "--request-count", "15",
-                "--concurrency", DEFAULT_CONCURRENCY]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--warmup-request-count",
+            "5",
+            "--request-count",
+            "15",
+            "--concurrency",
+            DEFAULT_CONCURRENCY,
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
@@ -93,8 +122,16 @@ class TestFullBenchmarkIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates both JSON and CSV export formats."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            DEFAULT_CONCURRENCY,
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
@@ -109,11 +146,24 @@ class TestFullBenchmarkIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates multiprocess architecture with 4 workers."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", "50", "--concurrency", "10", "--workers-max", "4"]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "50",
+            "--concurrency",
+            "10",
+            "--workers-max",
+            "4",
+        ]
 
         await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=45, limit_workers=False
+            aiperf_runner,
+            validate_aiperf_output,
+            args,
+            min_requests=45,
+            limit_workers=False,
         )
 
 
@@ -126,8 +176,16 @@ class TestMetricComputationIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates TTFT computation accuracy."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "10", "--concurrency", "1"]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "1",
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
@@ -142,8 +200,16 @@ class TestMetricComputationIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates output token counting accuracy."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "10", "--concurrency", "1"]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--streaming",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "1",
+        ]
 
         output = await run_and_validate_benchmark(
             aiperf_runner, validate_aiperf_output, args
@@ -163,8 +229,17 @@ class TestErrorHandlingIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates HTTP error tracking."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", "10", "--concurrency", "5", "--timeout-seconds", "2"]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            "10",
+            "--concurrency",
+            "5",
+            "--timeout-seconds",
+            "2",
+        ]
 
         result: AIPerfRunResult = await aiperf_runner(args)
 
@@ -185,13 +260,19 @@ class TestConfigurationIntegration:
         self, base_profile_args, aiperf_runner, temp_output_dir
     ):
         """Validates artifact directory creation."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            "chat",
+            "--request-count",
+            DEFAULT_REQUEST_COUNT,
+        ]
 
         result: AIPerfRunResult = await aiperf_runner(args)
         assert result.returncode == 0
 
         assert list(temp_output_dir.glob("**/*aiperf.json"))
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -209,8 +290,15 @@ class TestEndpointTypesIntegration:
         verify_streaming: bool = False,
         verify_no_tokens: bool = False,
     ) -> ValidatedOutput:
-        args = [*base_profile_args, "--endpoint-type", endpoint_type,
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY]
+        args = [
+            *base_profile_args,
+            "--endpoint-type",
+            endpoint_type,
+            "--request-count",
+            DEFAULT_REQUEST_COUNT,
+            "--concurrency",
+            DEFAULT_CONCURRENCY,
+        ]
 
         if streaming:
             args.append("--streaming")
@@ -295,12 +383,21 @@ class TestEndpointTypesIntegration:
         )
 
     async def test_rankings_endpoint(
-        self, base_profile_args, aiperf_runner, validate_aiperf_output, create_rankings_dataset
+        self,
+        base_profile_args,
+        aiperf_runner,
+        validate_aiperf_output,
+        create_rankings_dataset,
     ):
         """Validates /v1/ranking endpoint with custom dataset."""
         dataset_path = create_rankings_dataset(int(DEFAULT_REQUEST_COUNT))
 
-        extra_args = ["--input-file", str(dataset_path), "--custom-dataset-type", "single_turn"]
+        extra_args = [
+            "--input-file",
+            str(dataset_path),
+            "--custom-dataset-type",
+            "single_turn",
+        ]
 
         await self._test_endpoint(
             base_profile_args,
@@ -328,6 +425,10 @@ class TestEndpointTypesIntegration:
     ):
         """Validates /v1/responses with streaming."""
         await self._test_endpoint(
-            base_profile_args, aiperf_runner, validate_aiperf_output, "responses",
-            streaming=True, verify_streaming=True
+            base_profile_args,
+            aiperf_runner,
+            validate_aiperf_output,
+            "responses",
+            streaming=True,
+            verify_streaming=True,
         )
