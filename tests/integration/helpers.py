@@ -27,244 +27,12 @@ Two main fixtures available:
 
 from collections.abc import Callable
 
-from aiperf.common.enums import EndpointType
+from aiperf.common.enums import AudioFormat, EndpointType, ImageFormat
 
 from .conftest import (
-    AUDIO_SHORT,
-    DEFAULT_CONCURRENCY,
-    DEFAULT_REQUEST_COUNT,
-    IMAGE_64,
     run_and_validate_benchmark,
 )
 from .result_validators import BenchmarkResult
-
-
-class BenchmarkRunner:
-    """Provides clean methods to run benchmarks without passing fixtures repeatedly.
-
-    All benchmark methods accept optional profile args and configuration, returning BenchmarkResult.
-    Profile args default to those provided at initialization.
-
-    Example:
-        # Minimal usage with defaults
-        result = await runner.chat(streaming=True, images=True)
-        assert "ttft" in result.metrics
-
-        # Override profile args per call if needed
-        result = await runner.chat(custom_args, streaming=True)
-    """
-
-    def __init__(
-        self,
-        aiperf_runner: Callable,
-        validate_aiperf_output: Callable,
-        default_profile_args: list[str] | None = None,
-        default_dashboard_args: list[str] | None = None,
-    ):
-        self._runner = aiperf_runner
-        self._validator = validate_aiperf_output
-        self._default_profile_args = default_profile_args or []
-        self._default_dashboard_args = default_dashboard_args or []
-
-    async def chat(
-        self,
-        profile_args: list[str] | None = None,
-        *,
-        streaming: bool = False,
-        request_count: str = DEFAULT_REQUEST_COUNT,
-        concurrency: str = DEFAULT_CONCURRENCY,
-        images: bool = False,
-        audio: bool = False,
-        image_format: str = "png",
-        audio_format: str = "wav",
-        duration: str | None = None,
-        min_requests: int | None = None,
-        timeout: float = 60.0,
-        extra_args: list[str] | None = None,
-        **kwargs,
-    ) -> BenchmarkResult:
-        """Run a chat benchmark with sensible defaults.
-
-        Args:
-            profile_args: Profile arguments (uses defaults if not provided)
-            streaming: Enable streaming
-            request_count: Number of requests
-            concurrency: Concurrency level
-            images: Add synthetic images
-            audio: Add synthetic audio
-            image_format: Image format (png, jpeg)
-            audio_format: Audio format (wav, mp3)
-            duration: Benchmark duration instead of request count
-            min_requests: Minimum expected requests
-            timeout: Timeout in seconds
-            extra_args: Additional CLI arguments
-            **kwargs: Any other args passed to run_and_validate_benchmark
-
-        Returns:
-            BenchmarkResult ready for assertions
-        """
-        args = [
-            *(profile_args if profile_args is not None else self._default_profile_args),
-            "--endpoint-type",
-            "chat",
-        ]
-
-        if streaming:
-            args.append("--streaming")
-
-        if duration:
-            args.extend(["--benchmark-duration", duration])
-        else:
-            args.extend(["--request-count", request_count])
-
-        args.extend(["--concurrency", concurrency])
-
-        if images:
-            args.extend([*IMAGE_64, "--image-format", image_format])
-
-        if audio:
-            args.extend([*AUDIO_SHORT, "--audio-format", audio_format])
-
-        if extra_args:
-            args.extend(extra_args)
-
-        output = await run_and_validate_benchmark(
-            self._runner,
-            self._validator,
-            args,
-            timeout=timeout,
-            min_requests=min_requests,
-            **kwargs,
-        )
-
-        return BenchmarkResult(output.actual_dir)
-
-    async def benchmark(
-        self,
-        endpoint: EndpointType,
-        profile_args: list[str] | None = None,
-        *,
-        streaming: bool = False,
-        request_count: str = DEFAULT_REQUEST_COUNT,
-        concurrency: str = DEFAULT_CONCURRENCY,
-        min_requests: int | None = None,
-        timeout: float = 60.0,
-        extra_args: list[str] | None = None,
-        **kwargs,
-    ) -> BenchmarkResult:
-        """Run any endpoint benchmark.
-
-        Args:
-            endpoint: Endpoint type (chat, completions, embeddings, rankings, responses)
-            profile_args: Profile arguments (uses defaults if not provided)
-            streaming: Enable streaming
-            request_count: Number of requests
-            concurrency: Concurrency level
-            min_requests: Minimum expected requests
-            timeout: Timeout in seconds
-            extra_args: Additional arguments
-            **kwargs: Passed to run_and_validate_benchmark
-
-        Returns:
-            BenchmarkResult ready for assertions
-        """
-        args = [
-            *(profile_args if profile_args is not None else self._default_profile_args),
-            "--endpoint-type",
-            endpoint,
-            "--request-count",
-            request_count,
-            "--concurrency",
-            concurrency,
-        ]
-
-        if streaming:
-            args.append("--streaming")
-
-        if extra_args:
-            args.extend(extra_args)
-
-        output = await run_and_validate_benchmark(
-            self._runner,
-            self._validator,
-            args,
-            timeout=timeout,
-            min_requests=min_requests,
-            **kwargs,
-        )
-
-        return BenchmarkResult(output.actual_dir)
-
-    async def dashboard(
-        self,
-        dashboard_args: list[str] | None = None,
-        *,
-        request_count: str | None = None,
-        duration: str | None = None,
-        concurrency: str = DEFAULT_CONCURRENCY,
-        streaming: bool = False,
-        images: bool = False,
-        audio: bool = False,
-        min_requests: int | None = None,
-        timeout: float = 60.0,
-        **kwargs,
-    ) -> BenchmarkResult:
-        """Run a benchmark with dashboard UI.
-
-        Args:
-            dashboard_args: Dashboard arguments (uses defaults if not provided)
-            request_count: Number of requests (or use duration)
-            duration: Benchmark duration in seconds
-            concurrency: Concurrency level
-            streaming: Enable streaming
-            images: Add synthetic images
-            audio: Add synthetic audio
-            min_requests: Minimum expected requests
-            timeout: Timeout in seconds
-            **kwargs: Passed to run_and_validate_benchmark
-
-        Returns:
-            BenchmarkResult ready for assertions
-        """
-        args = [
-            *(
-                dashboard_args
-                if dashboard_args is not None
-                else self._default_dashboard_args
-            ),
-            "--endpoint-type",
-            "chat",
-        ]
-
-        if streaming:
-            args.append("--streaming")
-
-        if duration:
-            args.extend(["--benchmark-duration", duration])
-        elif request_count:
-            args.extend(["--request-count", request_count])
-        else:
-            args.extend(["--request-count", "10"])
-
-        args.extend(["--concurrency", concurrency])
-
-        if images:
-            args.extend(IMAGE_64)
-
-        if audio:
-            args.extend(AUDIO_SHORT)
-
-        output = await run_and_validate_benchmark(
-            self._runner,
-            self._validator,
-            args,
-            timeout=timeout,
-            min_requests=min_requests,
-            **kwargs,
-        )
-
-        return BenchmarkResult(output.actual_dir)
-
 
 # Convenient assertion helpers (complement Pythonic properties)
 
@@ -310,26 +78,34 @@ def assert_basic_metrics(result: BenchmarkResult) -> None:
 
 
 class AIPerfCLI:
-    """Clean Pythonic CLI wrapper with kwargs-to-args conversion.
+    """Pure CLI argument builder with full parameter control.
 
     Example:
-        # Simple kwargs interface - clean and Pythonic
+        # Explicit parameters - full IDE autocomplete
         result = await cli.profile(
-            model="gpt-4",
-            url="http://localhost:8000",
             endpoint_type=EndpointType.CHAT,
             streaming=True,
             request_count=10,
             concurrency=5,
+            image_width_mean=64,
+            image_height_mean=64,
         )
 
-        # Raw args when you need full control
+        # Or raw args for complete control
         result = await cli.run("profile", "--model", "gpt-4", "--streaming")
     """
 
-    def __init__(self, aiperf_runner: Callable, validate_aiperf_output: Callable):
+    def __init__(
+        self,
+        aiperf_runner: Callable,
+        validate_aiperf_output: Callable,
+        default_model: str = "openai/gpt-oss-20b",
+        default_url: str | None = None,
+    ):
         self._runner = aiperf_runner
         self._validator = validate_aiperf_output
+        self._default_model = default_model
+        self._default_url = default_url
 
     def _kwargs_to_args(self, **kwargs) -> list[str]:
         """Convert kwargs to CLI arguments.
@@ -364,30 +140,108 @@ class AIPerfCLI:
     async def profile(
         self,
         *,
+        # Core
+        model: str | None = None,
+        url: str | None = None,
+        endpoint_type: EndpointType = EndpointType.CHAT,
+        ui: str = "simple",
+        # Request config
+        streaming: bool = False,
+        request_count: int | None = None,
+        concurrency: int | None = None,
+        benchmark_duration: str | None = None,
+        # Multi-modal
+        image_width_mean: int | None = None,
+        image_height_mean: int | None = None,
+        image_format: ImageFormat | str | None = None,
+        audio_length_mean: float | None = None,
+        audio_format: AudioFormat | str | None = None,
+        # Advanced
+        random_seed: int | None = None,
+        workers_max: int | None = None,
+        request_cancellation_rate: float | None = None,
+        request_cancellation_delay: float | None = None,
+        # Test control
         timeout: float = 60.0,
         min_requests: int | None = None,
         **kwargs,
     ) -> BenchmarkResult:
-        """Run aiperf profile with kwargs converted to CLI args.
+        """Pure CLI argument builder - all parameters explicit.
 
-        Special kwargs (not converted to CLI args):
-        - timeout: Subprocess timeout
-        - min_requests: Minimum expected requests for validation
+        Every parameter maps directly to a CLI flag. No magic, no defaults.
 
-        All other kwargs become --flag-name arguments.
+        Args:
+            model: Model name (uses fixture default if None)
+            url: Endpoint URL (uses fixture default if None)
+            endpoint_type: Endpoint type
+            ui: UI type
+            streaming: Enable streaming
+            request_count: Number of requests
+            concurrency: Concurrency level
+            benchmark_duration: Duration instead of request count
+            image_width_mean: Image width
+            image_height_mean: Image height
+            image_format: Image format
+            audio_length_mean: Audio length
+            audio_format: Audio format
+            random_seed: Random seed
+            workers_max: Maximum workers
+            request_cancellation_rate: Cancellation rate
+            request_cancellation_delay: Cancellation delay
+            timeout: Subprocess timeout
+            min_requests: Minimum expected requests
+            **kwargs: Any other CLI args
 
         Example:
             result = await cli.profile(
-                model="gpt-4",
-                url="http://localhost:8000",
                 endpoint_type=EndpointType.CHAT,
                 streaming=True,
                 request_count=10,
+                concurrency=5,
                 image_width_mean=64,
                 image_height_mean=64,
             )
         """
-        args = ["profile", *self._kwargs_to_args(**kwargs)]
+        cli_args = {
+            "model": model or self._default_model,
+            "url": url or self._default_url,
+            "endpoint_type": endpoint_type,
+            "ui": ui,
+        }
+
+        # Add all non-None/False parameters
+        if streaming:
+            cli_args["streaming"] = streaming
+        if request_count is not None:
+            cli_args["request_count"] = request_count
+        if concurrency is not None:
+            cli_args["concurrency"] = concurrency
+        if benchmark_duration is not None:
+            cli_args["benchmark_duration"] = benchmark_duration
+        if image_width_mean is not None:
+            cli_args["image_width_mean"] = image_width_mean
+        if image_height_mean is not None:
+            cli_args["image_height_mean"] = image_height_mean
+        if image_format is not None:
+            cli_args["image_format"] = image_format
+        if audio_length_mean is not None:
+            cli_args["audio_length_mean"] = audio_length_mean
+        if audio_format is not None:
+            cli_args["audio_format"] = audio_format
+        if random_seed is not None:
+            cli_args["random_seed"] = random_seed
+        if workers_max is not None:
+            cli_args["workers_max"] = workers_max
+        if request_cancellation_rate is not None:
+            cli_args["request_cancellation_rate"] = request_cancellation_rate
+        if request_cancellation_delay is not None:
+            cli_args["request_cancellation_delay"] = request_cancellation_delay
+
+        # Merge user kwargs (override everything)
+        merged = {**cli_args, **kwargs}
+
+        # Build CLI args and run
+        args = ["profile", *self._kwargs_to_args(**merged)]
 
         output = await run_and_validate_benchmark(
             self._runner,
@@ -432,7 +286,6 @@ class AIPerfCLI:
 
 
 __all__ = [
-    "BenchmarkRunner",
     "AIPerfCLI",
     "assert_streaming_metrics",
     "assert_non_streaming_metrics",

@@ -354,25 +354,31 @@ def runner(
 
 
 @pytest.fixture
-def cli(aiperf_runner, validate_aiperf_output):
+def cli(aiperf_runner, validate_aiperf_output, mock_server):
     """Clean Pythonic CLI wrapper with automatic kwargs-to-args conversion.
 
     Example:
-        # Clean kwargs interface
+        # Convenience methods with defaults
+        result = await cli.chat(streaming=True, images=True)
+
+        # Full control with profile
         result = await cli.profile(
             model="gpt-4",
-            url="http://localhost:8000",
             endpoint_type=EndpointType.CHAT,
             streaming=True,
-            request_count=10,
         )
 
-        # Or raw args for full control
+        # Raw args for maximum control
         result = await cli.run("profile", "--model", "gpt-4", "--streaming")
     """
     from .helpers import AIPerfCLI
 
-    return AIPerfCLI(aiperf_runner, validate_aiperf_output)
+    return AIPerfCLI(
+        aiperf_runner,
+        validate_aiperf_output,
+        default_model=DEFAULT_MODEL,
+        default_url=mock_server.url,
+    )
 
 
 @pytest.fixture
