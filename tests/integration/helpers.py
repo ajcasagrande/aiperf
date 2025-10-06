@@ -27,7 +27,7 @@ Two main fixtures available:
 
 from collections.abc import Callable
 
-from aiperf.common.enums import AudioFormat, EndpointType, ImageFormat
+from aiperf.common.enums import AIPerfUIType, AudioFormat, EndpointType, ImageFormat
 
 from .conftest import (
     run_and_validate_benchmark,
@@ -141,29 +141,29 @@ class AIPerfCLI:
         self,
         *,
         # Core
-        model: str | None = None,
+        model: str | None = "openai/gpt-oss-20b",
         url: str | None = None,
         endpoint_type: EndpointType = EndpointType.CHAT,
-        ui: str = "simple",
+        ui: AIPerfUIType = AIPerfUIType.SIMPLE,
         # Request config
         streaming: bool = False,
-        request_count: int | None = None,
-        concurrency: int | None = None,
+        request_count: int | None = 10,
+        concurrency: int | None = 2,
         benchmark_duration: str | None = None,
         # Multi-modal
         image_width_mean: int | None = None,
         image_height_mean: int | None = None,
-        image_format: ImageFormat | str | None = None,
+        image_format: ImageFormat | str | None = ImageFormat.PNG,
         audio_length_mean: float | None = None,
-        audio_format: AudioFormat | str | None = None,
+        audio_format: AudioFormat | str | None = AudioFormat.WAV,
         # Advanced
         random_seed: int | None = None,
-        workers_max: int | None = None,
+        workers_max: int | None = 2,
         request_cancellation_rate: float | None = None,
         request_cancellation_delay: float | None = None,
         # Test control
         timeout: float = 60.0,
-        min_requests: int | None = None,
+        min_requests: int | None = 8,
         **kwargs,
     ) -> BenchmarkResult:
         """Pure CLI argument builder - all parameters explicit.
