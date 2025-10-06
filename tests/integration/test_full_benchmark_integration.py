@@ -71,7 +71,7 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         assert "ttft" in result.metrics
         assert "inter_token_latency" in result.metrics
         assert result.metrics["ttft"].avg <= 10000
@@ -114,7 +114,7 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         count = result.metrics["request_count"]
         assert 12 <= count.avg <= 15
 
@@ -137,7 +137,7 @@ class TestFullBenchmarkIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         assert "Metric" in result.csv
         assert "Request Latency" in result.csv
         assert len(output.csv_content) > 100
@@ -191,7 +191,7 @@ class TestMetricComputationIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         ttft = result.metrics["ttft"]
         assert 1 <= ttft.avg <= 1000, f"TTFT {ttft.avg}ms outside range"
         assert ttft.std is not None
@@ -215,7 +215,7 @@ class TestMetricComputationIntegration:
             aiperf_runner, validate_aiperf_output, args
         )
 
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         osl = result.metrics["output_sequence_length"]
         assert osl.avg > 0
 
@@ -330,7 +330,7 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "chat"
         )
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         assert "output_sequence_length" in result.metrics
 
     async def test_chat_endpoint_streaming(
@@ -353,7 +353,7 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "completions"
         )
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         assert "output_sequence_length" in result.metrics
         assert result.request_count >= 4
 
@@ -416,7 +416,7 @@ class TestEndpointTypesIntegration:
         output = await self._test_endpoint(
             base_profile_args, aiperf_runner, validate_aiperf_output, "responses"
         )
-        result = BenchmarkResult(output.actual_dir)
+        result = BenchmarkResult(output.artifact_dir)
         assert "output_sequence_length" in result.metrics
 
     @pytest.mark.skip(reason="Bug in aiperf responses API - needs to be fixed")

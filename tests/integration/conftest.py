@@ -21,17 +21,18 @@ from pathlib import Path
 
 import pytest
 
+from aiperf.common.enums import AIPerfUIType
 from tests.integration.test_models import (
     AIPerfRunResult,
-    MockServerInfo,
+    FakeAIServer,
     ValidatedOutput,
 )
 
 # Test constants
 DEFAULT_MODEL = "openai/gpt-oss-20b"
-DEFAULT_CONCURRENCY = "2"
-DEFAULT_REQUEST_COUNT = "5"
-DEFAULT_UI = "simple"
+DEFAULT_CONCURRENCY = 2
+DEFAULT_REQUEST_COUNT = 5
+DEFAULT_UI = AIPerfUIType.SIMPLE
 
 # Common multi-modal flags
 IMAGE_64 = ["--image-width-mean", "64", "--image-height-mean", "64"]
@@ -73,7 +74,7 @@ async def mock_server_port() -> int:
 
 
 @pytest.fixture
-async def mock_server(mock_server_port: int) -> AsyncGenerator[MockServerInfo, None]:
+async def mock_server(mock_server_port: int) -> AsyncGenerator[FakeAIServer, None]:
     """Start fakeai mock server and return connection info.
 
     Uses fakeai package from PyPI (version 0.0.5+) which provides
@@ -149,7 +150,7 @@ async def mock_server(mock_server_port: int) -> AsyncGenerator[MockServerInfo, N
                     ) from e
                 await asyncio.sleep(0.2)
 
-        yield MockServerInfo(
+        yield FakeAIServer(
             host=host,
             port=mock_server_port,
             url=url,
@@ -186,7 +187,7 @@ async def run_aiperf_subprocess(
     cwd: Path | None = None,
     capture_output: bool = False,
 ) -> AIPerfRunResult:
-    """Run AIPerf as a subprocess with coverage support.
+    """Run AIPerf as a subprocess.
 
     Args:
         args: Command-line arguments for aiperf
@@ -197,22 +198,7 @@ async def run_aiperf_subprocess(
     Returns:
         AIPerfRunResult with returncode, stdout, stderr, output_dir
     """
-    import os
-
     cmd = [sys.executable, "-m", "aiperf.cli"] + args
-
-    # Enable subprocess coverage if coverage is running
-    env = os.environ.copy()
-    if (
-        "COV_CORE_SOURCE" in env
-        or "COVERAGE_PROCESS_START" in env
-        or ".coverage" in os.listdir(".")
-    ):
-        # Coverage is active - enable for subprocess
-        env["COVERAGE_PROCESS_START"] = env.get(
-            "COVERAGE_PROCESS_START", "pyproject.toml"
-        )
-        env["COVERAGE_RUN"] = "true"
 
     if capture_output:
         # Capture for validation
@@ -221,7 +207,6 @@ async def run_aiperf_subprocess(
             cwd=str(cwd) if cwd else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=env,
         )
 
         try:
@@ -250,7 +235,6 @@ async def run_aiperf_subprocess(
             cwd=str(cwd) if cwd else None,
             stdout=None,  # Inherit stdout
             stderr=None,  # Inherit stderr
-            env=env,
         )
 
         try:
@@ -320,7 +304,7 @@ def validate_aiperf_output():
         return ValidatedOutput(
             json_results=json_results,
             csv_content=csv_content,
-            actual_dir=json_file.parent,
+            artifact_dir=json_file.parent,
             log_file=log_file,
             json_file=json_file,
             csv_file=csv_file,
@@ -382,7 +366,7 @@ def cli(aiperf_runner, validate_aiperf_output, mock_server):
 
 
 @pytest.fixture
-def base_profile_args(mock_server: MockServerInfo) -> list[str]:
+def base_profile_args(mock_server: FakeAIServer) -> list[str]:
     """Provide base arguments for profile command."""
     return [
         "profile",
@@ -396,7 +380,7 @@ def base_profile_args(mock_server: MockServerInfo) -> list[str]:
 
 
 @pytest.fixture
-def dashboard_profile_args(mock_server: MockServerInfo) -> list[str]:
+def dashboard_profile_args(mock_server: FakeAIServer) -> list[str]:
     """Provide base arguments with dashboard UI."""
     return [
         "profile",
@@ -414,14 +398,8 @@ async def run_and_validate_benchmark(
     validate_aiperf_output,
     args: list[str],
     timeout: float = 60.0,
-    min_requests: int | None = None,
-    limit_workers: bool = True,
 ) -> ValidatedOutput:
     """Run benchmark and validate, returning Pydantic model."""
-    # Add worker limit for integration tests to avoid resource exhaustion during parallel runs
-    if limit_workers and "--workers-max" not in args:
-        args = [*args, *MAX_WORKERS]
-
     result: AIPerfRunResult = await aiperf_runner(args, timeout=timeout)
 
     if result.returncode != 0:
@@ -433,14 +411,6 @@ async def run_and_validate_benchmark(
     )
 
     output: ValidatedOutput = validate_aiperf_output(result.output_dir)
-
-    if min_requests is not None:
-        from tests.integration.result_validators import BenchmarkResult
-
-        validator = BenchmarkResult(output.actual_dir)
-        assert validator.request_count >= min_requests, (
-            f"Too few requests: {validator.request_count} < {min_requests}"
-        )
 
     return output
 

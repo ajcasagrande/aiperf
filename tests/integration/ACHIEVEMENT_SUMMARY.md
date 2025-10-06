@@ -81,7 +81,7 @@ test_models.py:                      39 lines → Pydantic models
 ```python
 AIPerfRunResult       # Subprocess results
 ValidatedOutput       # Validated benchmark output
-MockServerInfo        # Mock server connection
+FakeAIServerInfo        # Mock server connection
 ChatMessage           # OpenAI chat messages
 ChatCompletionPayload # Complete request payload
 ImageContent          # Image content items

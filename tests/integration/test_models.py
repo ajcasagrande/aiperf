@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ModelConfig
 
 
 class AIPerfRunResult(BaseModel):
@@ -20,27 +20,23 @@ class AIPerfRunResult(BaseModel):
 class ValidatedOutput(BaseModel):
     """Validated AIPerf output with all artifact paths."""
 
-    json_results: dict  # Keep as dict - will be parsed by BenchmarkResult
+    json_results: dict
     csv_content: str
-    actual_dir: Path
-    log_file: Path
-    json_file: Path
+    artifact_dir: Path
     csv_file: Path
+    json_file: Path
+    log_file: Path
 
 
-class MockServerInfo(BaseModel):
-    """Mock server connection information."""
+class FakeAIServer(BaseModel):
+    """FakeAI server connection information."""
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ModelConfig(arbitrary_types_allowed=True)
 
     host: str
     port: int
     url: str
-    process: object = Field(exclude=True)  # Subprocess
-
-
-# OpenAI Chat Message Structure Models
-# These models match the OpenAI chat completion API format used in payloads
+    process: object = Field(exclude=True)
 
 
 class ImageUrl(BaseModel):
@@ -97,10 +93,9 @@ class ChatMessage(BaseModel):
 class ChatCompletionPayload(BaseModel):
     """Complete OpenAI chat completion request payload."""
 
+    model_config = ModelConfig(extra="allow")
+
     messages: list[ChatMessage]
     model: str | None = None
     stream: bool | None = None
     max_completion_tokens: int | None = None
-
-    # Allow extra fields for flexibility
-    model_config = {"extra": "allow"}

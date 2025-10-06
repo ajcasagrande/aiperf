@@ -123,7 +123,7 @@ match result.metrics.get("ttft"):
 - `ErrorDetailsCount` - Error summaries
 - `AIPerfRunResult` - Subprocess results
 - `ValidatedOutput` - Validated outputs
-- `MockServerInfo` - Mock server info
+- `FakeAIServerInfo` - Mock server info
 
 **Zero raw dicts. Zero unsafe access.**
 

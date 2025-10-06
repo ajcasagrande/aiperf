@@ -108,7 +108,7 @@ assert not result.has_errors
 **Created for tests:**
 - `AIPerfRunResult` - Subprocess results
 - `ValidatedOutput` - Validated benchmark outputs
-- `MockServerInfo` - Mock server connection
+- `FakeAIServerInfo` - Mock server connection
 - `ChatMessage` - OpenAI message structure
 - `ChatCompletionPayload` - Complete request payload
 - `ImageContent`, `AudioContent`, `TextContent` - Content types
