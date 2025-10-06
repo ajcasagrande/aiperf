@@ -18,12 +18,13 @@ fakeai mock server and verify real multi-modal behavior.
 
 import pytest
 
-from tests.integration.conftest import (
-    AUDIO_SHORT,
-    DEFAULT_CONCURRENCY,
-    DEFAULT_REQUEST_COUNT,
-    IMAGE_64,
-    run_and_validate_benchmark,
+from tests.integration.conftest import IMAGE_64, AUDIO_SHORT
+from tests.integration.helpers import (
+    assert_non_streaming_metrics,
+    assert_streaming_metrics,
+    run_benchmark,
+    run_chat_benchmark,
+    run_dashboard_benchmark,
 )
 from tests.integration.result_validators import BenchmarkResult
 from tests.integration.test_models import AIPerfRunResult
@@ -38,15 +39,11 @@ class TestMultiModalIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates synthetic image generation and end-to-end image handling."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY,
-                *IMAGE_64, "--image-format", "png"]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=3
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            images=True, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert "output_sequence_length" in result.metrics
         assert result.has_images
 
@@ -54,15 +51,11 @@ class TestMultiModalIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates synthetic audio generation and end-to-end audio handling."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY,
-                *AUDIO_SHORT, "--audio-format", "wav"]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=3
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            audio=True, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert "output_sequence_length" in result.metrics
         assert result.has_audio
 
@@ -70,15 +63,11 @@ class TestMultiModalIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates text + image + audio together in single request."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY,
-                *IMAGE_64, *AUDIO_SHORT]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=3
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            images=True, audio=True, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert result.has_images
         assert result.has_audio
 
@@ -86,55 +75,43 @@ class TestMultiModalIntegration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates streaming + TTFT/ITL metrics with images."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY,
-                *IMAGE_64]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=3
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            streaming=True, images=True, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
-        assert "ttft" in result.metrics
-        assert "inter_token_latency" in result.metrics
+        assert_streaming_metrics(result)
         assert result.metrics["ttft"].avg >= 0
 
     async def test_streaming_with_audio_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates streaming + TTFT/ITL metrics with audio."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", DEFAULT_CONCURRENCY,
-                *AUDIO_SHORT]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=3
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            streaming=True, audio=True, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
-        assert "ttft" in result.metrics
-        assert "inter_token_latency" in result.metrics
+        assert_streaming_metrics(result)
 
     async def test_large_image_dataset(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates image handling scales to 20 requests."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", "20", "--concurrency", "4", *IMAGE_64]
-
-        await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=120.0, min_requests=16
+        await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            request_count="20", concurrency="4", images=True,
+            timeout=120.0, min_requests=16
         )
 
     async def test_concurrency_with_multimodal_content(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates 5 concurrent workers with multi-modal content."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", "15", "--concurrency", "5", *IMAGE_64, *AUDIO_SHORT]
-
-        await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=120.0, min_requests=12
+        await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            request_count="15", concurrency="5", images=True, audio=True,
+            timeout=120.0, min_requests=12
         )
 
 
@@ -147,21 +124,21 @@ class TestMultiModalSyntheticGeneration:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates JPEG format support."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", "1",
-                "--image-width-mean", "128", "--image-height-mean", "128", "--image-format", "jpeg"]
-
-        await run_and_validate_benchmark(aiperf_runner, validate_aiperf_output, args)
+        await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            concurrency="1", image_format="jpeg",
+            extra_args=["--image-width-mean", "128", "--image-height-mean", "128"]
+        )
 
     async def test_audio_format_variations(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates MP3 format support."""
-        args = [*base_profile_args, "--endpoint-type", "chat",
-                "--request-count", DEFAULT_REQUEST_COUNT, "--concurrency", "1",
-                *AUDIO_SHORT, "--audio-format", "mp3", "--audio-sample-rates", "44.1"]
-
-        await run_and_validate_benchmark(aiperf_runner, validate_aiperf_output, args)
+        await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            concurrency="1", audio=True, audio_format="mp3",
+            extra_args=["--audio-sample-rates", "44.1"]
+        )
 
 
 @pytest.mark.integration
@@ -173,29 +150,23 @@ class TestMultiModalWithDashboard:
         self, dashboard_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates dashboard UI with request-count limit."""
-        args = [*dashboard_profile_args, "--endpoint-type", "chat",
-                "--request-count", "10", "--concurrency", DEFAULT_CONCURRENCY,
-                *IMAGE_64, *AUDIO_SHORT]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, min_requests=8
+        result = await run_dashboard_benchmark(
+            dashboard_profile_args, aiperf_runner, validate_aiperf_output,
+            request_count="10", images=True, audio=True, min_requests=8
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert result.artifacts_exist
 
     async def test_dashboard_ui_with_benchmark_duration(
         self, dashboard_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates dashboard UI with duration-based limit (10 seconds)."""
-        args = [*dashboard_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--benchmark-duration", "10", "--concurrency", "3", *IMAGE_64, *AUDIO_SHORT]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=30.0, min_requests=3
+        result = await run_dashboard_benchmark(
+            dashboard_profile_args, aiperf_runner, validate_aiperf_output,
+            duration="10", streaming=True, concurrency="3",
+            images=True, audio=True, timeout=30.0, min_requests=3
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert "ttft" in result.metrics
         assert "Benchmark Duration" in result.csv
 
@@ -209,33 +180,27 @@ class TestMultiModalStressTests:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates 1000 concurrent workers with streaming + images."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "1000", "--concurrency", "1000", *IMAGE_64]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            streaming=True, request_count="1000", concurrency="1000", images=True,
+            timeout=180.0, min_requests=950, limit_workers=False
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert result.artifacts_exist
-        assert "ttft" in result.metrics
-        assert "inter_token_latency" in result.metrics
+        assert_streaming_metrics(result)
         assert len(result.inputs.data) >= 10
 
     async def test_high_throughput_streaming_with_audio(
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates 1000 concurrent workers with streaming + images + audio."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "1000", "--concurrency", "1000", *IMAGE_64, *AUDIO_SHORT]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=180.0, min_requests=950
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            streaming=True, request_count="1000", concurrency="1000",
+            images=True, audio=True, timeout=180.0, min_requests=950, limit_workers=False
         )
 
-        result = BenchmarkResult(output.actual_dir)
-        assert "ttft" in result.metrics
-        assert "inter_token_latency" in result.metrics
+        assert_streaming_metrics(result)
         assert "output_sequence_length" in result.metrics
 
 
@@ -248,16 +213,15 @@ class TestCancellationFeatures:
         self, base_profile_args, aiperf_runner, validate_aiperf_output
     ):
         """Validates 30% request cancellation doesn't break pipeline."""
-        args = [*base_profile_args, "--endpoint-type", "chat", "--streaming",
-                "--request-count", "50", "--concurrency", "5",
-                "--request-cancellation-rate", "0.3", "--request-cancellation-delay", "0.5",
-                *IMAGE_64]
-
-        output = await run_and_validate_benchmark(
-            aiperf_runner, validate_aiperf_output, args, timeout=120.0
+        result = await run_chat_benchmark(
+            base_profile_args, aiperf_runner, validate_aiperf_output,
+            streaming=True, request_count="50", concurrency="5", images=True,
+            timeout=120.0, extra_args=[
+                "--request-cancellation-rate", "0.3",
+                "--request-cancellation-delay", "0.5"
+            ]
         )
 
-        result = BenchmarkResult(output.actual_dir)
         assert result.artifacts_exist
 
 
