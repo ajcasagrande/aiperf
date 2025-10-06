@@ -330,16 +330,27 @@ def validate_aiperf_output():
 
 
 @pytest.fixture
-def runner(aiperf_runner, validate_aiperf_output):
-    """BenchmarkRunner with fixtures injected for clean test code.
+def runner(
+    aiperf_runner, validate_aiperf_output, base_profile_args, dashboard_profile_args
+):
+    """BenchmarkRunner with fixtures and default args injected for minimal boilerplate.
 
     Example:
-        result = await runner.chat(base_profile_args, streaming=True, images=True)
+        # No need to pass base_profile_args!
+        result = await runner.chat(streaming=True, images=True)
         assert "ttft" in result.metrics
+
+        # Override if needed
+        result = await runner.chat(custom_args, streaming=True)
     """
     from .helpers import BenchmarkRunner
 
-    return BenchmarkRunner(aiperf_runner, validate_aiperf_output)
+    return BenchmarkRunner(
+        aiperf_runner,
+        validate_aiperf_output,
+        default_profile_args=base_profile_args,
+        default_dashboard_args=dashboard_profile_args,
+    )
 
 
 @pytest.fixture

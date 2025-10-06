@@ -29,52 +29,43 @@ from tests.integration.test_models import AIPerfRunResult
 class TestMultiModalIntegration:
     """Integration tests for multi-modal content support."""
 
-    async def test_chat_endpoint_with_image_content(self, base_profile_args, runner):
+    async def test_chat_endpoint_with_image_content(self, runner):
         """Validates synthetic image generation and end-to-end image handling."""
-        result = await runner.chat(base_profile_args, images=True, min_requests=3)
+        result = await runner.chat(images=True, min_requests=3)
 
         assert "output_sequence_length" in result.metrics
         assert result.has_images
 
-    async def test_chat_endpoint_with_audio_content(self, base_profile_args, runner):
+    async def test_chat_endpoint_with_audio_content(self, runner):
         """Validates synthetic audio generation and end-to-end audio handling."""
-        result = await runner.chat(base_profile_args, audio=True, min_requests=3)
+        result = await runner.chat(audio=True, min_requests=3)
 
         assert "output_sequence_length" in result.metrics
         assert result.has_audio
 
-    async def test_chat_endpoint_with_mixed_multimodal_content(
-        self, base_profile_args, runner
-    ):
+    async def test_chat_endpoint_with_mixed_multimodal_content(self, runner):
         """Validates text + image + audio together in single request."""
-        result = await runner.chat(
-            base_profile_args, images=True, audio=True, min_requests=3
-        )
+        result = await runner.chat(images=True, audio=True, min_requests=3)
 
         assert result.has_images
         assert result.has_audio
 
-    async def test_streaming_with_image_content(self, base_profile_args, runner):
+    async def test_streaming_with_image_content(self, runner):
         """Validates streaming + TTFT/ITL metrics with images."""
-        result = await runner.chat(
-            base_profile_args, streaming=True, images=True, min_requests=3
-        )
+        result = await runner.chat(streaming=True, images=True, min_requests=3)
 
         assert_streaming_metrics(result)
         assert result.metrics["ttft"].avg >= 0
 
-    async def test_streaming_with_audio_content(self, base_profile_args, runner):
+    async def test_streaming_with_audio_content(self, runner):
         """Validates streaming + TTFT/ITL metrics with audio."""
-        result = await runner.chat(
-            base_profile_args, streaming=True, audio=True, min_requests=3
-        )
+        result = await runner.chat(streaming=True, audio=True, min_requests=3)
 
         assert_streaming_metrics(result)
 
-    async def test_large_image_dataset(self, base_profile_args, runner):
+    async def test_large_image_dataset(self, runner):
         """Validates image handling scales to 20 requests."""
         await runner.chat(
-            base_profile_args,
             request_count="20",
             concurrency="4",
             images=True,
@@ -82,10 +73,9 @@ class TestMultiModalIntegration:
             min_requests=16,
         )
 
-    async def test_concurrency_with_multimodal_content(self, base_profile_args, runner):
+    async def test_concurrency_with_multimodal_content(self, runner):
         """Validates 5 concurrent workers with multi-modal content."""
         await runner.chat(
-            base_profile_args,
             request_count="15",
             concurrency="5",
             images=True,
@@ -100,19 +90,17 @@ class TestMultiModalIntegration:
 class TestMultiModalSyntheticGeneration:
     """Integration tests for multi-modal synthetic data generation."""
 
-    async def test_image_format_variations(self, base_profile_args, runner):
+    async def test_image_format_variations(self, runner):
         """Validates JPEG format support."""
         await runner.chat(
-            base_profile_args,
             concurrency="1",
             image_format="jpeg",
             extra_args=["--image-width-mean", "128", "--image-height-mean", "128"],
         )
 
-    async def test_audio_format_variations(self, base_profile_args, runner):
+    async def test_audio_format_variations(self, runner):
         """Validates MP3 format support."""
         await runner.chat(
-            base_profile_args,
             concurrency="1",
             audio=True,
             audio_format="mp3",
@@ -125,12 +113,9 @@ class TestMultiModalSyntheticGeneration:
 class TestMultiModalWithDashboard:
     """Integration tests for multi-modal content with dashboard UI."""
 
-    async def test_dashboard_ui_with_request_count(
-        self, dashboard_profile_args, runner
-    ):
+    async def test_dashboard_ui_with_request_count(self, runner):
         """Validates dashboard UI with request-count limit."""
         result = await runner.dashboard(
-            dashboard_profile_args,
             request_count="10",
             images=True,
             audio=True,
@@ -139,12 +124,9 @@ class TestMultiModalWithDashboard:
 
         assert result.artifacts_exist
 
-    async def test_dashboard_ui_with_benchmark_duration(
-        self, dashboard_profile_args, runner
-    ):
+    async def test_dashboard_ui_with_benchmark_duration(self, runner):
         """Validates dashboard UI with duration-based limit (10 seconds)."""
         result = await runner.dashboard(
-            dashboard_profile_args,
             duration="10",
             streaming=True,
             concurrency="3",
@@ -163,12 +145,9 @@ class TestMultiModalWithDashboard:
 class TestMultiModalStressTests:
     """Stress tests for multi-modal content with high concurrency."""
 
-    async def test_high_throughput_streaming_1000_concurrency(
-        self, base_profile_args, runner
-    ):
+    async def test_high_throughput_streaming_1000_concurrency(self, runner):
         """Validates 1000 concurrent workers with streaming + images."""
         result = await runner.chat(
-            base_profile_args,
             streaming=True,
             request_count="1000",
             concurrency="1000",
@@ -182,12 +161,9 @@ class TestMultiModalStressTests:
         assert_streaming_metrics(result)
         assert len(result.inputs.data) >= 10
 
-    async def test_high_throughput_streaming_with_audio(
-        self, base_profile_args, runner
-    ):
+    async def test_high_throughput_streaming_with_audio(self, runner):
         """Validates 1000 concurrent workers with streaming + images + audio."""
         result = await runner.chat(
-            base_profile_args,
             streaming=True,
             request_count="1000",
             concurrency="1000",
@@ -207,10 +183,9 @@ class TestMultiModalStressTests:
 class TestCancellationFeatures:
     """Integration tests for benchmark cancellation features."""
 
-    async def test_request_cancellation_rate(self, base_profile_args, runner):
+    async def test_request_cancellation_rate(self, runner):
         """Validates 30% request cancellation doesn't break pipeline."""
         result = await runner.chat(
-            base_profile_args,
             streaming=True,
             request_count="50",
             concurrency="5",

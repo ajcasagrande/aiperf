@@ -28,22 +28,33 @@ from .result_validators import BenchmarkResult
 class BenchmarkRunner:
     """Provides clean methods to run benchmarks without passing fixtures repeatedly.
 
-    All benchmark methods accept profile args and configuration, returning BenchmarkResult.
-    The `runner` fixture in conftest.py provides instances with fixtures pre-injected.
+    All benchmark methods accept optional profile args and configuration, returning BenchmarkResult.
+    Profile args default to those provided at initialization.
 
     Example:
-        result = await runner.chat(base_profile_args, streaming=True, images=True)
+        # Minimal usage with defaults
+        result = await runner.chat(streaming=True, images=True)
         assert "ttft" in result.metrics
-        assert result.has_images
+
+        # Override profile args per call if needed
+        result = await runner.chat(custom_args, streaming=True)
     """
 
-    def __init__(self, aiperf_runner: Callable, validate_aiperf_output: Callable):
+    def __init__(
+        self,
+        aiperf_runner: Callable,
+        validate_aiperf_output: Callable,
+        default_profile_args: list[str] | None = None,
+        default_dashboard_args: list[str] | None = None,
+    ):
         self._runner = aiperf_runner
         self._validator = validate_aiperf_output
+        self._default_profile_args = default_profile_args or []
+        self._default_dashboard_args = default_dashboard_args or []
 
     async def chat(
         self,
-        base_profile_args,
+        profile_args: list[str] | None = None,
         *,
         streaming: bool = False,
         request_count: str = DEFAULT_REQUEST_COUNT,
@@ -61,7 +72,7 @@ class BenchmarkRunner:
         """Run a chat benchmark with sensible defaults.
 
         Args:
-            base_profile_args: Base profile arguments fixture
+            profile_args: Profile arguments (uses defaults if not provided)
             streaming: Enable streaming
             request_count: Number of requests
             concurrency: Concurrency level
@@ -78,7 +89,11 @@ class BenchmarkRunner:
         Returns:
             BenchmarkResult ready for assertions
         """
-        args = [*base_profile_args, "--endpoint-type", "chat"]
+        args = [
+            *(profile_args if profile_args is not None else self._default_profile_args),
+            "--endpoint-type",
+            "chat",
+        ]
 
         if streaming:
             args.append("--streaming")
@@ -112,8 +127,8 @@ class BenchmarkRunner:
 
     async def benchmark(
         self,
-        base_profile_args,
         endpoint: EndpointType,
+        profile_args: list[str] | None = None,
         *,
         streaming: bool = False,
         request_count: str = DEFAULT_REQUEST_COUNT,
@@ -126,8 +141,8 @@ class BenchmarkRunner:
         """Run any endpoint benchmark.
 
         Args:
-            base_profile_args: Base profile arguments
             endpoint: Endpoint type (chat, completions, embeddings, rankings, responses)
+            profile_args: Profile arguments (uses defaults if not provided)
             streaming: Enable streaming
             request_count: Number of requests
             concurrency: Concurrency level
@@ -140,7 +155,7 @@ class BenchmarkRunner:
             BenchmarkResult ready for assertions
         """
         args = [
-            *base_profile_args,
+            *(profile_args if profile_args is not None else self._default_profile_args),
             "--endpoint-type",
             endpoint,
             "--request-count",
@@ -168,7 +183,7 @@ class BenchmarkRunner:
 
     async def dashboard(
         self,
-        dashboard_profile_args,
+        dashboard_args: list[str] | None = None,
         *,
         request_count: str | None = None,
         duration: str | None = None,
@@ -183,7 +198,7 @@ class BenchmarkRunner:
         """Run a benchmark with dashboard UI.
 
         Args:
-            dashboard_profile_args: Dashboard profile arguments fixture
+            dashboard_args: Dashboard arguments (uses defaults if not provided)
             request_count: Number of requests (or use duration)
             duration: Benchmark duration in seconds
             concurrency: Concurrency level
@@ -197,7 +212,15 @@ class BenchmarkRunner:
         Returns:
             BenchmarkResult ready for assertions
         """
-        args = [*dashboard_profile_args, "--endpoint-type", "chat"]
+        args = [
+            *(
+                dashboard_args
+                if dashboard_args is not None
+                else self._default_dashboard_args
+            ),
+            "--endpoint-type",
+            "chat",
+        ]
 
         if streaming:
             args.append("--streaming")
