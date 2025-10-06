@@ -2,13 +2,27 @@
 # SPDX-License-Identifier: Apache-2.0
 """Seamless helpers for writing integration tests with minimal boilerplate.
 
-Use the `runner` fixture which encapsulates fixtures for cleaner test code:
+Two main fixtures available:
 
-```python
-async def test_streaming_chat(base_profile_args, runner):
-    result = await runner.chat(base_profile_args, streaming=True)
-    assert "ttft" in result.metrics
-```
+1. **runner** - High-level helper methods (chat, benchmark, dashboard)
+   ```python
+   async def test_streaming_chat(runner):
+       result = await runner.chat(streaming=True, images=True)
+       assert "ttft" in result.metrics
+   ```
+
+2. **cli** - Direct kwargs-to-args conversion (most flexible)
+   ```python
+   async def test_custom_profile(cli, mock_server):
+       result = await cli.profile(
+           model="gpt-4",
+           url=mock_server.url,
+           endpoint_type=EndpointType.CHAT,
+           streaming=True,
+           request_count=10,
+       )
+       assert result.request_count >= 8
+   ```
 """
 
 from collections.abc import Callable
@@ -295,8 +309,131 @@ def assert_basic_metrics(result: BenchmarkResult) -> None:
     assert result.request_count > 0
 
 
+class AIPerfCLI:
+    """Clean Pythonic CLI wrapper with kwargs-to-args conversion.
+
+    Example:
+        # Simple kwargs interface - clean and Pythonic
+        result = await cli.profile(
+            model="gpt-4",
+            url="http://localhost:8000",
+            endpoint_type=EndpointType.CHAT,
+            streaming=True,
+            request_count=10,
+            concurrency=5,
+        )
+
+        # Raw args when you need full control
+        result = await cli.run("profile", "--model", "gpt-4", "--streaming")
+    """
+
+    def __init__(self, aiperf_runner: Callable, validate_aiperf_output: Callable):
+        self._runner = aiperf_runner
+        self._validator = validate_aiperf_output
+
+    def _kwargs_to_args(self, **kwargs) -> list[str]:
+        """Convert kwargs to CLI arguments.
+
+        Rules:
+        - snake_case → --kebab-case
+        - bool True → --flag
+        - bool False → omitted
+        - Enum → value.name.lower()
+        - list/tuple → repeated flags
+        """
+        args = []
+
+        for key, value in kwargs.items():
+            if value is None or value is False:
+                continue
+
+            flag = f"--{key.replace('_', '-')}"
+
+            if isinstance(value, bool):
+                args.append(flag)
+            elif hasattr(value, "name"):  # Enum
+                args.extend([flag, value.name.lower()])
+            elif isinstance(value, (list, tuple)):
+                for item in value:
+                    args.extend([flag, str(item)])
+            else:
+                args.extend([flag, str(value)])
+
+        return args
+
+    async def profile(
+        self,
+        *,
+        timeout: float = 60.0,
+        min_requests: int | None = None,
+        **kwargs,
+    ) -> BenchmarkResult:
+        """Run aiperf profile with kwargs converted to CLI args.
+
+        Special kwargs (not converted to CLI args):
+        - timeout: Subprocess timeout
+        - min_requests: Minimum expected requests for validation
+
+        All other kwargs become --flag-name arguments.
+
+        Example:
+            result = await cli.profile(
+                model="gpt-4",
+                url="http://localhost:8000",
+                endpoint_type=EndpointType.CHAT,
+                streaming=True,
+                request_count=10,
+                image_width_mean=64,
+                image_height_mean=64,
+            )
+        """
+        args = ["profile", *self._kwargs_to_args(**kwargs)]
+
+        output = await run_and_validate_benchmark(
+            self._runner,
+            self._validator,
+            args,
+            timeout=timeout,
+            min_requests=min_requests,
+        )
+
+        return BenchmarkResult(output.actual_dir)
+
+    async def run(
+        self,
+        *args: str,
+        timeout: float = 60.0,
+        min_requests: int | None = None,
+    ) -> BenchmarkResult:
+        """Run aiperf with raw CLI arguments.
+
+        Args:
+            *args: Raw CLI arguments
+            timeout: Subprocess timeout
+            min_requests: Minimum expected requests
+
+        Example:
+            result = await cli.run(
+                "profile",
+                "--model", "gpt-4",
+                "--endpoint-type", "chat",
+                "--streaming",
+            )
+        """
+        output = await run_and_validate_benchmark(
+            self._runner,
+            self._validator,
+            list(args),
+            timeout=timeout,
+            min_requests=min_requests,
+        )
+
+        return BenchmarkResult(output.actual_dir)
+
+
 __all__ = [
     "BenchmarkRunner",
+    "AIPerfCLI",
     "assert_streaming_metrics",
     "assert_non_streaming_metrics",
     "assert_basic_metrics",
