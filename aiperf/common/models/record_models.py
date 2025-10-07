@@ -66,6 +66,11 @@ class MetricValue(AIPerfBaseModel):
 class MetricRecordMetadata(AIPerfBaseModel):
     """The metadata of a metric record for export."""
 
+    session_num: int = Field(
+        ...,
+        description="The sequential number of the session in the benchmark. For single-turn datasets, this will be the"
+        " request index. For multi-turn datasets, this will be the session index.",
+    )
     x_request_id: str | None = Field(
         default=None,
         description="The X-Request-ID header of the request. This is a unique ID for the request.",
@@ -91,10 +96,10 @@ class MetricRecordMetadata(AIPerfBaseModel):
         description="The wall clock timestamp of the request acknowledgement from the server, measured as time.time_ns(), if applicable. "
         "This is only applicable to streaming requests, and servers that send 200 OK back immediately after the request is received.",
     )
-    request_end_ns: int = Field(
-        ...,
+    request_end_ns: int | None = Field(
+        default=None,
         description="The wall clock timestamp of the request end time measured as time.time_ns(). If the request failed, "
-        "this will be the time of the error.",
+        "this will be the time of the error. May be None if the request did not complete.",
     )
     worker_id: str = Field(
         ..., description="The ID of the AIPerf worker that processed the request."
@@ -107,10 +112,14 @@ class MetricRecordMetadata(AIPerfBaseModel):
         ...,
         description="The benchmark phase of the record, either warmup or profiling.",
     )
-    session_num: int = Field(
-        ...,
-        description="The sequential number of the session in the benchmark. For single-turn datasets, this will be the"
-        " request index. For multi-turn datasets, this will be the session index.",
+    was_cancelled: bool = Field(
+        default=False,
+        description="Whether the request was cancelled during execution.",
+    )
+    cancellation_time_ns: int | None = Field(
+        default=None,
+        description="The wall clock timestamp of the request cancellation time measured as time.time_ns(), if applicable. "
+        "This is only applicable to requests that were cancelled.",
     )
 
 
@@ -251,8 +260,8 @@ class RequestRecord(AIPerfBaseModel):
         default=None,
         description="The turn of the request, if applicable.",
     )
-    credit_num: int = Field(
-        ...,
+    credit_num: int | None = Field(
+        default=None,
         ge=0,
         description="The sequential number of the credit in the credit phase. This is used to track the progress of the credit phase,"
         " as well as the order that requests are sent in.",

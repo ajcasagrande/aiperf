@@ -31,6 +31,7 @@ from aiperf.common.protocols import (
     RequestClientProtocol,
 )
 from aiperf.common.tokenizer import Tokenizer
+from aiperf.common.utils import compute_time_ns
 from aiperf.metrics.metric_dicts import MetricRecordDict
 from aiperf.parsers.inference_result_parser import InferenceResultParser
 
@@ -114,6 +115,41 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
                 )
             return self.tokenizers[model]
 
+    def _create_metric_record_metadata(
+        self, record: ParsedResponseRecord, worker_id: str
+    ) -> MetricRecordMetadata:
+        """Create a metric record metadata based on a parsed response record."""
+
+        start_time_ns = record.timestamp_ns
+        start_perf_ns = record.start_perf_ns
+
+        # Convert all timestamps from perf_ns to time_ns for the user
+        request_end_ns = compute_time_ns(
+            start_time_ns, start_perf_ns, record.responses[-1].perf_ns
+        )
+        request_ack_ns = compute_time_ns(
+            start_time_ns, start_perf_ns, record.recv_start_perf_ns
+        )
+        cancellation_time_ns = compute_time_ns(
+            start_time_ns, start_perf_ns, record.cancellation_perf_ns
+        )
+
+        return MetricRecordMetadata(
+            request_start_ns=start_time_ns,
+            request_ack_ns=request_ack_ns,
+            request_end_ns=request_end_ns,
+            conversation_id=record.conversation_id,
+            turn_index=record.turn_index,
+            record_processor_id=self.service_id,
+            benchmark_phase=record.credit_phase,
+            x_request_id=record.x_request_id,
+            x_correlation_id=record.x_correlation_id,
+            session_num=record.credit_num,
+            worker_id=worker_id,
+            was_cancelled=record.was_cancelled,
+            cancellation_time_ns=cancellation_time_ns,
+        )
+
     @on_pull_message(MessageType.INFERENCE_RESULTS)
     async def _on_inference_results(self, message: InferenceResultsMessage) -> None:
         """Handle an inference results message."""
@@ -128,38 +164,11 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             else:
                 results.append(result)
 
-        start_time_ns = message.record.timestamp_ns
-        start_perf_ns = message.record.start_perf_ns
-
-        # Convert from perf_ns to time_ns (wall-clock time) by computing the duration
-        # in perf_ns and adding it to the start_time_ns
-        request_end_ns = start_time_ns + (
-            message.record.responses[-1].perf_ns - start_perf_ns
-        )
-
-        # If streaming, compute the request acknowledgement time as the recv_start_perf_ns
-        # converted to time_ns by computing the duration in perf_ns and adding it to the start_time_ns
-        request_ack_ns = None
-        if self.user_config.endpoint.streaming:
-            request_ack_ns = start_time_ns + (
-                message.record.recv_start_perf_ns - start_perf_ns
-            )
-
         await self.records_push_client.push(
             MetricRecordsMessage(
                 service_id=self.service_id,
-                metadata=MetricRecordMetadata(
-                    request_start_ns=start_time_ns,
-                    request_ack_ns=request_ack_ns,
-                    request_end_ns=request_end_ns,
-                    conversation_id=message.record.conversation_id,
-                    turn_index=message.record.turn_index,
-                    record_processor_id=self.service_id,
-                    benchmark_phase=message.record.credit_phase,
-                    x_request_id=message.record.x_request_id,
-                    x_correlation_id=message.record.x_correlation_id,
-                    session_num=message.record.session_num,
-                    worker_id=message.service_id,
+                metadata=self._create_metric_record_metadata(
+                    message.record, message.service_id
                 ),
                 results=results,
                 error=message.record.error,

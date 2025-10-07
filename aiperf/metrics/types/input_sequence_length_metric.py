@@ -22,7 +22,11 @@ class InputSequenceLengthMetric(BaseRecordMetric[int]):
     short_header = "ISL"
     unit = GenericMetricUnit.TOKENS
     display_order = 700
-    flags = MetricFlags.PRODUCES_TOKENS_ONLY | MetricFlags.LARGER_IS_BETTER
+    flags = (
+        MetricFlags.PRODUCES_TOKENS_ONLY
+        | MetricFlags.LARGER_IS_BETTER
+        | MetricFlags.ALWAYS_COMPUTE
+    )
     required_metrics = None
 
     def _parse_record(
@@ -60,4 +64,5 @@ class TotalInputSequenceLengthMetric(DerivedSumMetric[int, InputSequenceLengthMe
         MetricFlags.PRODUCES_TOKENS_ONLY
         | MetricFlags.LARGER_IS_BETTER
         | MetricFlags.NO_CONSOLE
+        | MetricFlags.ALWAYS_COMPUTE
     )

@@ -130,8 +130,8 @@ class BaseMetric(Generic[MetricValueTypeVarT], ABC):
 
     def _require_valid_record(self, record: ParsedResponseRecord) -> None:
         """Check that the record is valid."""
-        if (not record or not record.valid) and not self.has_flags(
-            MetricFlags.ERROR_ONLY
+        if (not record or not record.valid) and not self.has_any_flags(
+            MetricFlags.ERROR_ONLY | MetricFlags.ALWAYS_COMPUTE
         ):
             raise NoMetricValue("Invalid Record")
 
