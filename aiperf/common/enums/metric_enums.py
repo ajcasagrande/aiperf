@@ -431,9 +431,6 @@ class MetricFlags(Flag):
     GOODPUT = 1 << 10
     """Metrics that are only applicable when goodput feature is enabled"""
 
-    ALWAYS_COMPUTE = 1 << 11
-    """Metrics that are always computed, regardless of the record being valid or invalid."""
-
     def has_flags(self, flags: "MetricFlags") -> bool:
         """Return True if the metric has ALL of the given flag(s) (regardless of other flags)."""
         # Bitwise AND will return the input flags only if all of the given flags are present.

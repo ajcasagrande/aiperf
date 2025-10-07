@@ -114,7 +114,7 @@ The JSONL output contains one record per line, for each request sent during the 
 **Metadata Fields:**
 - `session_num`: Sequential request number across the entire benchmark (0-indexed).
   - For single-turn conversations, this will be the request index across all requests in the benchmark.
-  - For multi-turn conversations, this will be the index of the user's session across all sessions in the benchmark.
+  - For multi-turn conversations, this will be the index of the user session across all sessions in the benchmark.
 - `x_request_id`: Unique identifier for this specific request. This is sent to the endpoint as the X-Request-ID header.
 - `x_correlation_id`: Unique identifier for the user session. This is the same for all requests in the same user session for multi-turn conversations. This is sent to the endpoint as the X-Correlation-ID header.
 - `conversation_id`: ID of the input dataset conversation. This can be used to correlate inputs with results.
@@ -122,9 +122,9 @@ The JSONL output contains one record per line, for each request sent during the 
 - `request_start_ns`: Epoch time in nanoseconds when request was initiated by AIPerf.
 - `request_ack_ns`: Epoch time in nanoseconds when server acknowledged the request. This is only applicable to streaming requests.
 - `request_end_ns`: Epoch time in nanoseconds when the last response was received from the endpoint.
-- `worker_id`: ID of the AIPerf worker that processed the request.
-- `record_processor_id`: ID of the AIPerf record processor that processed the request/response.
-- `benchmark_phase`: Phase of the benchmark (warmup or profiling) for the request. Will always be `profiling` for the first request in a session.
+- `worker_id`: ID of the AIPerf worker that executed the request against the endpoint.
+- `record_processor_id`: ID of the AIPerf record processor that processed the results from the server.
+- `benchmark_phase`: Phase of the benchmark. Currently only `profiling` is supported.
 - `was_cancelled`: Whether the request was cancelled during execution (such as when `--request-cancellation-rate` is enabled).
 - `cancellation_time_ns`: Epoch time in nanoseconds when the request was cancelled (if applicable).
 

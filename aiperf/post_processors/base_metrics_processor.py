@@ -72,9 +72,9 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
 
         Be sure to compute the metrics sequentially versus in parallel, as some metrics may depend on the results of previous metrics.
         """
-        required_any_flags, disallowed_flags = self.get_filters()
+        required_flags, disallowed_flags = self.get_filters()
         if error_metrics_only:
-            required_any_flags |= MetricFlags.ERROR_ONLY | MetricFlags.ALWAYS_COMPUTE
+            required_flags |= MetricFlags.ERROR_ONLY
         elif exclude_error_metrics:
             disallowed_flags |= MetricFlags.ERROR_ONLY
 
@@ -83,7 +83,7 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
 
         metrics: list[BaseMetric] = []
         applicable_tags = MetricRegistry.tags_applicable_to(
-            required_any_flags,
+            required_flags,
             disallowed_flags,
             *metric_types,
         )
