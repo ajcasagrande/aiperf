@@ -128,17 +128,37 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
             else:
                 results.append(result)
 
+        start_time_ns = message.record.timestamp_ns
+        start_perf_ns = message.record.start_perf_ns
+
+        # Convert from perf_ns to time_ns (wall-clock time) by computing the duration
+        # in perf_ns and adding it to the start_time_ns
+        request_end_ns = start_time_ns + (
+            message.record.responses[-1].perf_ns - start_perf_ns
+        )
+
+        # If streaming, compute the request acknowledgement time as the recv_start_perf_ns
+        # converted to time_ns by computing the duration in perf_ns and adding it to the start_time_ns
+        request_ack_ns = None
+        if self.user_config.endpoint.streaming:
+            request_ack_ns = start_time_ns + (
+                message.record.recv_start_perf_ns - start_perf_ns
+            )
+
         await self.records_push_client.push(
             MetricRecordsMessage(
                 service_id=self.service_id,
                 metadata=MetricRecordMetadata(
-                    timestamp_ns=message.record.timestamp_ns,
+                    request_start_ns=start_time_ns,
+                    request_ack_ns=request_ack_ns,
+                    request_end_ns=request_end_ns,
                     conversation_id=message.record.conversation_id,
                     turn_index=message.record.turn_index,
                     record_processor_id=self.service_id,
+                    benchmark_phase=message.record.credit_phase,
                     x_request_id=message.record.x_request_id,
                     x_correlation_id=message.record.x_correlation_id,
-                    credit_phase=message.record.credit_phase,
+                    session_num=message.record.session_num,
                     worker_id=message.service_id,
                 ),
                 results=results,
