@@ -88,9 +88,6 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
             *metric_types,
         )
         self._configure_goodput(applicable_tags)
-        self.warning(
-            f"Applicable tags for {metric_types} {error_metrics_only} {exclude_error_metrics}: {applicable_tags}"
-        )
 
         ordered_tags = MetricRegistry.create_dependency_order_for(
             applicable_tags,
