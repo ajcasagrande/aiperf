@@ -128,7 +128,7 @@ class TestBaseMetricsProcessor:
             (
                 True,
                 False,
-                MetricFlags.ERROR_ONLY,
+                MetricFlags.ERROR_ONLY | MetricFlags.ALWAYS_COMPUTE,
                 MetricFlags.SUPPORTS_AUDIO_ONLY
                 | MetricFlags.SUPPORTS_IMAGE_ONLY
                 | MetricFlags.STREAMING_ONLY
@@ -149,7 +149,7 @@ class TestBaseMetricsProcessor:
             (
                 True,
                 True,
-                MetricFlags.ERROR_ONLY,
+                MetricFlags.ERROR_ONLY | MetricFlags.ALWAYS_COMPUTE,
                 MetricFlags.SUPPORTS_AUDIO_ONLY
                 | MetricFlags.SUPPORTS_IMAGE_ONLY
                 | MetricFlags.STREAMING_ONLY

@@ -125,7 +125,9 @@ class RecordProcessor(PullClientMixin, BaseComponentService):
 
         # Convert all timestamps from perf_ns to time_ns for the user
         request_end_ns = compute_time_ns(
-            start_time_ns, start_perf_ns, record.responses[-1].perf_ns
+            start_time_ns,
+            start_perf_ns,
+            record.responses[-1].perf_ns if record.responses else record.end_perf_ns,
         )
         request_ack_ns = compute_time_ns(
             start_time_ns, start_perf_ns, record.recv_start_perf_ns

@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Working with Profile Exports
+# Working with Profile Export Files
 
 This guide demonstrates how to programmatically work with AIPerf benchmark output files using the native Pydantic data models.
 
@@ -11,78 +11,10 @@ This guide demonstrates how to programmatically work with AIPerf benchmark outpu
 
 AIPerf generates multiple output formats after each benchmark run, each optimized for different analysis workflows:
 
-- **`profile_export.jsonl`** - Per-request metric records in JSON Lines format
-- **`profile_export_aiperf.json`** - Aggregated statistics as a single JSON object
-- **`profile_export_aiperf.csv`** - Aggregated statistics in CSV format
-- **`inputs.json`** - Complete input dataset with formatted payloads for each request
-
-All output files are type-safe and can be parsed using AIPerf's built-in Pydantic models, enabling robust data analysis pipelines.
-
-## Output File Formats
-
-### Per-Request Records (JSONL)
-
-**File:** `profile_export.jsonl`
-
-The JSONL output contains one record per line, providing complete detail for each request sent during the benchmark. Each record includes request metadata, computed metrics, and error information if the request failed.
-
-**Structure:**
-```json
-{
-  "metadata": { ... },
-  "metrics": { ... },
-  "error": null | { ... }
-}
-```
-
-### Aggregated Statistics (JSON)
-
-**File:** `profile_export_aiperf.json`
-
-A single JSON object containing statistical summaries (min, max, mean, percentiles) for all metrics across the entire benchmark run.
-
-### Aggregated Statistics (CSV)
-
-**File:** `profile_export_aiperf.csv`
-
-Contains the same aggregated statistics as the JSON format, but in a spreadsheet-friendly structure with one metric per row.
-
-### Input Dataset (JSON)
-
-**File:** `inputs.json`
-
-A structured representation of all input data sent to the model during the benchmark run. This file contains the complete formatted payloads that were used for each request, organized by conversation sessions.
-
-**Structure:**
-```json
-{
-  "data": [
-    {
-      "session_id": "a5cdb1fe-19a3-4ed0-9e54-ed5ed6dc5578",
-      "payloads": [
-        {
-          "messages": [
-            {
-              "role": "user",
-              "name": "text",
-              "content": "Your prompt text here..."
-            }
-          ],
-          "model": "openai/gpt-oss-20b",
-          "stream": true
-        }
-      ]
-    }
-  ]
-}
-```
-
-**Key fields:**
-- `session_id`: Unique identifier for the conversation session
-- `payloads`: Array of formatted request payloads (one per turn in multi-turn conversations)
-- `messages`: Chat messages with role and content (for chat endpoints)
-- `model`: Model name used for the benchmark
-- `stream`: Whether streaming was enabled
+- [**`inputs.json`**](#input-dataset-json) - Complete input dataset with formatted payloads for each request
+- [**`profile_export.jsonl`**](#per-request-records-jsonl) - Per-request metric records in JSON Lines format with one record per line
+- [**`profile_export_aiperf.json`**](#aggregated-statistics-json) - Aggregated statistics and user configuration as a single JSON object
+- [**`profile_export_aiperf.csv`**](#aggregated-statistics-csv) - Aggregated statistics in CSV format
 
 ## Data Models
 
@@ -101,51 +33,48 @@ from aiperf.common.models import (
 )
 ```
 
-<table style="width:100%; border-collapse: collapse;">
-  <thead>
-    <tr>
-      <th style="width:25%; text-align: left;">Model</th>
-      <th style="width:50%; text-align: left;">Description</th>
-      <th style="width:25%; text-align: left;">Source</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>MetricRecordInfo</code></td>
-      <td>Complete per-request record including metadata, metrics, and error information</td>
-      <td><a href="../aiperf/common/models/record_models.py#L97">record_models.py:97</a></td>
-    </tr>
-    <tr>
-      <td><code>MetricRecordMetadata</code></td>
-      <td>Request metadata: timestamps, IDs, worker identifiers, and phase information</td>
-      <td><a href="../aiperf/common/models/record_models.py#L66">record_models.py:66</a></td>
-    </tr>
-    <tr>
-      <td><code>MetricValue</code></td>
-      <td>Individual metric value with associated unit of measurement</td>
-      <td><a href="../aiperf/common/models/record_models.py#L59">record_models.py:59</a></td>
-    </tr>
-    <tr>
-      <td><code>ErrorDetails</code></td>
-      <td>Error information including HTTP code, error type, and descriptive message</td>
-      <td><a href="../aiperf/common/models/error_models.py#L11">error_models.py:11</a></td>
-    </tr>
-    <tr>
-      <td><code>InputsFile</code></td>
-      <td>Container for all input dataset sessions with formatted payloads for each turn</td>
-      <td><a href="../aiperf/common/models/dataset_models.py#L98">dataset_models.py:98</a></td>
-    </tr>
-    <tr>
-      <td><code>SessionPayloads</code></td>
-      <td>Single conversation session with session ID and list of formatted request payloads</td>
-      <td><a href="../aiperf/common/models/dataset_models.py#L86">dataset_models.py:86</a></td>
-    </tr>
-  </tbody>
-</table>
+| Model | Description | Source |
+|-------|-------------|--------|
+| `MetricRecordInfo` | Complete per-request record including metadata, metrics, and error information | [record_models.py](../../aiperf/common/models/record_models.py) |
+| `MetricRecordMetadata` | Request metadata: timestamps, IDs, worker identifiers, and phase information | [record_models.py](../../aiperf/common/models/record_models.py) |
+| `MetricValue` | Individual metric value with associated unit of measurement | [record_models.py](../../aiperf/common/models/record_models.py) |
+| `ErrorDetails` | Error information including HTTP code, error type, and descriptive message | [error_models.py](../../aiperf/common/models/error_models.py) |
+| `InputsFile` | Container for all input dataset sessions with formatted payloads for each turn | [dataset_models.py](../../aiperf/common/models/dataset_models.py) |
+| `SessionPayloads` | Single conversation session with session ID and list of formatted request payloads | [dataset_models.py](../../aiperf/common/models/dataset_models.py) |
 
-## Record Structure Examples
+## Output File Formats
 
-### Successful Request Record
+### Input Dataset (JSON)
+
+**File:** `artifacts/my-run/inputs.json`
+
+A structured representation of all input datasets converted to the payload format used by the endpoint.
+
+**Structure:**
+```json
+{
+  "data": [
+    {
+      "session_id": "a5cdb1fe-19a3-4ed0-9e54-ed5ed6dc5578",
+      "payloads": [
+        { ... }  // formatted payload based on the endpoint type.
+      ]
+    }
+  ]
+}
+```
+
+**Key fields:**
+- `session_id`: Unique identifier for the conversation. This can be used to correlate inputs with results.
+- `payloads`: Array of formatted request payloads (one per turn in multi-turn conversations)
+
+### Per-Request Records (JSONL)
+
+**File:** `artifacts/my-run/profile_export.jsonl`
+
+The JSONL output contains one record per line, for each request sent during the benchmark. Each record includes request metadata, computed metrics, and error information if the request failed.
+
+#### Successful Request Record
 
 ```json
 {
@@ -160,7 +89,9 @@ from aiperf.common.models import (
     "request_end_ns": 1759813207838764604,
     "worker_id": "worker_359d423a",
     "record_processor_id": "record_processor_1fa47cd7",
-    "benchmark_phase": "profiling"
+    "benchmark_phase": "profiling",
+    "was_cancelled": false,
+    "cancellation_time_ns": null
   },
   "metrics": {
     "input_sequence_length": {"value": 550, "unit": "tokens"},
@@ -180,23 +111,27 @@ from aiperf.common.models import (
 }
 ```
 
-**Key Metadata Fields:**
-- `x_request_id`: Unique identifier for this specific request
-- `conversation_id`: Groups requests belonging to the same conversation
-- `turn_index`: Position within a multi-turn conversation (0-indexed)
-- `request_start_ns`: Timestamp when request was initiated (nanoseconds)
-- `request_ack_ns`: Timestamp when server acknowledged the request
-- `request_end_ns`: Timestamp when response completed
-- `session_num`: Sequential request number across the entire benchmark
+**Metadata Fields:**
+- `session_num`: Sequential request number across the entire benchmark (0-indexed).
+  - For single-turn conversations, this will be the request index across all requests in the benchmark.
+  - For multi-turn conversations, this will be the index of the user's session across all sessions in the benchmark.
+- `x_request_id`: Unique identifier for this specific request. This is sent to the endpoint as the X-Request-ID header.
+- `x_correlation_id`: Unique identifier for the user session. This is the same for all requests in the same user session for multi-turn conversations. This is sent to the endpoint as the X-Correlation-ID header.
+- `conversation_id`: ID of the input dataset conversation. This can be used to correlate inputs with results.
+- `turn_index`: Position within a multi-turn conversation (0-indexed), or 0 for single-turn conversations.
+- `request_start_ns`: Epoch time in nanoseconds when request was initiated by AIPerf.
+- `request_ack_ns`: Epoch time in nanoseconds when server acknowledged the request. This is only applicable to streaming requests.
+- `request_end_ns`: Epoch time in nanoseconds when the last response was received from the endpoint.
+- `worker_id`: ID of the AIPerf worker that processed the request.
+- `record_processor_id`: ID of the AIPerf record processor that processed the request/response.
+- `benchmark_phase`: Phase of the benchmark (warmup or profiling) for the request. Will always be `profiling` for the first request in a session.
+- `was_cancelled`: Whether the request was cancelled during execution (such as when `--request-cancellation-rate` is enabled).
+- `cancellation_time_ns`: Epoch time in nanoseconds when the request was cancelled (if applicable).
 
-**Common Metrics:**
-- `ttft` (Time to First Token): Latency until first response token
-- `ttst` (Time to Second Token): Latency between first and second tokens
-- `inter_token_latency`: Average time between consecutive tokens
-- `request_latency`: Total end-to-end request latency
-- `output_token_throughput_per_user`: Tokens generated per second per concurrent user
+**Metrics:**
+See the [Complete Metrics Reference](../metrics_reference.md) page for a list of all metrics and their descriptions. Will always be null for failed requests.
 
-### Failed Request Record
+#### Failed Request Record
 
 ```json
 {
@@ -208,10 +143,12 @@ from aiperf.common.models import (
     "turn_index": 0,
     "request_start_ns": 1759813207531990596,
     "request_ack_ns": null,
-    "request_end_ns": 4440670232134296,
+    "request_end_ns": null,
     "worker_id": "worker_8e556c42",
     "record_processor_id": "record_processor_2279e08e",
-    "benchmark_phase": "profiling"
+    "benchmark_phase": "profiling",
+    "was_cancelled": true,
+    "cancellation_time_ns": 1759813207650730976
   },
   "metrics": {
     "error_request_count": {"value": 1, "unit": "requests"}
@@ -226,22 +163,32 @@ from aiperf.common.models import (
 
 **Error Fields:**
 - `code`: HTTP status code or custom error code
-- `type`: Classification of the error (e.g., timeout, cancellation, server error)
+- `type`: Classification of the error (e.g., timeout, cancellation, server error). Typically the python exception class name.
 - `message`: Human-readable error description
+
+
+### Aggregated Statistics (JSON)
+
+**File:** `artifacts/my-run/profile_export_aiperf.json`
+
+A single JSON object containing statistical summaries (min, max, mean, percentiles) for all metrics across the entire benchmark run, as well as the user configuration used for the benchmark.
+
+### Aggregated Statistics (CSV)
+
+**File:** `artifacts/my-run/profile_export_aiperf.csv`
+
+Contains the same aggregated statistics as the JSON format, but in a spreadsheet-friendly structure with one metric per row.
 
 ## Working with Output Data
 
 AIPerf output files can be parsed using the native Pydantic models for type-safe data handling and analysis.
 
 ### Synchronous Loading
-
-For standard workflows and smaller datasets, use synchronous file I/O:
-
 ```python
 from aiperf.common.models import MetricRecordInfo
 
 def load_records(file_path: Path) -> list[MetricRecordInfo]:
-    """Load profile_export.jsonl file into structured Pydantic models in sync mode."""
+    """Load artifacts/my-run/profile_export.jsonl file into structured Pydantic models in sync mode."""
     records = []
     with open(file_path, encoding="utf-8") as f:
         for line in f:
@@ -260,7 +207,7 @@ import aiofiles
 from aiperf.common.models import MetricRecordInfo
 
 async def process_streaming_records_async(file_path: Path) -> None:
-    """Load profile_export.jsonl file into structured Pydantic models in async mode and process the streaming records."""
+    """Load artifacts/my-run/profile_export.jsonl file into structured Pydantic models in async mode and process the streaming records."""
     async with aiofiles.open(file_path, encoding="utf-8") as f:
         async for line in f:
             if line.strip():
@@ -306,7 +253,7 @@ for session in inputs.data:
 
 ### Correlating Inputs with Results
 
-Combine `inputs.json` with `profile_export.jsonl` for deeper analysis:
+Combine `artifacts/my-run/inputs.json` with `artifacts/my-run/profile_export.jsonl` for deeper analysis:
 
 ```python
 from pathlib import Path
@@ -363,43 +310,5 @@ from aiperf.common.models import MetricRecordInfo, InputsFile
 
 # Recommended: Type-safe parsing with validation
 record = MetricRecordInfo.model_validate_json(line)
-inputs = InputsFile.model_validate(json.load(f))
-
-# Avoid: Raw JSON parsing without validation
-import json
-raw_data = json.loads(line)  # No type checking or validation
+inputs = InputsFile.model_validate_json(f.read())
 ```
-
-### Handling Missing Metrics
-
-Not all metrics are present in every record. Always check for existence:
-
-```python
-if 'ttft' in record.metrics:
-    ttft_value = record.metrics['ttft'].value
-else:
-    # Handle missing metric (e.g., failed request, non-streaming response)
-    ttft_value = None
-```
-
-### Error Analysis
-
-Separate successful and failed requests for accurate analysis:
-
-```python
-from collections import Counter
-
-successful_records = [r for r in records if r.error is None]
-failed_records = [r for r in records if r.error is not None]
-
-print(f"Success rate: {len(successful_records) / len(records) * 100:.2f}%")
-print(f"Failed requests by type:")
-for error_type, count in Counter(r.error.type for r in failed_records).items():
-    print(f"  {error_type}: {count}")
-```
-
-## Related Documentation
-
-- [Tutorial: Basic Profiling](tutorial.md) - Run your first benchmark and generate outputs
-- [Architecture: Record Processor](architecture.md#record-processor) - How metrics are computed and recorded
-- [CLI Options](cli_options.md) - Configure output file locations and formats
