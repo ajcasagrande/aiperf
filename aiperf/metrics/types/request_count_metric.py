@@ -22,5 +22,5 @@ class RequestCountMetric(BaseAggregateCounterMetric[int]):
     short_header_hide_unit = True
     unit = GenericMetricUnit.REQUESTS
     display_order = 1000
-    flags = MetricFlags.LARGER_IS_BETTER
+    flags = MetricFlags.LARGER_IS_BETTER | MetricFlags.NO_INDIVIDUAL_RECORDS
     required_metrics = None
