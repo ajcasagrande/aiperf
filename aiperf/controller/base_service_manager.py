@@ -118,3 +118,34 @@ class BaseServiceManager(AIPerfLifecycleMixin, ABC):
         timeout_seconds: float = DEFAULT_SERVICE_START_TIMEOUT,
     ) -> None:
         pass
+
+    def is_required_service(self, service_id: str) -> bool:
+        """Check if a service is required based on its service_id.
+
+        Args:
+            service_id: The ID of the service to check
+
+        Returns:
+            True if the service is required, False otherwise
+        """
+        service_info = self.service_id_map.get(service_id)
+        if not service_info:
+            return False
+        return service_info.service_type in self.required_services
+
+    def remove_service_from_maps(self, service_id: str) -> None:
+        """Remove a service from service_id_map and service_map.
+
+        Args:
+            service_id: The ID of the service to remove
+        """
+        service_info = self.service_id_map.pop(service_id, None)
+        if service_info and service_info.service_type in self.service_map:
+            # Remove from the service_map list
+            service_list = self.service_map[service_info.service_type]
+            self.service_map[service_info.service_type] = [
+                s for s in service_list if s.service_id != service_id
+            ]
+            # Clean up empty lists
+            if not self.service_map[service_info.service_type]:
+                del self.service_map[service_info.service_type]

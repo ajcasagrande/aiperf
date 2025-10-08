@@ -353,3 +353,381 @@ class TestMultiProcessServiceManager:
 
         mock_subprocess_process.wait.assert_called_once()
         mock_publish.assert_not_called()
+
+
+class TestWatchSubprocessLogicCleanup:
+    """Test the cleaned up _watch_subprocess logic."""
+
+    @pytest.fixture
+    def service_manager(
+        self, service_config, user_config
+    ) -> MultiProcessServiceManager:
+        """Create a MultiProcessServiceManager instance for testing."""
+        return MultiProcessServiceManager(
+            required_services={
+                ServiceType.DATASET_MANAGER: 1,
+                ServiceType.TIMING_MANAGER: 1,
+            },
+            service_config=service_config,
+            user_config=user_config,
+        )
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_unexpected_exit_with_zero_returncode(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess logs warning and publishes message when process exits unexpectedly with code 0."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_123",
+            service_type=ServiceType.DATASET_MANAGER,
+        )
+
+        mock_subprocess_process.wait = AsyncMock(return_value=0)
+        mock_subprocess_process.returncode = 0
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should log warning and publish ServiceFailedMessage
+        mock_publish.assert_called_once()
+        published_message = mock_publish.call_args[0][0]
+        assert published_message.service_id == "test_service_123"
+        assert "exited unexpectedly" in published_message.error.message
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_unexpected_exit_with_nonzero_returncode(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess logs error and publishes message when process exits unexpectedly with non-zero code."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_456",
+            service_type=ServiceType.TIMING_MANAGER,
+        )
+
+        mock_subprocess_process.wait = AsyncMock(return_value=1)
+        mock_subprocess_process.returncode = 1
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should log error and publish ServiceFailedMessage
+        mock_publish.assert_called_once()
+        published_message = mock_publish.call_args[0][0]
+        assert published_message.service_id == "test_service_456"
+        assert "exited unexpectedly with code: 1" in published_message.error.message
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_expected_exit_during_shutdown(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess only debug logs when process exits during shutdown."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_789",
+        )
+
+        mock_subprocess_process.wait = AsyncMock(return_value=0)
+        mock_subprocess_process.returncode = 0
+        service_manager.stop_requested = True
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should NOT publish message during shutdown
+        mock_publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_no_duplicate_logging(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test that _watch_subprocess doesn't duplicate log messages."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_no_dup",
+        )
+
+        mock_subprocess_process.wait = AsyncMock(return_value=0)
+        mock_subprocess_process.returncode = 0
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should only publish once
+        assert mock_publish.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_with_exception_during_wait(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess handles exceptions during wait."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_exception",
+        )
+
+        mock_subprocess_process.wait = AsyncMock(
+            side_effect=RuntimeError("Wait failed")
+        )
+        mock_subprocess_process.returncode = None
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should still try to publish message even if wait() raises
+        mock_publish.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_no_process(
+        self, service_manager, create_subprocess_info
+    ):
+        """Test _watch_subprocess handles case when process is None."""
+        info = create_subprocess_info(
+            process=None,
+            service_id="test_service_no_process",
+        )
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should not publish when process is None
+        mock_publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_extreme_return_codes(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess handles extreme return codes correctly."""
+        extreme_codes = [-1, 127, 255, -9, -15]
+
+        for return_code in extreme_codes:
+            info = create_subprocess_info(
+                process=mock_subprocess_process,
+                service_id=f"test_service_code_{return_code}",
+            )
+
+            mock_subprocess_process.wait = AsyncMock(return_value=return_code)
+            mock_subprocess_process.returncode = return_code
+            service_manager.stop_requested = False
+
+            with patch.object(
+                service_manager, "publish", new_callable=AsyncMock
+            ) as mock_publish:
+                await service_manager._watch_subprocess(info)
+
+            # Should publish for all non-zero return codes
+            mock_publish.assert_called_once()
+            published_message = mock_publish.call_args[0][0]
+            assert str(return_code) in published_message.error.message
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_shutdown_race_condition(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test _watch_subprocess handles race condition where stop is requested during wait."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_race_condition",
+        )
+
+        async def simulate_race_condition():
+            # Simulate stop being requested during wait
+            service_manager.stop_requested = True
+            return 0
+
+        mock_subprocess_process.wait = AsyncMock(side_effect=simulate_race_condition)
+        mock_subprocess_process.returncode = 0
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Should not publish if stop was requested by the time we check
+        mock_publish.assert_not_called()
+
+
+class TestRemoveServiceFromMaps:
+    """Test the remove_service_from_maps method."""
+
+    @pytest.fixture
+    def service_manager(
+        self, service_config, user_config
+    ) -> MultiProcessServiceManager:
+        """Create a MultiProcessServiceManager instance for testing."""
+        return MultiProcessServiceManager(
+            required_services={
+                ServiceType.DATASET_MANAGER: 1,
+                ServiceType.TIMING_MANAGER: 1,
+            },
+            service_config=service_config,
+            user_config=user_config,
+        )
+
+    def test_remove_service_from_maps_existing_service(self, service_manager):
+        """Test removing an existing service from maps."""
+        from aiperf.common.models.service_models import ServiceRunInfo
+
+        # Add service to maps
+        service_info = ServiceRunInfo(
+            service_type=ServiceType.DATASET_MANAGER,
+            service_id="dataset_manager_123",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+        service_manager.service_id_map["dataset_manager_123"] = service_info
+        service_manager.service_map[ServiceType.DATASET_MANAGER] = [service_info]
+
+        # Verify service exists
+        assert "dataset_manager_123" in service_manager.service_id_map
+        assert ServiceType.DATASET_MANAGER in service_manager.service_map
+
+        # Remove service
+        service_manager.remove_service_from_maps("dataset_manager_123")
+
+        # Verify service removed
+        assert "dataset_manager_123" not in service_manager.service_id_map
+        assert ServiceType.DATASET_MANAGER not in service_manager.service_map
+
+    def test_remove_service_from_maps_non_existent_service(self, service_manager):
+        """Test removing a non-existent service (should not crash)."""
+        # Should not crash
+        service_manager.remove_service_from_maps("non_existent_service")
+
+        # Maps should still be empty
+        assert len(service_manager.service_id_map) == 0
+        assert len(service_manager.service_map) == 0
+
+    def test_remove_service_from_maps_multiple_services_same_type(
+        self, service_manager
+    ):
+        """Test removing one service when multiple services of same type exist."""
+        from aiperf.common.models.service_models import ServiceRunInfo
+
+        # Add multiple timing managers
+        tm1 = ServiceRunInfo(
+            service_type=ServiceType.TIMING_MANAGER,
+            service_id="timing_manager_1",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+        tm2 = ServiceRunInfo(
+            service_type=ServiceType.TIMING_MANAGER,
+            service_id="timing_manager_2",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+
+        service_manager.service_id_map["timing_manager_1"] = tm1
+        service_manager.service_id_map["timing_manager_2"] = tm2
+        service_manager.service_map[ServiceType.TIMING_MANAGER] = [tm1, tm2]
+
+        # Remove one service
+        service_manager.remove_service_from_maps("timing_manager_1")
+
+        # Verify only timing_manager_1 removed
+        assert "timing_manager_1" not in service_manager.service_id_map
+        assert "timing_manager_2" in service_manager.service_id_map
+        assert ServiceType.TIMING_MANAGER in service_manager.service_map
+        assert len(service_manager.service_map[ServiceType.TIMING_MANAGER]) == 1
+        assert (
+            service_manager.service_map[ServiceType.TIMING_MANAGER][0].service_id
+            == "timing_manager_2"
+        )
+
+    def test_remove_service_from_maps_cleans_empty_type_list(self, service_manager):
+        """Test that empty service type lists are removed from service_map."""
+        from aiperf.common.models.service_models import ServiceRunInfo
+
+        # Add single service
+        service_info = ServiceRunInfo(
+            service_type=ServiceType.WORKER_MANAGER,
+            service_id="worker_manager_solo",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+        service_manager.service_id_map["worker_manager_solo"] = service_info
+        service_manager.service_map[ServiceType.WORKER_MANAGER] = [service_info]
+
+        # Remove service
+        service_manager.remove_service_from_maps("worker_manager_solo")
+
+        # Verify empty list was removed from service_map
+        assert ServiceType.WORKER_MANAGER not in service_manager.service_map
+
+    def test_remove_service_from_maps_mixed_types(self, service_manager):
+        """Test removing services of different types."""
+        from aiperf.common.models.service_models import ServiceRunInfo
+
+        # Add services of different types
+        dataset = ServiceRunInfo(
+            service_type=ServiceType.DATASET_MANAGER,
+            service_id="dataset_manager_1",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+        timing = ServiceRunInfo(
+            service_type=ServiceType.TIMING_MANAGER,
+            service_id="timing_manager_1",
+            registration_status=ServiceRegistrationStatus.REGISTERED,
+            required=True,
+        )
+
+        service_manager.service_id_map["dataset_manager_1"] = dataset
+        service_manager.service_id_map["timing_manager_1"] = timing
+        service_manager.service_map[ServiceType.DATASET_MANAGER] = [dataset]
+        service_manager.service_map[ServiceType.TIMING_MANAGER] = [timing]
+
+        # Remove dataset manager
+        service_manager.remove_service_from_maps("dataset_manager_1")
+
+        # Verify only dataset manager removed
+        assert "dataset_manager_1" not in service_manager.service_id_map
+        assert "timing_manager_1" in service_manager.service_id_map
+        assert ServiceType.DATASET_MANAGER not in service_manager.service_map
+        assert ServiceType.TIMING_MANAGER in service_manager.service_map
+
+    @pytest.mark.asyncio
+    async def test_watch_subprocess_removes_from_subprocess_map(
+        self, service_manager, create_subprocess_info, mock_subprocess_process
+    ):
+        """Test that _watch_subprocess removes service from subprocess_info_map on unexpected exit."""
+        info = create_subprocess_info(
+            process=mock_subprocess_process,
+            service_id="test_service_cleanup",
+            service_type=ServiceType.DATASET_MANAGER,
+        )
+
+        # Add to subprocess map
+        service_manager.subprocess_info_map["test_service_cleanup"] = info
+
+        mock_subprocess_process.wait = AsyncMock(return_value=1)
+        mock_subprocess_process.returncode = 1
+        service_manager.stop_requested = False
+
+        with patch.object(
+            service_manager, "publish", new_callable=AsyncMock
+        ) as mock_publish:
+            await service_manager._watch_subprocess(info)
+
+        # Verify service was removed from subprocess_info_map
+        assert "test_service_cleanup" not in service_manager.subprocess_info_map
+        mock_publish.assert_called_once()

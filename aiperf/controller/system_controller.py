@@ -43,6 +43,7 @@ from aiperf.common.messages import (
     ProfileStartCommand,
     RealtimeMetricsCommand,
     RegisterServiceCommand,
+    ServiceFailedMessage,
     ShutdownCommand,
     ShutdownWorkersCommand,
     SpawnWorkersCommand,
@@ -163,14 +164,19 @@ class SystemController(SignalHandlerMixin, BaseService):
         """
         self.debug("System Controller is bootstrapping services")
 
+        begin = time.perf_counter()
         # Start all required services
         async with self.try_operation_or_stop("Start Service Manager"):
             await self.service_manager.start()
 
+        begin = time.perf_counter()
         async with self.try_operation_or_stop("Register Services"):
             await self.service_manager.wait_for_all_services_registration(
                 stop_event=self._stop_requested_event,
             )
+        self.info(
+            f"Registered all services in {time.perf_counter() - begin:.2f} seconds"
+        )
 
         self.info("AIPerf System is CONFIGURING")
         await self._profile_configure_all_services()
@@ -342,6 +348,38 @@ class SystemController(SignalHandlerMixin, BaseService):
 
         self.debug(f"Updated state for {service_id} to {message.state}")
 
+    @on_message(MessageType.SERVICE_FAILED)
+    async def _process_service_failed_message(
+        self, message: ServiceFailedMessage
+    ) -> None:
+        """Process a service failed message. If the service is required,
+        trigger system shutdown. If not required, log and continue.
+
+        Args:
+            message: The service failed message to process
+        """
+        service_id = message.service_id
+        is_required = self.service_manager.is_required_service(service_id)
+
+        # Remove the failed service from tracking maps
+        self.service_manager.remove_service_from_maps(service_id)
+
+        if is_required:
+            self.error(f"Required service {service_id} failed: {message.error.message}")
+            self._exit_errors.append(
+                ExitErrorInfo(
+                    error_details=message.error,
+                    operation="Service Failure",
+                    service_id=service_id,
+                )
+            )
+            # Trigger shutdown since a required service failed
+            await asyncio.shield(self.stop())
+        else:
+            self.warning(
+                f"Non-required service {service_id} failed: {message.error.message}"
+            )
+
     @on_message(MessageType.COMMAND_RESPONSE)
     async def _process_command_response_message(self, message: CommandResponse) -> None:
         """Process a command response message."""
@@ -445,10 +483,19 @@ class SystemController(SignalHandlerMixin, BaseService):
     async def _stop_system_controller(self) -> None:
         """Stop the system controller and all running services."""
         # Broadcast a shutdown command to all services
-        await self.publish(ShutdownCommand(service_id=self.service_id))
+        self.warning("Sending shutdown command to all services")
+        begin = time.perf_counter()
+        self.service_manager._stop_requested_event.set()
+        await self.send_command_and_wait_for_all_responses(
+            ShutdownCommand(service_id=self.service_id),
+            list(self.service_manager.service_id_map.keys()),
+        )
+        self.warning(
+            f"Sent shutdown command to all services in {time.perf_counter() - begin:.2f} seconds"
+        )
 
         # TODO: HACK: Wait for 0.5 seconds to ensure the shutdown command is received
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
 
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()

@@ -220,7 +220,7 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
 
     async def _remove_subprocess_info(self, info: AsyncSubprocessRunInfo) -> None:
         async with self.subprocess_map_lock:
-            self.subprocess_info_map.pop(info.service_id)
+            self.subprocess_info_map.pop(info.service_id, None)
 
     async def shutdown_all_services(self) -> list[BaseException | None]:
         """Stop all required services as asyncio subprocesses."""
@@ -393,28 +393,34 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
             return
         try:
             await info.process.wait()
-            self.warning(
-                f"Service {info.service_id} subprocess stopped gracefully (pid: {info.process.pid}) (return code: {info.process.returncode})"
-            )
         except Exception as e:
             self.warning(f"Error watching subprocess {info.service_id}: {e}")
         finally:
             if not self.stop_requested:
+                # Service exited unexpectedly
+                if info.process.returncode == 0:
+                    self.warning(
+                        f"Service {info.service_id} exited unexpectedly (pid: {info.process.pid})"
+                    )
+                else:
+                    self.error(
+                        f"Service {info.service_id} exited with code {info.process.returncode} (pid: {info.process.pid})"
+                    )
                 await self.publish(
                     ServiceFailedMessage(
                         service_id=info.service_id,
                         error=ErrorDetails(
-                            message=f"Service {info.service_id} subprocess exited with code: {info.process.returncode}"
+                            message=f"Service {info.service_id} exited unexpectedly with code: {info.process.returncode}"
                         ),
                         target_service_type=ServiceType.SYSTEM_CONTROLLER,
                     )
                 )
-            self.warning(
-                f"Service {info.service_id} subprocess stopped (pid: {info.process.pid}) (return code: {info.process.returncode})"
-            )
-            if info.process.returncode:
-                self.warning(
-                    f"Service {info.service_id} subprocess exited with code: {info.process.returncode}"
+                # Remove from subprocess map since service has exited
+                await self._remove_subprocess_info(info)
+            else:
+                # Service exited during shutdown - just debug log
+                self.debug(
+                    f"Service {info.service_id} stopped (pid: {info.process.pid}, return code: {info.process.returncode})"
                 )
 
     async def _wait_for_subprocess(self, info: AsyncSubprocessRunInfo) -> None:
