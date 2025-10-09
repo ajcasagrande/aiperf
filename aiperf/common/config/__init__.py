@@ -76,6 +76,9 @@ from aiperf.common.config.image_config import (
 from aiperf.common.config.input_config import (
     InputConfig,
 )
+from aiperf.common.config.kubernetes_config import (
+    KubernetesConfig,
+)
 from aiperf.common.config.loader import (
     load_service_config,
     load_user_config,
@@ -140,6 +143,7 @@ __all__ = [
     "InputDefaults",
     "InputTokensConfig",
     "InputTokensDefaults",
+    "KubernetesConfig",
     "LoadGeneratorConfig",
     "LoadGeneratorDefaults",
     "OutputConfig",

@@ -136,10 +136,12 @@ def _run_system(
             system_controller.exception(f"Unhandled exception in system: {e}")
             return 1
 
-    with contextlib.suppress(asyncio.CancelledError):
+    try:
         if not service_config.developer.disable_uvloop:
             import uvloop
 
             return uvloop.run(_run())
         else:
             return asyncio.run(_run())
+    except asyncio.CancelledError:
+        return 130

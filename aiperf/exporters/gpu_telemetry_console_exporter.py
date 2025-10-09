@@ -5,6 +5,7 @@ from rich.console import Console, Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
+from aiperf.common.config.config_validators import NO_GPU_FLAG
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums.data_exporter_enums import ConsoleExporterType
 from aiperf.common.factories import ConsoleExporterFactory
@@ -46,7 +47,7 @@ class GPUTelemetryConsoleExporter(AIPerfLoggerMixin):
             console: Rich Console instance for formatted output
         """
 
-        if self._user_config.gpu_telemetry is None:
+        if self._user_config.gpu_telemetry == NO_GPU_FLAG:
             return
 
         if not self._telemetry_results:

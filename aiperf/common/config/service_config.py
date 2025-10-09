@@ -12,6 +12,7 @@ from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.dev_config import DeveloperConfig
 from aiperf.common.config.groups import Groups
+from aiperf.common.config.kubernetes_config import KubernetesConfig
 from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
@@ -38,7 +39,6 @@ class ServiceConfig(BaseSettings):
     )
 
     _CLI_GROUP = Groups.SERVICE
-    _comm_config: BaseZMQCommunicationConfig | None = None
 
     @model_validator(mode="after")
     def validate_log_level_from_verbose_flags(self) -> Self:
@@ -47,27 +47,6 @@ class ServiceConfig(BaseSettings):
             self.log_level = AIPerfLogLevel.TRACE
         elif self.verbose:
             self.log_level = AIPerfLogLevel.DEBUG
-        return self
-
-    @model_validator(mode="after")
-    def validate_comm_config(self) -> Self:
-        """Initialize the comm_config based on the zmq_tcp or zmq_ipc config."""
-        _logger.debug(
-            f"Validating comm_config: tcp: {self.zmq_tcp}, ipc: {self.zmq_ipc}"
-        )
-        if self.zmq_tcp is not None and self.zmq_ipc is not None:
-            raise ValueError(
-                "Cannot use both ZMQ TCP and ZMQ IPC configuration at the same time"
-            )
-        elif self.zmq_tcp is not None:
-            _logger.info("Using ZMQ TCP configuration")
-            self._comm_config = self.zmq_tcp
-        elif self.zmq_ipc is not None:
-            _logger.info("Using ZMQ IPC configuration")
-            self._comm_config = self.zmq_ipc
-        else:
-            _logger.info("Using default ZMQ IPC configuration")
-            self._comm_config = ZMQIPCConfig()
         return self
 
     service_run_type: Annotated[
@@ -159,13 +138,26 @@ class ServiceConfig(BaseSettings):
         ),
     ] = ServiceDefaults.UI_TYPE
 
+    kubernetes: KubernetesConfig = KubernetesConfig()
     developer: DeveloperConfig = DeveloperConfig()
 
     @property
     def comm_config(self) -> BaseZMQCommunicationConfig:
-        """Get the communication configuration."""
-        if not self._comm_config:
+        """Get the communication configuration dynamically.
+
+        This ensures that any runtime modifications to zmq_tcp or zmq_ipc
+        are reflected immediately, rather than being cached in _comm_config.
+        """
+        if self.zmq_tcp is not None and self.zmq_ipc is not None:
             raise ValueError(
-                "Communication configuration is not set. Please provide a valid configuration."
+                "Cannot use both ZMQ TCP and ZMQ IPC configuration at the same time"
             )
-        return self._comm_config
+        elif self.zmq_tcp is not None:
+            return self.zmq_tcp
+        elif self.zmq_ipc is not None:
+            return self.zmq_ipc
+        else:
+            # Create default IPC config on-demand
+            if not hasattr(self, '_default_ipc_config'):
+                self._default_ipc_config = ZMQIPCConfig()
+            return self._default_ipc_config

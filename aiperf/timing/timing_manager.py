@@ -60,12 +60,13 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
         user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
+        # TimingManager is the server for credit distribution - always binds
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
             pull_client_address=CommAddress.CREDIT_RETURN,
-            pull_client_bind=True,
+            pull_client_bind=True,  # Always bind - we're the server
         )
         self.debug("Timing manager __init__")
         self.config = TimingManagerConfig.from_user_config(self.user_config)
@@ -78,7 +79,7 @@ class TimingManager(PullClientMixin, BaseComponentService, CreditPhaseMessagesMi
         self.credit_drop_push_client: PushClientProtocol = (
             self.comms.create_push_client(
                 CommAddress.CREDIT_DROP,
-                bind=True,
+                bind=True,  # Always bind - we're the server
             )
         )
 

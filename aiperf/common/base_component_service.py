@@ -83,7 +83,7 @@ class BaseComponentService(BaseService):
             target_service_type=ServiceType.SYSTEM_CONTROLLER,
             state=self.state,
         )
-        for _ in range(DEFAULT_MAX_REGISTRATION_ATTEMPTS):
+        for attempt in range(DEFAULT_MAX_REGISTRATION_ATTEMPTS):
             result = await self.send_command_and_wait_for_response(
                 # NOTE: We keep the command id the same each time to ensure that the system controller
                 #       can ignore duplicate registration requests.
@@ -91,13 +91,18 @@ class BaseComponentService(BaseService):
                 timeout=DEFAULT_REGISTRATION_INTERVAL,
             )
             if isinstance(result, CommandResponse):
-                self.debug(
-                    lambda: f"Service {self.service_id} registered with system controller"
+                self.info(
+                    f"✓ Service {self.service_id} registered successfully with system controller"
                 )
                 break
+            else:
+                self.warning(
+                    f"Registration attempt {attempt + 1}/{DEFAULT_MAX_REGISTRATION_ATTEMPTS} failed for {self.service_id} - "
+                    f"Unable to connect to system controller. Retrying in {DEFAULT_REGISTRATION_INTERVAL}s..."
+                )
         if isinstance(result, ErrorDetails):
             self.error(
-                f"Failed to register service {self} ({self.service_id}): {result}"
+                f"Failed to register service {self} ({self.service_id}) after {DEFAULT_MAX_REGISTRATION_ATTEMPTS} attempts: {result}"
             )
             raise self._service_error(
                 f"Failed to register service {self} ({self.service_id}): {result}"

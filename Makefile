@@ -173,3 +173,70 @@ first-time-setup: #? convenience command to setup the environment for the first 
 
 	@# Print a success message
 	@printf "$(bold)$(green)Done!$(reset)\n"
+
+# ============================================================================
+# Kubernetes Deployment Targets
+# ============================================================================
+
+.PHONY: k8s-build k8s-load k8s-test k8s-deploy-vllm k8s-clean k8s-test-local
+
+# Build AIPerf container image for Kubernetes
+k8s-build:
+	@echo "Building AIPerf Kubernetes container image..."
+	docker build -t aiperf:latest -f Dockerfile.kubernetes .
+
+# Load image into minikube
+k8s-load: k8s-build
+	@echo "Loading image into minikube..."
+	minikube image load aiperf:latest
+
+# Deploy test vLLM server on Kubernetes
+k8s-deploy-vllm:
+	@echo "Deploying vLLM server for testing..."
+	kubectl apply -f tools/kubernetes/vllm-deployment.yaml
+	@echo "Waiting for vLLM to be ready..."
+	kubectl wait --for=condition=ready pod -l app=vllm --timeout=300s -n default || true
+	@echo "vLLM service available at: vllm-service.default.svc.cluster.local:8000"
+
+# Run end-to-end Kubernetes test
+k8s-test: k8s-load k8s-deploy-vllm
+	@echo "Running AIPerf on Kubernetes with vLLM..."
+	python -m aiperf profile --ui none \
+		--kubernetes \
+		--kubernetes-image aiperf:latest \
+		--kubernetes-image-pull-policy IfNotPresent \
+		--endpoint-type chat \
+		--streaming \
+		-u http://vllm-service.default.svc.cluster.local:8000 \
+		-m openai/gpt-oss-20b \
+		--benchmark-duration 60 \
+		--concurrency 10 \
+		--public-dataset sharegpt
+
+# Test with local vLLM (not in Kubernetes)
+k8s-test-local: k8s-load
+	@echo "Running AIPerf on Kubernetes with local vLLM..."
+	python -m aiperf profile --ui none \
+		--kubernetes \
+		--kubernetes-image aiperf:latest \
+		--kubernetes-image-pull-policy IfNotPresent \
+		--endpoint-type chat \
+		--streaming \
+		-u http://host.minikube.internal:9000 \
+		-m openai/gpt-oss-20b \
+		--benchmark-duration 300 \
+		--concurrency 100 \
+		--public-dataset sharegpt
+
+# Clean up Kubernetes resources
+k8s-clean:
+	@echo "Cleaning up Kubernetes resources..."
+	-kubectl delete deployment vllm-deployment 2>/dev/null || true
+	-kubectl delete service vllm-service 2>/dev/null || true
+	-kubectl delete namespace -l app=aiperf 2>/dev/null || true
+	@echo "Cleanup complete"
+
+# Quick start: Build, deploy vLLM, and run test
+k8s-quickstart: k8s-clean k8s-test
+	@echo "Kubernetes quick start complete!"
+

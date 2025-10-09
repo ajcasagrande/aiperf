@@ -27,7 +27,7 @@ DEFAULT_COMMS_REQUEST_TIMEOUT = 90.0
 DEFAULT_PULL_CLIENT_MAX_CONCURRENCY = 100_000
 """Default maximum concurrency for pull clients."""
 
-DEFAULT_SERVICE_REGISTRATION_TIMEOUT = 30.0
+DEFAULT_SERVICE_REGISTRATION_TIMEOUT = 180.0  # Increased for K8s (tokenizer download, dataset loading)
 """Default timeout for service registration in seconds."""
 
 DEFAULT_SERVICE_START_TIMEOUT = 30.0
@@ -42,16 +42,16 @@ DEFAULT_CONNECTION_PROBE_INTERVAL = 0.1
 DEFAULT_CONNECTION_PROBE_TIMEOUT = 30.0
 """Maximum amount of time to wait for connection probe response."""
 
-DEFAULT_PROFILE_CONFIGURE_TIMEOUT = 300.0
+DEFAULT_PROFILE_CONFIGURE_TIMEOUT = 600.0  # Increased for K8s (dataset download, tokenizer init)
 """Default timeout for profile configure command in seconds."""
 
 DEFAULT_PROFILE_START_TIMEOUT = 60.0
 """Default timeout for profile start command in seconds."""
 
-DEFAULT_MAX_REGISTRATION_ATTEMPTS = 10
+DEFAULT_MAX_REGISTRATION_ATTEMPTS = 60  # Increased for K8s initialization time
 """Default maximum number of registration attempts for component services before giving up."""
 
-DEFAULT_REGISTRATION_INTERVAL = 1.0
+DEFAULT_REGISTRATION_INTERVAL = 2.0  # Increased to reduce log spam
 """Default interval between registration attempts in seconds for component services."""
 
 DEFAULT_HEARTBEAT_INTERVAL = 5.0

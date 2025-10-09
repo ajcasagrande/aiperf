@@ -225,12 +225,18 @@ class SystemController(SignalHandlerMixin, BaseService):
         """Parse the responses for errors."""
         for response in responses:
             if isinstance(response, ErrorDetails):
+                error_info = f"{response.type or 'Unknown'}: {response.message}"
+                self.error(f"Error during {operation}: {error_info}")
                 self._exit_errors.append(
                     ExitErrorInfo(
                         error_details=response, operation=operation, service_id=None
                     )
                 )
             elif isinstance(response, CommandErrorResponse):
+                error_info = f"{response.error.type or 'Unknown'}: {response.error.message}"
+                self.error(
+                    f"Service {response.service_id} error during {operation}: {error_info}"
+                )
                 self._exit_errors.append(
                     ExitErrorInfo(
                         error_details=response.error,
@@ -239,6 +245,10 @@ class SystemController(SignalHandlerMixin, BaseService):
                     )
                 )
         if self._exit_errors:
+            self.error(f"Total errors during {operation}: {len(self._exit_errors)}")
+            for err in self._exit_errors:
+                error_type = err.error_details.type or "Unknown"
+                self.error(f"  - Service: {err.service_id or 'unknown'}, Error: {error_type}")
             raise LifecycleOperationError(
                 operation=operation,
                 original_exception=None,

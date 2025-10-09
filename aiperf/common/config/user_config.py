@@ -12,7 +12,12 @@ from typing_extensions import Self
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
-from aiperf.common.config.config_validators import coerce_value, parse_str_or_list
+from aiperf.common.config.config_validators import (
+    NO_GPU_FLAG,
+    coerce_value,
+    gpu_telemetry_converter,
+    parse_str_or_list,
+)
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.config.groups import Groups
 from aiperf.common.config.input_config import InputConfig
@@ -212,18 +217,16 @@ class UserConfig(BaseConfig):
     ] = None
 
     gpu_telemetry: Annotated[
-        list[str] | None,
+        list[str],
         Field(
-            default=None,
+            default_factory=list,
             description="Enable GPU telemetry console display and optionally specify custom DCGM exporter URLs (e.g., http://node1:9401/metrics http://node2:9401/metrics). Default localhost:9401 is always attempted",
         ),
-        BeforeValidator(parse_str_or_list),
         CLIParameter(
             name=("--gpu-telemetry",),
-            consume_multiple=True,
             group=Groups.TELEMETRY,
         ),
-    ]
+    ] = []
 
     @model_validator(mode="after")
     def _compute_config(self) -> Self:

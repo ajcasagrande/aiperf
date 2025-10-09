@@ -84,12 +84,13 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
+        # RecordsManager is the server for record collection - always binds
         super().__init__(
             service_config=service_config,
             user_config=user_config,
             service_id=service_id,
             pull_client_address=CommAddress.RECORDS,
-            pull_client_bind=True,
+            pull_client_bind=True,  # Always bind - we're the server
             pull_client_max_concurrency=DEFAULT_PULL_CLIENT_MAX_CONCURRENCY,
         )
 

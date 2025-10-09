@@ -16,6 +16,29 @@ from aiperf.common.utils import load_json_str
 This module provides utility functions for validating and parsing configuration inputs.
 """
 
+# Sentinel value to distinguish "flag not provided" from "flag provided with no args"
+# Using a string for serialization compatibility with multiprocessing
+NO_GPU_FLAG = "__NO_GPU_FLAG_SENTINEL__"
+
+
+def gpu_telemetry_converter(type_, tokens):
+    """Custom converter for gpu_telemetry to work around cyclopts bug.
+
+    Handles the case where --gpu-telemetry is provided without arguments.
+    Returns:
+        - Empty string "" if flag provided with no arguments (signal to display console output)
+        - Space-separated URLs if arguments provided
+        - Should never return NO_GPU_FLAG (only used as default when flag not provided)
+    """
+    # If no tokens provided (flag without args), return empty string to signal "flag provided"
+    if not tokens:
+        return ""
+
+    # Otherwise, extract the values from tokens
+    values = [t.value for t in tokens]
+    # Return space-separated string for multiple values, single string for one value
+    return " ".join(values)
+
 
 def parse_str_or_list(input: Any) -> list[Any]:
     """
@@ -30,8 +53,13 @@ def parse_str_or_list(input: Any) -> list[Any]:
     Raises:
         ValueError: If the input is neither a string nor a list.
     """
-    if isinstance(input, str):
-        output = [item.strip() for item in input.split(",")]
+    if input == NO_GPU_FLAG:
+        return input
+    elif input == "" or input is None:
+        # Empty string means flag provided with no args -> return None to signal "display"
+        return None
+    elif isinstance(input, str):
+        output = [item.strip() for item in input.split()]
     elif isinstance(input, list):
         # TODO: When using cyclopts, the values are already lists, so we have to split them by commas.
         output = []
