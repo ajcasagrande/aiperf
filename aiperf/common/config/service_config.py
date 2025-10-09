@@ -12,6 +12,7 @@ from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
 from aiperf.common.config.config_defaults import ServiceDefaults
 from aiperf.common.config.dev_config import DeveloperConfig
 from aiperf.common.config.groups import Groups
+from aiperf.common.config.kubernetes_config import KubernetesConfig
 from aiperf.common.config.worker_config import WorkersConfig
 from aiperf.common.config.zmq_config import (
     BaseZMQCommunicationConfig,
@@ -50,11 +51,39 @@ class ServiceConfig(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def validate_service_run_type(self) -> Self:
+        """Set service_run_type based on kubernetes flag."""
+        if self.kubernetes.enable_kubernetes:
+            self.service_run_type = ServiceRunType.KUBERNETES
+            _logger.info(
+                "Kubernetes mode enabled - setting service_run_type to KUBERNETES"
+            )
+        else:
+            self.service_run_type = ServiceRunType.MULTIPROCESSING
+        return self
+
+    @model_validator(mode="after")
     def validate_comm_config(self) -> Self:
-        """Initialize the comm_config based on the zmq_tcp or zmq_ipc config."""
+        """Initialize the comm_config based on the zmq_tcp or zmq_ipc config or kubernetes mode."""
         _logger.debug(
-            f"Validating comm_config: tcp: {self.zmq_tcp}, ipc: {self.zmq_ipc}"
+            f"Validating comm_config: tcp: {self.zmq_tcp}, ipc: {self.zmq_ipc}, k8s: {self.kubernetes.enable_kubernetes}"
         )
+
+        # Kubernetes mode requires TCP configuration
+        if self.kubernetes.enable_kubernetes:
+            if self.zmq_tcp is None:
+                _logger.info("Kubernetes mode: creating default ZMQ TCP configuration")
+                # For Kubernetes: System Controller runs as a pod and exposes ZMQ via Service
+                # All pods (including System Controller) use the Service DNS name
+                # System Controller binds to 0.0.0.0, others connect to the Service
+                # The Service DNS will be: aiperf-system-controller.<namespace>.svc.cluster.local
+                # But within the same namespace, we can use the short name
+                self.zmq_tcp = ZMQTCPConfig(host="aiperf-system-controller")
+            _logger.info("Kubernetes mode: using ZMQ TCP configuration")
+            self._comm_config = self.zmq_tcp
+            return self
+
+        # Non-Kubernetes mode validation (existing logic)
         if self.zmq_tcp is not None and self.zmq_ipc is not None:
             raise ValueError(
                 "Cannot use both ZMQ TCP and ZMQ IPC configuration at the same time"
@@ -91,6 +120,13 @@ class ServiceConfig(BaseSettings):
             description="ZMQ IPC configuration",
         ),
     ] = None
+
+    kubernetes: Annotated[
+        KubernetesConfig,
+        Field(
+            description="Kubernetes deployment configuration",
+        ),
+    ] = KubernetesConfig()
 
     workers: Annotated[
         WorkersConfig,

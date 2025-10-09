@@ -97,19 +97,39 @@ def setup_child_process_logging(
         queue_handler.setLevel(level)
         root_logger.addHandler(queue_handler)
     else:
-        # For all other cases, set up rich logging to the console
-        rich_handler = RichHandler(
-            rich_tracebacks=True,
-            show_path=True,
-            console=Console(),
-            show_time=True,
-            show_level=True,
-            tracebacks_show_locals=False,
-            log_time_format="%H:%M:%S.%f",
-            omit_repeated_times=False,
+        # Use basic logging for Kubernetes to avoid line wrapping issues
+        from aiperf.common.enums import ServiceRunType
+
+        use_basic_logging = (
+            service_config
+            and service_config.service_run_type == ServiceRunType.KUBERNETES
         )
-        rich_handler.setLevel(level)
-        root_logger.addHandler(rich_handler)
+
+        if use_basic_logging:
+            # Basic console handler for Kubernetes
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(level)
+            console_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s %(levelname)-8s %(name)s - %(message)s",
+                    datefmt="%H:%M:%S.%f",
+                )
+            )
+            root_logger.addHandler(console_handler)
+        else:
+            # Rich logging for local/multiprocess runs
+            rich_handler = RichHandler(
+                rich_tracebacks=True,
+                show_path=True,
+                console=Console(),
+                show_time=True,
+                show_level=True,
+                tracebacks_show_locals=False,
+                log_time_format="%H:%M:%S.%f",
+                omit_repeated_times=False,
+            )
+            rich_handler.setLevel(level)
+            root_logger.addHandler(rich_handler)
 
     if user_config and user_config.output.artifact_directory:
         file_handler = create_file_handler(
@@ -125,17 +145,35 @@ def setup_rich_logging(user_config: UserConfig, service_config: ServiceConfig) -
     level = service_config.log_level.upper()
     logging.root.setLevel(level)
 
-    rich_handler = RichHandler(
-        rich_tracebacks=True,
-        show_path=True,
-        console=Console(),
-        show_time=True,
-        show_level=True,
-        tracebacks_show_locals=False,
-        log_time_format="%H:%M:%S.%f",
-        omit_repeated_times=False,
-    )
-    logging.root.addHandler(rich_handler)
+    # Use basic logging for Kubernetes to avoid line wrapping issues
+    from aiperf.common.enums import ServiceRunType
+
+    use_basic_logging = service_config.service_run_type == ServiceRunType.KUBERNETES
+
+    if use_basic_logging:
+        # Basic console handler for Kubernetes
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)-8s %(name)s - %(message)s",
+                datefmt="%H:%M:%S.%f",
+            )
+        )
+        logging.root.addHandler(console_handler)
+    else:
+        # Rich logging for local/multiprocess runs
+        rich_handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=True,
+            console=Console(),
+            show_time=True,
+            show_level=True,
+            tracebacks_show_locals=False,
+            log_time_format="%H:%M:%S.%f",
+            omit_repeated_times=False,
+        )
+        logging.root.addHandler(rich_handler)
 
     # Enable file logging for services
     # TODO: Use config to determine if file logging is enabled and the folder path.

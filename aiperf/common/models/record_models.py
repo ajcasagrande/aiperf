@@ -14,6 +14,7 @@ from pydantic import (
 
 from aiperf.common.constants import NANOS_PER_SECOND
 from aiperf.common.enums import CreditPhase, SSEFieldType
+from aiperf.common.enums.metric_enums import MetricUnitT, MetricValueTypeT
 from aiperf.common.models.base_models import AIPerfBaseModel
 from aiperf.common.models.dataset_models import Turn
 from aiperf.common.models.error_models import ErrorDetails, ErrorDetailsCount
@@ -53,6 +54,37 @@ class MetricResult(AIPerfBaseModel):
         from aiperf.metrics.metric_registry import MetricRegistry
 
         return to_display_unit(self, MetricRegistry)
+
+
+class MetricValue(AIPerfBaseModel):
+    """A value of a single metric for a single request."""
+
+    value: MetricValueTypeT = Field(
+        description="The value of the metric for this record"
+    )
+    unit: MetricUnitT = Field(description="The unit of the metric for this record")
+
+
+class MetricRecordRequest(AIPerfBaseModel):
+    """A request record for a single request."""
+
+    request_ns: int = Field(description="The request timestamp in nanoseconds")
+
+
+class MetricRecord(AIPerfBaseModel):
+    """A record of a group of metrics for a single request."""
+
+    request: MetricRecordRequest = Field(
+        description="The request record for this record"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="The metadata for this record",
+    )
+    metrics: dict[MetricTagT, MetricValue] = Field(
+        default_factory=dict,
+        description="The metrics for this record, keyed by metric tag",
+    )
 
 
 class ProfileResults(AIPerfBaseModel):

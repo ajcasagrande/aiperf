@@ -30,6 +30,7 @@ dependencies = [
   "aiofiles~=24.1.0",
   "aiohttp~=3.12.14",
   "cyclopts>=3,<4",
+  "kubernetes~=31.0.0",
   "numpy~=2.2.6",
   "openai[aiohttp]~=1.92.2",
   "orjson~=3.10.18",
@@ -51,7 +52,8 @@ dependencies = [
 
 # CLI Entrypoint
 [project.scripts]
-aiperf = "aiperf.cli:app"
+aiperf = "aiperf.main:main"
+aiperf-mock-server = "mock_server.main:app"
 
 [project.optional-dependencies]
 dev = [

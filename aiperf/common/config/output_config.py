@@ -4,18 +4,22 @@
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field
+from pydantic import BeforeValidator, Field, model_validator
+from typing_extensions import Self
 
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter
 from aiperf.common.config.config_defaults import OutputDefaults
 from aiperf.common.config.groups import Groups
+from aiperf.common.config.profile_export_config import (
+    ProfileExportConfig,
+    parse_profile_export_file,
+)
+from aiperf.common.enums import ExportLevel
 
 
 class OutputConfig(BaseConfig):
-    """
-    A configuration class for defining output related settings.
-    """
+    """Configuration for output related settings."""
 
     _CLI_GROUP = Groups.OUTPUT
 
@@ -27,8 +31,35 @@ class OutputConfig(BaseConfig):
         CLIParameter(
             name=(
                 "--output-artifact-dir",
-                "--artifact-dir",  # GenAI-Perf
+                "--artifact-dir",
             ),
             group=_CLI_GROUP,
         ),
     ] = OutputDefaults.ARTIFACT_DIRECTORY
+
+    profile_export_file: Annotated[
+        ProfileExportConfig | None,
+        Field(
+            description="Profile export file path and/or export level. "
+            "Accepts: 'summary'|'records'|'raw' (level only), "
+            "'path/to/file.json' (path only), or 'level:path' (both). "
+            "Examples: 'records', 'custom.json', 'raw:debug_export.json'",
+        ),
+        CLIParameter(
+            name="--profile-export-file",
+            group=_CLI_GROUP,
+        ),
+        BeforeValidator(parse_profile_export_file),
+    ] = None
+
+    export_level: ExportLevel = OutputDefaults.EXPORT_LEVEL
+    export_file_path: Path = OutputDefaults.PROFILE_EXPORT_FILE
+
+    @model_validator(mode="after")
+    def _process_profile_export_file(self) -> Self:
+        """Process profile_export_file and set export_level and export_file_path."""
+        if self.profile_export_file is not None:
+            self.export_level = self.profile_export_file.export_level
+            self.export_file_path = self.profile_export_file.file_path
+
+        return self

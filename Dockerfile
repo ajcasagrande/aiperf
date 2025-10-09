@@ -81,5 +81,8 @@ COPY . .
 # Install the project
 RUN uv sync --active --no-dev
 
+# Install mock server
+RUN uv pip install -e mock_server
+
 # Command to run the application
 ENTRYPOINT ["aiperf"]

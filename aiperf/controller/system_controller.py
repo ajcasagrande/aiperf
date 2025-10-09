@@ -1,19 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
-import os
 import sys
 import time
 from typing import cast
 
-from rich.console import Console
-
 from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.config_defaults import OutputDefaults
-from aiperf.common.config.dev_config import print_developer_mode_warning
 from aiperf.common.constants import (
-    AIPERF_DEV_MODE,
     DEFAULT_PROFILE_CONFIGURE_TIMEOUT,
     DEFAULT_PROFILE_START_TIMEOUT,
     DEFAULT_RECORD_PROCESSOR_SCALE_FACTOR,
@@ -27,7 +21,6 @@ from aiperf.common.enums import (
 )
 from aiperf.common.exceptions import LifecycleOperationError
 from aiperf.common.factories import (
-    AIPerfUIFactory,
     ServiceFactory,
     ServiceManagerFactory,
 )
@@ -55,12 +48,10 @@ from aiperf.common.models import (
     ServiceRunInfo,
 )
 from aiperf.common.models.error_models import ExitErrorInfo
-from aiperf.common.protocols import AIPerfUIProtocol, ServiceManagerProtocol
+from aiperf.common.protocols import ServiceManagerProtocol
 from aiperf.common.types import ServiceTypeT
-from aiperf.controller.controller_utils import print_exit_errors
 from aiperf.controller.proxy_manager import ProxyManager
 from aiperf.controller.system_mixins import SignalHandlerMixin
-from aiperf.exporters.exporter_manager import ExporterManager
 
 
 @ServiceFactory.register(ServiceType.SYSTEM_CONTROLLER)
@@ -112,14 +103,6 @@ class SystemController(SignalHandlerMixin, BaseService):
                 log_queue=get_global_log_queue(),
             )
         )
-        self.ui: AIPerfUIProtocol = AIPerfUIFactory.create_instance(
-            self.service_config.ui_type,
-            service_config=self.service_config,
-            user_config=self.user_config,
-            log_queue=get_global_log_queue(),
-            controller=self,
-        )
-        self.attach_child_lifecycle(self.ui)
         self._stop_tasks: set[asyncio.Task] = set()
         self._profile_results: ProcessRecordsResult | None = None
         self._exit_errors: list[ExitErrorInfo] = []
@@ -456,102 +439,6 @@ class SystemController(SignalHandlerMixin, BaseService):
         await self.service_manager.shutdown_all_services()
         await self.comms.stop()
         await self.proxy_manager.stop()
-
-        # Wait for the UI to stop before exporting any results to the console
-        await self.ui.stop()
-        await self.ui.wait_for_tasks()
-        await asyncio.sleep(0.1)  # Give time for screen clear to finish
-
-        if not self._exit_errors:
-            await self._print_post_benchmark_info_and_metrics()
-        else:
-            self._print_exit_errors_and_log_file()
-
-        if AIPERF_DEV_MODE:
-            # Print a warning message to the console if developer mode is enabled, on exit after results
-            print_developer_mode_warning()
-
-        # Exit the process in a more explicit way, to ensure that it stops
-        os._exit(1 if self._exit_errors else 0)
-
-    def _print_exit_errors_and_log_file(self) -> None:
-        """Print post exit errors and log file info to the console."""
-        console = Console()
-        print_exit_errors(self._exit_errors, console=console)
-        self._print_log_file_info(console)
-        console.print()
-        console.file.flush()
-
-    async def _print_post_benchmark_info_and_metrics(self) -> None:
-        """Print post benchmark info and metrics to the console."""
-        if not self._profile_results or not self._profile_results.results.records:
-            self.warning("No profile results to export")
-            return
-
-        console = Console()
-        if console.width < 100:
-            console.width = 100
-
-        exporter_manager = ExporterManager(
-            results=self._profile_results.results,
-            input_config=self.user_config,
-            service_config=self.service_config,
-        )
-        await exporter_manager.export_console(console=console)
-
-        console.print()
-        self._print_cli_command(console)
-        self._print_benchmark_duration(console)
-        self._print_exported_file_infos(exporter_manager, console)
-        self._print_log_file_info(console)
-        if self._was_cancelled:
-            console.print(
-                "[italic yellow]The profile run was cancelled early. Results shown may be incomplete or inaccurate.[/italic yellow]"
-            )
-
-        console.print()
-        console.file.flush()
-
-    def _print_log_file_info(self, console: Console) -> None:
-        """Print the log file info."""
-        log_file = (
-            self.user_config.output.artifact_directory
-            / OutputDefaults.LOG_FOLDER
-            / OutputDefaults.LOG_FILE
-        )
-        console.print(
-            f"[bold green]Log File:[/bold green] [cyan]{log_file.resolve()}[/cyan]"
-        )
-
-    def _print_exported_file_infos(
-        self, exporter_manager: ExporterManager, console: Console
-    ) -> None:
-        """Print the exported file infos."""
-        file_infos = exporter_manager.get_exported_file_infos()
-        for file_info in file_infos:
-            console.print(
-                f"[bold green]{file_info.export_type}[/bold green]: [cyan]{file_info.file_path.resolve()}[/cyan]"
-            )
-
-    def _print_cli_command(self, console: Console) -> None:
-        """Print the CLI command that was used to run the benchmark."""
-        console.print(
-            f"[bold green]CLI Command:[/bold green] [italic]{self.user_config.cli_command}[/italic]"
-        )
-
-    def _print_benchmark_duration(self, console: Console) -> None:
-        """Print the duration of the benchmark."""
-        from aiperf.metrics.types.benchmark_duration_metric import (
-            BenchmarkDurationMetric,
-        )
-
-        duration = self._profile_results.get(BenchmarkDurationMetric.tag)
-        if duration:
-            duration = duration.to_display_unit()
-            duration_str = f"[bold green]{BenchmarkDurationMetric.header}[/bold green]: {duration.avg:.2f} {duration.unit}"
-            if self._was_cancelled:
-                duration_str += " [italic yellow](cancelled early)[/italic yellow]"
-            console.print(duration_str)
 
     async def _kill(self):
         """Kill the system controller."""

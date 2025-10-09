@@ -6,6 +6,12 @@ from aiperf.controller.base_service_manager import (
 from aiperf.controller.controller_utils import (
     print_exit_errors,
 )
+from aiperf.controller.kubernetes_orchestrator import (
+    KubernetesOrchestrator,
+)
+from aiperf.controller.kubernetes_pod_entrypoint import (
+    main,
+)
 from aiperf.controller.kubernetes_service_manager import (
     KubernetesServiceManager,
     ServiceKubernetesRunInfo,
@@ -27,6 +33,7 @@ from aiperf.controller.system_mixins import (
 
 __all__ = [
     "BaseServiceManager",
+    "KubernetesOrchestrator",
     "KubernetesServiceManager",
     "MultiProcessRunInfo",
     "MultiProcessServiceManager",

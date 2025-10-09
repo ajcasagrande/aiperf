@@ -10,6 +10,7 @@ __ignore__ = []
 ########################################################################
 from aiperf.common.models.base_models import (
     AIPerfBaseModel,
+    exclude_fields,
     exclude_if_none,
 )
 from aiperf.common.models.credit_models import (
@@ -50,7 +51,10 @@ from aiperf.common.models.record_models import (
     BaseResponseData,
     EmbeddingResponseData,
     InferenceServerResponse,
+    MetricRecord,
+    MetricRecordRequest,
     MetricResult,
+    MetricValue,
     ParsedResponse,
     ParsedResponseRecord,
     ProcessRecordsResult,
@@ -90,7 +94,10 @@ __all__ = [
     "InferenceServerResponse",
     "InputsFile",
     "Media",
+    "MetricRecord",
+    "MetricRecordRequest",
     "MetricResult",
+    "MetricValue",
     "ParsedResponse",
     "ParsedResponseRecord",
     "ProcessHealth",
@@ -113,5 +120,6 @@ __all__ = [
     "Turn",
     "WorkerStats",
     "WorkerTaskStats",
+    "exclude_fields",
     "exclude_if_none",
 ]

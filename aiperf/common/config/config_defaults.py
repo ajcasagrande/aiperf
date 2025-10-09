@@ -119,6 +119,9 @@ class OutputDefaults:
     INPUTS_JSON_FILE = Path("inputs.json")
     PROFILE_EXPORT_AIPERF_CSV_FILE = Path("profile_export_aiperf.csv")
     PROFILE_EXPORT_AIPERF_JSON_FILE = Path("profile_export_aiperf.json")
+    RAW_RECORDS_FOLDER = Path("raw_records")
+    RECORD_METRICS_FOLDER = Path("record_metrics")
+    EXPORT_LEVEL = "summary"  # Will be converted to ExportLevel enum
 
 
 @dataclass(frozen=True)
