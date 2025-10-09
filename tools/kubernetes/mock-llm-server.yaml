@@ -1,0 +1,184 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# Mock LLM server for testing AIPerf on Kubernetes
+# This deployment provides a simple mock endpoint for testing
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-llm-service
+  namespace: default
+spec:
+  selector:
+    app: mock-llm
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-llm-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-llm
+  template:
+    metadata:
+      labels:
+        app: mock-llm
+    spec:
+      containers:
+        - name: mock-llm
+          image: python:3.10-slim
+          command:
+            - python
+            - -u
+            - /app/mock_server.py
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: mock-script
+              mountPath: /app
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: mock-script
+          configMap:
+            name: mock-llm-script
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-llm-script
+  namespace: default
+data:
+  mock_server.py: |
+    #!/usr/bin/env python3
+    """Minimal mock LLM server for testing."""
+    import asyncio
+    import json
+    import time
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class MockLLMHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/v1/models':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = {
+                    "object": "list",
+                    "data": [{"id": "mock-model", "object": "model"}]
+                }
+                self.wfile.write(json.dumps(response).encode())
+            elif self.path == '/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'OK')
+            else:
+                self.send_error(404)
+
+        def do_POST(self):
+            if self.path in ['/v1/chat/completions', '/v1/completions']:
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length)
+                request_data = json.loads(body)
+
+                streaming = request_data.get('stream', False)
+
+                if streaming:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/event-stream')
+                    self.send_header('Cache-Control', 'no-cache')
+                    self.end_headers()
+
+                    # Simulate streaming response
+                    tokens = ["Hello", " from", " mock", " LLM", " server", "!"]
+                    for i, token in enumerate(tokens):
+                        chunk = {
+                            "id": f"mock-{int(time.time())}",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": "mock-model",
+                            "choices": [{
+                                "index": 0,
+                                "delta": {"content": token} if i > 0 else {"role": "assistant", "content": token},
+                                "finish_reason": None
+                            }]
+                        }
+                        self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+                        self.wfile.flush()
+                        time.sleep(0.05)
+
+                    # Final chunk
+                    final_chunk = {
+                        "id": f"mock-{int(time.time())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": "mock-model",
+                        "choices": [{
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": "stop"
+                        }]
+                    }
+                    self.wfile.write(f"data: {json.dumps(final_chunk)}\n\n".encode())
+                    self.wfile.write(b"data: [DONE]\n\n")
+                else:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    response = {
+                        "id": f"mock-{int(time.time())}",
+                        "object": "chat.completion",
+                        "created": int(time.time()),
+                        "model": "mock-model",
+                        "choices": [{
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "Hello from mock LLM server!"
+                            },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": {
+                            "prompt_tokens": 10,
+                            "completion_tokens": 6,
+                            "total_tokens": 16
+                        }
+                    }
+                    self.wfile.write(json.dumps(response).encode())
+            else:
+                self.send_error(404)
+
+        def log_message(self, format, *args):
+            # Suppress default logging, print to stdout
+            print(f"{self.address_string()} - {format % args}")
+
+    if __name__ == '__main__':
+        server = HTTPServer(('0.0.0.0', 8000), MockLLMHandler)
+        print("Mock LLM server starting on port 8000...")
+        server.serve_forever()

@@ -4,6 +4,9 @@
 from aiperf.orchestrator.cli_orchestrator import (
     CLIOrchestrator,
 )
+from aiperf.orchestrator.kubernetes_cli_bridge import (
+    KubernetesCliBridge,
+)
 from aiperf.orchestrator.kubernetes_runner import (
     run_aiperf_kubernetes,
     run_kubernetes_deployment,
@@ -14,6 +17,7 @@ from aiperf.orchestrator.runner import (
 
 __all__ = [
     "CLIOrchestrator",
+    "KubernetesCliBridge",
     "run_aiperf_kubernetes",
     "run_aiperf_system",
     "run_kubernetes_deployment",

@@ -43,6 +43,8 @@ from aiperf.common.messages.credit_messages import (
     CreditsCompleteMessage,
 )
 from aiperf.common.messages.dataset_messages import (
+    ConversationChunkRequestMessage,
+    ConversationChunkResponseMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
     ConversationTurnRequestMessage,
@@ -94,6 +96,8 @@ __all__ = [
     "CommandSuccessResponse",
     "CommandUnhandledResponse",
     "ConnectionProbeMessage",
+    "ConversationChunkRequestMessage",
+    "ConversationChunkResponseMessage",
     "ConversationRequestMessage",
     "ConversationResponseMessage",
     "ConversationTurnRequestMessage",

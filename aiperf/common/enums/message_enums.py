@@ -20,6 +20,8 @@ class MessageType(CaseInsensitiveStrEnum):
     CONVERSATION_RESPONSE = "conversation_response"
     CONVERSATION_TURN_REQUEST = "conversation_turn_request"
     CONVERSATION_TURN_RESPONSE = "conversation_turn_response"
+    CONVERSATION_CHUNK_REQUEST = "conversation_chunk_request"
+    CONVERSATION_CHUNK_RESPONSE = "conversation_chunk_response"
     CREDITS_COMPLETE = "credits_complete"
     CREDIT_DROP = "credit_drop"
     CREDIT_PHASE_COMPLETE = "credit_phase_complete"

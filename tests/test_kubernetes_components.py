@@ -4,7 +4,6 @@
 """Comprehensive unit tests for Kubernetes components."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -34,17 +33,20 @@ class TestPodTemplateBuilder:
         )
 
         assert pod["metadata"]["name"] == "sc-1"
-        assert pod["metadata"]["labels"]["service-type"] == ServiceType.SYSTEM_CONTROLLER.value
+        assert (
+            pod["metadata"]["labels"]["service-type"]
+            == ServiceType.SYSTEM_CONTROLLER.value
+        )
         assert pod["spec"]["containers"][0]["resources"]["limits"]["cpu"] == "2"
         assert pod["spec"]["containers"][0]["resources"]["limits"]["memory"] == "2Gi"
 
     def test_build_worker_pod(self, builder):
         """Test worker pod generation."""
-        pod = builder.build_pod_spec(ServiceType.WORKER, "worker-0", "config", "4", "4Gi")
+        pod = builder.build_pod_spec(
+            ServiceType.WORKER, "worker-0", "config", "4", "4Gi"
+        )
 
-        env_dict = {
-            e["name"]: e["value"] for e in pod["spec"]["containers"][0]["env"]
-        }
+        env_dict = {e["name"]: e["value"] for e in pod["spec"]["containers"][0]["env"]}
         assert env_dict["AIPERF_SERVICE_TYPE"] == ServiceType.WORKER.value
         assert env_dict["AIPERF_SERVICE_ID"] == "worker-0"
         assert env_dict["AIPERF_CONFIG_MAP"] == "config"
@@ -140,6 +142,10 @@ class TestConfigSerializer:
 
     def test_roundtrip_serialization(self, user_config, service_config):
         """Test serialize then deserialize maintains data."""
+        # Set non-default values so they get serialized
+        service_config.kubernetes.enabled = True
+        service_config.kubernetes.namespace = "test-ns"
+
         data = ConfigSerializer.serialize_to_configmap(user_config, service_config)
 
         # Verify JSON is valid and contains expected data
@@ -158,7 +164,7 @@ class TestConfigSerializer:
                 url="http://complex:9000",
                 model_names=["model1", "model2"],
             ),
-            load_generator=LoadGeneratorConfig(concurrency=1000, benchmark_duration=300),
+            loadgen=LoadGeneratorConfig(concurrency=1000, benchmark_duration=300),
         )
 
         service_config = ServiceConfig()
@@ -171,7 +177,7 @@ class TestConfigSerializer:
         user_json = json.loads(data["user_config.json"])
         service_json = json.loads(data["service_config.json"])
 
-        assert user_json["load_generator"]["concurrency"] == 1000
+        assert user_json["loadgen"]["concurrency"] == 1000
         assert service_json["kubernetes"]["worker_cpu"] == "4"
 
 

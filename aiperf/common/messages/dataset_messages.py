@@ -75,3 +75,48 @@ class DatasetConfiguredNotification(BaseServiceMessage):
     """Notification sent to notify other services that the dataset has been configured."""
 
     message_type: MessageTypeT = MessageType.DATASET_CONFIGURED_NOTIFICATION
+
+
+class ConversationChunkRequestMessage(BaseServiceMessage):
+    """Request a chunk of conversations from DatasetManager.
+
+    This message requests multiple conversations at once to reduce network
+    overhead and improve throughput in high-concurrency scenarios.
+    """
+
+    message_type: MessageTypeT = MessageType.CONVERSATION_CHUNK_REQUEST
+
+    chunk_size: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Number of conversations requested in this chunk",
+    )
+    worker_id: str | None = Field(
+        default=None,
+        description="Worker ID for tracking and debugging purposes",
+    )
+
+
+class ConversationChunkResponseMessage(BaseServiceMessage):
+    """Response containing a chunk of conversations.
+
+    Contains multiple conversations to reduce request frequency and
+    improve overall system throughput.
+    """
+
+    message_type: MessageTypeT = MessageType.CONVERSATION_CHUNK_RESPONSE
+
+    conversations: list[Conversation] = Field(
+        ...,
+        description="List of conversations in this chunk",
+    )
+    chunk_index: int = Field(
+        default=0,
+        ge=0,
+        description="Sequential chunk number for tracking",
+    )
+    has_more: bool = Field(
+        default=True,
+        description="Whether more conversations are available",
+    )

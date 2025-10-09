@@ -27,6 +27,8 @@ from aiperf.common.factories import (
 )
 from aiperf.common.hooks import on_command, on_request
 from aiperf.common.messages import (
+    ConversationChunkRequestMessage,
+    ConversationChunkResponseMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
     ConversationTurnRequestMessage,
@@ -80,6 +82,9 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.dataset_configured = asyncio.Event()
         self._sequential_iterator_index = 0
         self._use_sequential_iteration = False
+
+        # Chunking state for optimized distribution
+        self._chunk_counter = 0  # Total chunks served (for tracking)
 
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
@@ -198,6 +203,9 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
 
         self.dataset = {conv.session_id: conv for conv in conversations}
         self._session_ids_cache = list(self.dataset.keys())
+
+        # Reset chunking counter when dataset changes
+        self._chunk_counter = 0
 
         self.dataset_configured.set()
         await self.publish(
@@ -355,6 +363,94 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             await asyncio.wait_for(
                 self.dataset_configured.wait(), timeout=DATASET_CONFIGURATION_TIMEOUT
             )
+
+    @on_request(MessageType.CONVERSATION_CHUNK_REQUEST)
+    async def _handle_chunk_request(
+        self, message: ConversationChunkRequestMessage
+    ) -> ConversationChunkResponseMessage:
+        """Handle a chunk request for multiple conversations.
+
+        This optimized endpoint reduces network overhead by sending multiple
+        conversations in a single response, significantly improving throughput
+        in high-concurrency scenarios.
+        """
+        self.trace_or_debug(
+            lambda: f"Handling chunk request: {message}",
+            lambda: f"Chunk request from worker {message.worker_id}, size={message.chunk_size}",
+        )
+
+        await self._wait_for_dataset_configuration()
+
+        if not self.dataset:
+            raise self._service_error(
+                "Dataset is empty and must be configured before handling requests.",
+            )
+
+        # Get the requested chunk
+        chunk_size = min(message.chunk_size, len(self.dataset))
+        conversations = self._get_conversation_chunk(chunk_size)
+
+        self._chunk_counter += 1
+
+        self.trace_or_debug(
+            lambda: f"Sending chunk {self._chunk_counter} with {len(conversations)} conversations",
+            lambda: f"Chunk {self._chunk_counter}: {len(conversations)} conversations",
+        )
+
+        return ConversationChunkResponseMessage(
+            service_id=self.service_id,
+            request_id=message.request_id,
+            conversations=conversations,
+            chunk_index=self._chunk_counter,
+            has_more=True,  # Always true for repeating dataset
+        )
+
+    def _get_conversation_chunk(self, size: int) -> list[Conversation]:
+        """Get a chunk of conversations maintaining reproducibility.
+
+        CRITICAL: Uses the seeded random generator to maintain the exact same
+        random sequence as single-conversation mode. This ensures benchmarks
+        are reproducible with the same random seed.
+
+        For sequential iteration mode (e.g., mooncake trace), uses index-based
+        iteration to maintain trace order.
+
+        Args:
+            size: Number of conversations to return
+
+        Returns:
+            List of Conversation objects in reproducible order
+        """
+        if not self._session_ids_cache:
+            return []
+
+        conversations = []
+
+        for _ in range(size):
+            if self._use_sequential_iteration:
+                # Sequential mode: deterministic index-based iteration
+                if self._sequential_iterator_index >= len(self._session_ids_cache):
+                    # Reset iterator if we've gone through all conversations
+                    _logger.warning(
+                        "All conversations used in sequential mode. Resetting iterator."
+                    )
+                    self._sequential_iterator_index = 0
+
+                session_id = self._session_ids_cache[self._sequential_iterator_index]
+                self._sequential_iterator_index += 1
+            else:
+                # Random mode: use seeded random generator (CRITICAL for reproducibility!)
+                # This maintains the exact same random sequence as single-conversation mode:
+                # - Same seed → same sequence of random.choice() calls
+                # - 100 conversations in chunk = 100 choice() calls
+                # - Identical to 100 separate single-conversation requests
+                session_id = self._conversation_query_random.choice(
+                    self._session_ids_cache
+                )
+
+            conversations.append(self.dataset[session_id])
+
+        return conversations
 
 
 def main() -> None:
