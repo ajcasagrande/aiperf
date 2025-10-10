@@ -4,7 +4,7 @@
 
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -12,13 +12,13 @@ from tests.integration.helpers import AIPerfCLI, FakeAIServer
 class TestOutputFormats:
     """Tests for different output formats and exports."""
 
-    async def test_csv_export(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_csv_export(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """CSV export format validation."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --request-count 10 \
@@ -29,13 +29,13 @@ class TestOutputFormats:
         assert "Metric" in result.csv_content
         assert "Request Latency" in result.csv_content
 
-    async def test_json_export(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_json_export(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """JSON export format validation."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -52,13 +52,13 @@ class TestOutputFormats:
 class TestUIOptions:
     """Tests for different UI options."""
 
-    async def test_simple_ui(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_simple_ui(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Simple UI mode."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -67,13 +67,13 @@ class TestUIOptions:
         )
         assert result.request_count == 10
 
-    async def test_none_ui(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_none_ui(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """None UI mode (no output)."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -88,13 +88,13 @@ class TestUIOptions:
 class TestWarmup:
     """Tests for warmup phase."""
 
-    async def test_warmup_phase(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_warmup_phase(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Warmup requests before profiling."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --warmup-request-count 5 \
                 --request-count 15 \
@@ -106,14 +106,14 @@ class TestWarmup:
         assert result.request_count == 15
 
     async def test_warmup_with_streaming(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Warmup with streaming."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --warmup-request-count 10 \

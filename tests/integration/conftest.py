@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import asyncio
+import shutil
 import socket
 import sys
 from collections.abc import AsyncGenerator, Callable
@@ -11,11 +12,11 @@ import aiohttp
 import orjson
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, AIPerfSubprocessResult, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, AIPerfSubprocessResult, MockLLMServer
 
 
 @pytest.fixture
-async def fakeai_server_port() -> int:
+async def mock_llm_server_port() -> int:
     """Get an available port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -24,21 +25,31 @@ async def fakeai_server_port() -> int:
 
 
 @pytest.fixture
-async def fakeai_server(fakeai_server_port: int) -> AsyncGenerator[FakeAIServer, None]:
-    """Start FakeAI server, wait for it to be ready, and yield the server."""
+async def mock_llm_server(
+    mock_llm_server_port: int,
+) -> AsyncGenerator[MockLLMServer, None]:
+    """Start mock-llm server, wait for it to be ready, and yield the server."""
 
     host = "127.0.0.1"
-    url = f"http://{host}:{fakeai_server_port}"
+    url = f"http://{host}:{mock_llm_server_port}"
+
+    # Use aiperf-mock-server from the same venv as the test runner
+    mock_server_cmd = shutil.which("aiperf-mock-server")
+    if not mock_server_cmd:
+        # Fallback to finding it relative to sys.executable
+        venv_bin = Path(sys.executable).parent
+        mock_server_cmd = str(venv_bin / "aiperf-mock-server")
 
     process = await asyncio.create_subprocess_exec(
-        "fakeai",
-        "server",
+        mock_server_cmd,
         "--host",
         host,
         "--port",
-        str(fakeai_server_port),
-        "--response-delay",
-        "0.01",
+        str(mock_llm_server_port),
+        "--ttft",
+        "10",
+        "--itl",
+        "5",
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
@@ -55,7 +66,9 @@ async def fakeai_server(fakeai_server_port: int) -> AsyncGenerator[FakeAIServer,
                 except (aiohttp.ClientError, asyncio.TimeoutError):
                     await asyncio.sleep(0.2)
 
-        yield FakeAIServer(host=host, port=fakeai_server_port, url=url, process=process)
+        yield MockLLMServer(
+            host=host, port=mock_llm_server_port, url=url, process=process
+        )
 
     finally:
         if process.returncode is None:
@@ -103,7 +116,7 @@ async def aiperf_runner(
 @pytest.fixture
 def cli(
     aiperf_runner: Callable[[list[str], float], AIPerfSubprocessResult],
-    fakeai_server: FakeAIServer,
+    mock_llm_server: MockLLMServer,
 ) -> AIPerfCLI:
     """AIPerf CLI wrapper."""
     return AIPerfCLI(aiperf_runner)

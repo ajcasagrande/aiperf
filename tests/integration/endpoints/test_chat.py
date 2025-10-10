@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -10,13 +10,13 @@ from tests.integration.helpers import AIPerfCLI, FakeAIServer
 class TestChatEndpoint:
     """Tests for /v1/chat/completions endpoint."""
 
-    async def test_basic_chat(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_basic_chat(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Basic non-streaming chat."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -25,13 +25,13 @@ class TestChatEndpoint:
         )
         assert result.request_count == 10
 
-    async def test_streaming(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_streaming(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Streaming chat."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --request-count 10 \
@@ -43,14 +43,14 @@ class TestChatEndpoint:
         assert result.has_streaming_metrics
 
     async def test_high_concurrency_streaming(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """High concurrency streaming."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model Qwen/Qwen3-0.6B \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --concurrency 100 \
                 --request-count 100 \
@@ -67,13 +67,13 @@ class TestChatEndpoint:
 class TestChatEndpointMultimodal:
     """Tests for /v1/chat/completions endpoint with multimodal inputs."""
 
-    async def test_with_images(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_with_images(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Chat with image inputs."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -85,13 +85,13 @@ class TestChatEndpointMultimodal:
         assert result.request_count == 10
         assert result.has_input_images
 
-    async def test_with_audio(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_with_audio(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Chat with audio inputs."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -102,13 +102,13 @@ class TestChatEndpointMultimodal:
         assert result.request_count == 10
         assert result.has_input_audio
 
-    async def test_multimodal(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_multimodal(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Chat with images and audio."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -123,14 +123,14 @@ class TestChatEndpointMultimodal:
         assert result.has_input_audio
 
     async def test_streaming_multimodal(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Streaming with images."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --request-count 10 \
@@ -144,14 +144,14 @@ class TestChatEndpointMultimodal:
         assert result.has_streaming_metrics
 
     async def test_high_concurrency_multimodal(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """High concurrency with multimodal."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --request-count 1000 \
@@ -166,14 +166,14 @@ class TestChatEndpointMultimodal:
         assert result.has_streaming_metrics
 
     async def test_request_cancellation(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Request cancellation doesn't break pipeline."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --streaming \
                 --request-count 50 \

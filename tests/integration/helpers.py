@@ -19,8 +19,8 @@ class AIPerfSubprocessResult:
 
 
 @dataclass
-class FakeAIServer:
-    """FakeAI server info."""
+class MockLLMServer:
+    """Mock LLM server info."""
 
     host: str
     port: int

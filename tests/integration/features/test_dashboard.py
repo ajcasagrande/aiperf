@@ -4,7 +4,7 @@
 
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -13,14 +13,14 @@ class TestDashboardUI:
     """Tests for dashboard UI mode."""
 
     async def test_with_request_count(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Dashboard with request count limit."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --ui dashboard \
                 --request-count 10 \
@@ -32,13 +32,13 @@ class TestDashboardUI:
         )
         assert result.request_count == 10
 
-    async def test_with_duration(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_with_duration(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Dashboard with duration-based limit."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --ui dashboard \
                 --benchmark-duration 10 \
@@ -55,14 +55,14 @@ class TestDashboardUI:
         assert "Benchmark Duration" in result.csv_content
 
     async def test_streaming_dashboard(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Dashboard with streaming metrics."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --ui dashboard \
                 --streaming \

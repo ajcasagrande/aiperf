@@ -4,7 +4,7 @@
 
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -12,13 +12,13 @@ from tests.integration.helpers import AIPerfCLI, FakeAIServer
 class TestImageFormats:
     """Tests for different image format support."""
 
-    async def test_jpeg_format(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_jpeg_format(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """JPEG image format support."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 5 \
                 --concurrency 1 \
@@ -31,13 +31,13 @@ class TestImageFormats:
         assert result.request_count == 5
         assert result.has_input_images
 
-    async def test_png_format(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_png_format(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """PNG image format support."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 5 \
                 --concurrency 1 \
@@ -56,13 +56,13 @@ class TestImageFormats:
 class TestAudioFormats:
     """Tests for different audio format support."""
 
-    async def test_mp3_format(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_mp3_format(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """MP3 audio format support."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 5 \
                 --concurrency 1 \
@@ -74,13 +74,13 @@ class TestAudioFormats:
         assert result.request_count == 5
         assert result.has_input_audio
 
-    async def test_wav_format(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_wav_format(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """WAV audio format support."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 5 \
                 --concurrency 1 \

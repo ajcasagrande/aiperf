@@ -4,7 +4,7 @@
 
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -13,7 +13,7 @@ class TestDeterministicBehavior:
     """Tests for deterministic behavior with random seeds."""
 
     async def test_same_seed_identical_inputs(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Same random seed produces identical payloads."""
         # Run first benchmark with seed 42
@@ -21,7 +21,7 @@ class TestDeterministicBehavior:
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -38,7 +38,7 @@ class TestDeterministicBehavior:
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -68,7 +68,7 @@ class TestDeterministicBehavior:
             assert s1.get("payloads") == s2.get("payloads")
 
     async def test_different_seeds_different_inputs(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer
     ):
         """Different random seeds produce different payloads."""
         # Run with seed 42
@@ -76,7 +76,7 @@ class TestDeterministicBehavior:
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \
@@ -92,7 +92,7 @@ class TestDeterministicBehavior:
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --request-count 10 \
                 --concurrency 2 \

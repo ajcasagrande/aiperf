@@ -34,7 +34,21 @@ class TokenizerService:
     def get_tokenizer(self, model_name: str) -> PreTrainedTokenizer:
         """Get or create a tokenizer for the specified model."""
         if model_name not in self._tokenizers:
-            raise ValueError(f"No tokenizer loaded for {model_name}")
+            # Try to load tokenizer on-demand, fall back to gpt2 if model not found
+            try:
+                logger.info(f"Loading tokenizer on-demand for model: {model_name}")
+                self._tokenizers[model_name] = AutoTokenizer.from_pretrained(
+                    model_name, trust_remote_code=True
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load tokenizer for {model_name}, falling back to gpt2: {e}"
+                )
+                # Use gpt2 as a fallback tokenizer
+                if "gpt2" not in self._tokenizers:
+                    self._tokenizers["gpt2"] = AutoTokenizer.from_pretrained("gpt2")
+                # Map the model name to use gpt2 tokenizer
+                self._tokenizers[model_name] = self._tokenizers["gpt2"]
 
         return self._tokenizers[model_name]
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from tests.integration.helpers import AIPerfCLI, FakeAIServer
+from tests.integration.helpers import AIPerfCLI, MockLLMServer
 
 
 @pytest.mark.integration
@@ -11,7 +11,7 @@ class TestRankingsEndpoint:
     """Tests for /v1/ranking endpoint."""
 
     async def test_basic_rankings(
-        self, cli: AIPerfCLI, fakeai_server: FakeAIServer, create_rankings_dataset
+        self, cli: AIPerfCLI, mock_llm_server: MockLLMServer, create_rankings_dataset
     ):
         """Basic rankings with custom dataset."""
         dataset_path = create_rankings_dataset(5)
@@ -20,7 +20,7 @@ class TestRankingsEndpoint:
             f"""
             aiperf profile \
                 --model openai/gpt-oss-20b \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type rankings \
                 --input-file {dataset_path} \
                 --custom-dataset-type single_turn \

@@ -4,7 +4,7 @@
 -->
 # Integration Tests
 
-End-to-end integration tests for AIPerf that validate real-world scenarios against a [FakeAI](https://github.com/ajcasagrande/FakeAI) server. Tests are organized by API endpoints and features, with a focus on clarity, maintainability, and fast execution.
+End-to-end integration tests for AIPerf that validate real-world scenarios against a mock-llm server. Tests are organized by API endpoints and features, with a focus on clarity, maintainability, and fast execution.
 
 ## Test Style
 
@@ -18,13 +18,13 @@ All tests are organized into test classes and follow a consistent pattern:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestChatEndpoint:
-    async def test_basic_chat_endpoint(self, cli: AIPerfCLI, fakeai_server: FakeAIServer):
+    async def test_basic_chat_endpoint(self, cli: AIPerfCLI, mock_llm_server: MockLLMServer):
         """Basic chat endpoint test."""
         result = await cli.run(
             f"""
             aiperf profile \
                 --model Qwen/Qwen3-0.6B \
-                --url {fakeai_server.url} \
+                --url {mock_llm_server.url} \
                 --endpoint-type chat \
                 --concurrency 10 \
                 --request-count 100 \
@@ -71,11 +71,11 @@ Tests are organized by `endpoints` and `features`:
 ## Key Components
 
 ### Fixtures (conftest.py)
-- `fakeai_server` - Mock AI server
+- `mock_llm_server` - Mock LLM server
 - `cli` - CLI wrapper for running benchmarks
 
 ### Helpers (helpers.py)
 - `AIPerfSubprocessResult` - Subprocess result
-- `FakeAIServer` - Server connection info
+- `MockLLMServer` - Server connection info
 - `AIPerfResults` - Simple result wrapper with properties
 - `AIPerfCLI` - CLI wrapper that runs commands and returns results
