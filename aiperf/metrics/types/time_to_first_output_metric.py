@@ -24,11 +24,7 @@ class TimeToFirstOutputMetric(BaseRecordMetric[int]):
     short_header = "TTFO"
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
-    flags = (
-        MetricFlags.STREAMING_TOKENS_ONLY
-        | MetricFlags.SUPPORTS_REASONING
-        | MetricFlags.EXPERIMENTAL
-    )
+    flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.EXPERIMENTAL
     required_metrics = None
 
     def _parse_record(
