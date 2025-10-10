@@ -11,6 +11,7 @@ from aiperf.common.enums import (
     AudioFormat,
     CommunicationBackend,
     EndpointType,
+    ExportLevel,
     ImageFormat,
     ModelSelectionStrategy,
     RequestRateMode,
@@ -121,7 +122,7 @@ class OutputDefaults:
     PROFILE_EXPORT_AIPERF_JSON_FILE = Path("profile_export_aiperf.json")
     RAW_RECORDS_FOLDER = Path("raw_records")
     RECORD_METRICS_FOLDER = Path("record_metrics")
-    EXPORT_LEVEL = "summary"  # Will be converted to ExportLevel enum
+    EXPORT_LEVEL = ExportLevel.SUMMARY
 
 
 @dataclass(frozen=True)

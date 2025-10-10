@@ -377,37 +377,103 @@ class KubernetesDeploymentRunner(BaseDeploymentRunner):
             await asyncio.sleep(2)
 
     async def _retrieve_artifacts(self) -> None:
-        """Retrieve artifacts from Records Manager pod."""
-        self.logger.info("Retrieving artifacts from Records Manager...")
+        """Retrieve artifacts and results from Records Manager pod."""
+        self.logger.info("Retrieving results from Records Manager...")
+
+        # List all pods to debug
+        all_pods = self.core_v1.list_namespaced_pod(namespace=self.namespace)
+        self.logger.debug(f"All pods in namespace: {[p.metadata.name for p in all_pods.items]}")
 
         # Find Records Manager pod
+        label_selector = f"service-type={ServiceType.RECORDS_MANAGER}"
+        self.logger.debug(f"Searching for pods with label: {label_selector}")
+
         pods = self.core_v1.list_namespaced_pod(
             namespace=self.namespace,
-            label_selector=f"service-type={ServiceType.RECORDS_MANAGER}",
+            label_selector=label_selector,
         )
 
         if not pods.items:
-            self.logger.warning("No Records Manager pod found")
+            self.logger.error(f"No Records Manager pod found with label {label_selector}")
+            self.logger.error(f"Available pods: {[(p.metadata.name, p.metadata.labels) for p in all_pods.items]}")
             return
 
         records_pod = pods.items[0].metadata.name
         self.logger.info(f"Found Records Manager pod: {records_pod}")
 
-        # Get artifacts path from user config
-        artifacts_dir = Path(self.user_config.artifacts_dir)
-        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        # Retrieve results from pod using Kubernetes API
+        # Since the pod may be completed, we read the pod logs to get the exported results
+        # OR we look for the file in /tmp which should still be accessible
+        try:
+            from kubernetes import stream
+            import json
+            import tarfile
+            import io
 
-        # Copy artifacts using kubectl cp
-        remote_path = f"{self.namespace}/{records_pod}:/app/artifacts"
-        local_path = str(artifacts_dir)
+            # Path to the results file in the pod
+            artifact_dir = self.user_config.output.artifact_directory
+            results_file = f"{artifact_dir}/profile_export_aiperf.json"
 
-        self.logger.info(f"Copying artifacts to {local_path}")
+            self.logger.debug(f"Reading {results_file} from pod {records_pod}")
 
-        # Note: Using kubectl cp via subprocess would be more reliable
-        # For now, we'll log the command users can run manually
-        self.logger.info(
-            f"To retrieve artifacts, run: kubectl cp {remote_path} {local_path}"
-        )
+            # Try to exec tar command to extract the file
+            # Even for completed pods, we might be able to read the filesystem if the container is still around
+            exec_command = ['/bin/sh', '-c', f'cat {results_file} 2>/dev/null || echo "FILE_NOT_FOUND"']
+
+            try:
+                resp = stream.stream(
+                    self.core_v1.connect_get_namespaced_pod_exec,
+                    records_pod,
+                    self.namespace,
+                    command=exec_command,
+                    container='aiperf-service',
+                    stderr=True,
+                    stdin=False,
+                    stdout=True,
+                    tty=False,
+                )
+
+                if resp and 'FILE_NOT_FOUND' not in resp:
+                    # Parse the JSON
+                    results_data = json.loads(resp)
+                    self._profile_results = ProcessRecordsResult(**results_data)
+                    self.logger.info(f"✓ Retrieved {len(self._profile_results.results.records)} records from pod")
+                    return
+
+            except Exception as e:
+                self.logger.debug(f"Exec approach failed (expected for completed pods): {e}")
+
+            # Fallback: Get results from System Controller pod logs
+            # The System Controller outputs results JSON with special markers
+            self.logger.debug("Extracting results from System Controller pod logs...")
+
+            logs = self.core_v1.read_namespaced_pod_log(
+                name=self.system_controller_pod_name,
+                namespace=self.namespace,
+            )
+
+            # Extract JSON between markers
+            start_marker = '<<<AIPERF_RESULTS_JSON_START>>>'
+            end_marker = '<<<AIPERF_RESULTS_JSON_END>>>'
+
+            start_idx = logs.find(start_marker)
+            end_idx = logs.find(end_marker)
+
+            if start_idx >= 0 and end_idx >= 0:
+                json_str = logs[start_idx + len(start_marker):end_idx].strip()
+                try:
+                    results_data = json.loads(json_str)
+                    self._profile_results = ProcessRecordsResult(**results_data)
+                    self.logger.info(f"✓ Retrieved {len(self._profile_results.results.records)} records from System Controller logs")
+                    return
+                except Exception as e:
+                    self.logger.error(f"Failed to parse results JSON from logs: {e}")
+
+            self.logger.warning("Could not find results markers in System Controller logs")
+
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve results: {e}")
+            # Don't fail the whole operation if retrieval fails
 
     async def _cleanup_namespace(self) -> None:
         """Delete the namespace and all resources."""

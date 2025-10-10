@@ -4,13 +4,14 @@
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter
 from aiperf.common.config.groups import Groups
 
 
-class KubernetesConfig(BaseModel):
+class KubernetesConfig(BaseConfig):
     """Configuration for Kubernetes deployment mode."""
 
     _CLI_GROUP = Groups.SERVICE

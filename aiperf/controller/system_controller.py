@@ -17,6 +17,7 @@ from aiperf.common.enums import (
     CommandType,
     MessageType,
     ServiceRegistrationStatus,
+    ServiceRunType,
     ServiceType,
 )
 from aiperf.common.exceptions import LifecycleOperationError
@@ -26,6 +27,7 @@ from aiperf.common.factories import (
 )
 from aiperf.common.hooks import on_command, on_init, on_message, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
+from aiperf.exporters.exporter_manager import ExporterManager
 from aiperf.common.messages import (
     CommandErrorResponse,
     CommandResponse,
@@ -396,6 +398,14 @@ class SystemController(SignalHandlerMixin, BaseService):
             self.error(
                 f"Received process records result message with no records: {message.results.results}"
             )
+
+        # For Kubernetes deployment: Output results JSON to stdout for CLI retrieval
+        # Use clear markers so CLI can extract from logs
+        if self.service_config.service_run_type == ServiceRunType.KUBERNETES:
+            print("\n<<<AIPERF_RESULTS_JSON_START>>>", flush=True)
+            print(message.results.model_dump_json(), flush=True)
+            print("<<<AIPERF_RESULTS_JSON_END>>>\n", flush=True)
+            self.debug("Results JSON output to stdout for K8s retrieval")
 
         # TODO: HACK: Stop the system controller after exporting the records
         self.debug("Stopping system controller after exporting records")

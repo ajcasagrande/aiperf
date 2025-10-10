@@ -65,9 +65,20 @@ class KubernetesServiceManager(BaseServiceManager):
 
         # Namespace management
         self.namespace = self._determine_namespace()
-        self.should_cleanup_namespace = (
-            self.service_config.kubernetes.should_auto_cleanup
-        )
+
+        # Check if we're running inside a pod (System Controller)
+        # If so, DON'T auto-cleanup - let the CLI handle cleanup after retrieving results
+        namespace_file = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+        running_in_cluster = namespace_file.exists()
+
+        if running_in_cluster:
+            # Pods should never self-cleanup - CLI handles it
+            self.should_cleanup_namespace = False
+            self.debug("Running in-cluster: disabling auto-cleanup (CLI will handle it)")
+        else:
+            # CLI uses the configured auto-cleanup setting
+            self.should_cleanup_namespace = self.service_config.kubernetes.should_auto_cleanup
+            self.debug(f"Running from CLI: auto_cleanup={self.should_cleanup_namespace}")
 
         self.debug(
             f"Kubernetes mode initialized: namespace={self.namespace}, "
@@ -147,9 +158,11 @@ class KubernetesServiceManager(BaseServiceManager):
                 "Running in-cluster - skipping namespace/RBAC creation (already exist)"
             )
 
-        # Always create Kubernetes Service for System Controller ZMQ endpoints
-        # This must be created before pods start so they can connect
+        # Create Kubernetes Services for pods that BIND sockets
+        # These must be created before pods start so others can connect
         await self._create_system_controller_service()
+        await self._create_timing_manager_service()
+        await self._create_records_manager_service()
 
         self.info(f"Kubernetes resources created in namespace: {self.namespace}")
 
@@ -376,6 +389,86 @@ class KubernetesServiceManager(BaseServiceManager):
             else:
                 raise AIPerfError(f"Failed to create Service: {e}")
 
+    async def _create_timing_manager_service(self) -> None:
+        """Create Kubernetes Service to expose TimingManager ZMQ ports.
+
+        TimingManager binds CREDIT_DROP (PUSH) and CREDIT_RETURN (PULL) sockets.
+        """
+        service_ports = [
+            client.V1ServicePort(
+                name="credit-drop",
+                port=self.service_config.comm_config.credit_drop_port if hasattr(self.service_config.comm_config, 'credit_drop_port') else 5562,
+                target_port=self.service_config.comm_config.credit_drop_port if hasattr(self.service_config.comm_config, 'credit_drop_port') else 5562,
+                protocol="TCP",
+            ),
+            client.V1ServicePort(
+                name="credit-return",
+                port=self.service_config.comm_config.credit_return_port if hasattr(self.service_config.comm_config, 'credit_return_port') else 5563,
+                target_port=self.service_config.comm_config.credit_return_port if hasattr(self.service_config.comm_config, 'credit_return_port') else 5563,
+                protocol="TCP",
+            ),
+        ]
+
+        service = client.V1Service(
+            metadata=client.V1ObjectMeta(name="timing-manager"),
+            spec=client.V1ServiceSpec(
+                selector={
+                    "app": "aiperf",
+                    "service-type": str(ServiceType.TIMING_MANAGER),
+                },
+                ports=service_ports,
+                type="ClusterIP",
+            ),
+        )
+
+        try:
+            self.core_v1.create_namespaced_service(
+                namespace=self.namespace, body=service
+            )
+            self.debug("Created Kubernetes Service: timing-manager")
+        except ApiException as e:
+            if e.status == 409:
+                self.debug("Service timing-manager already exists")
+            else:
+                raise AIPerfError(f"Failed to create timing-manager Service: {e}")
+
+    async def _create_records_manager_service(self) -> None:
+        """Create Kubernetes Service to expose RecordsManager ZMQ port.
+
+        RecordsManager binds RECORDS (PULL) socket.
+        """
+        service_ports = [
+            client.V1ServicePort(
+                name="records",
+                port=self.service_config.comm_config.records_push_pull_port if hasattr(self.service_config.comm_config, 'records_push_pull_port') else 5557,
+                target_port=self.service_config.comm_config.records_push_pull_port if hasattr(self.service_config.comm_config, 'records_push_pull_port') else 5557,
+                protocol="TCP",
+            ),
+        ]
+
+        service = client.V1Service(
+            metadata=client.V1ObjectMeta(name="records-manager"),
+            spec=client.V1ServiceSpec(
+                selector={
+                    "app": "aiperf",
+                    "service-type": str(ServiceType.RECORDS_MANAGER),
+                },
+                ports=service_ports,
+                type="ClusterIP",
+            ),
+        )
+
+        try:
+            self.core_v1.create_namespaced_service(
+                namespace=self.namespace, body=service
+            )
+            self.debug("Created Kubernetes Service: records-manager")
+        except ApiException as e:
+            if e.status == 409:
+                self.debug("Service records-manager already exists")
+            else:
+                raise AIPerfError(f"Failed to create records-manager Service: {e}")
+
     def _create_pod_spec(
         self, service_type: ServiceTypeT, service_id: str
     ) -> client.V1Pod:
@@ -398,25 +491,57 @@ class KubernetesServiceManager(BaseServiceManager):
 
         pod_service_config = copy.deepcopy(self.service_config)
 
-        # Override proxy hosts for non-System-Controller services
-        # Service pods need to CONNECT to System Controller's proxies via the K8s Service DNS
-        # But they still need to BIND to 0.0.0.0 for their own server sockets
+        # Configure ZMQ hosts based on service type and socket patterns
+        # Architecture:
+        #   - TimingManager: BINDS credit_drop (PUSH) and credit_return (PULL) -> host=0.0.0.0
+        #   - RecordsManager: BINDS records (PULL) -> host=0.0.0.0
+        #   - Workers: CONNECT to timing-manager for credits, records-manager for records
+        #   - All services: CONNECT to aiperf-system-controller for proxies
         if service_type != ServiceType.SYSTEM_CONTROLLER:
             if pod_service_config.zmq_tcp:
-                # Keep main host as 0.0.0.0 for BIND operations (CREDIT_RETURN, RECORDS, etc.)
-                # But override proxy hosts for CONNECT operations to System Controller
-                sc_dns = "aiperf-system-controller"
-                pod_service_config.zmq_tcp.event_bus_proxy_config.host = sc_dns
-                pod_service_config.zmq_tcp.dataset_manager_proxy_config.host = sc_dns
-                pod_service_config.zmq_tcp.raw_inference_proxy_config.host = sc_dns
+                # Services that BIND sockets need host=0.0.0.0
+                if service_type in (ServiceType.TIMING_MANAGER, ServiceType.RECORDS_MANAGER):
+                    pod_service_config.zmq_tcp.host = "0.0.0.0"
+                    # But still connect to System Controller for proxies
+                    sc_dns = "aiperf-system-controller"
+                    pod_service_config.zmq_tcp.event_bus_proxy_config.host = sc_dns
+                    pod_service_config.zmq_tcp.dataset_manager_proxy_config.host = sc_dns
+                    pod_service_config.zmq_tcp.raw_inference_proxy_config.host = sc_dns
+                    self.debug(
+                        f"Configured BIND service {service_id}: host=0.0.0.0, proxy_hosts={sc_dns}"
+                    )
+                else:
+                    # Services that CONNECT: use Service DNS names based on socket usage
+                    # - Workers: connect to timing-manager (credits) and records-manager (records)
+                    # - RecordProcessors: connect to records-manager (records only)
+                    # - WorkerManager/DatasetManager: only use proxies, connect to system-controller
+                    #
+                    # Since ZMQTCPConfig has one 'host' field for all non-proxy addresses:
+                    #   - Workers: use timing-manager (covers credit_drop & credit_return)
+                    #   - RecordProcessors: use records-manager (covers records)
+                    #   - Others: use aiperf-system-controller
+                    sc_dns = "aiperf-system-controller"
+
+                    if service_type == ServiceType.WORKER:
+                        # Workers use credits from timing-manager
+                        pod_service_config.zmq_tcp.host = "timing-manager"
+                        self.debug(f"Configured Worker {service_id}: credit_host=timing-manager")
+                    elif service_type == ServiceType.RECORD_PROCESSOR:
+                        # RecordProcessors send records to records-manager
+                        pod_service_config.zmq_tcp.host = "records-manager"
+                        self.debug(f"Configured RecordProcessor {service_id}: records_host=records-manager")
+                    else:
+                        # WorkerManager, DatasetManager: only use proxies
+                        pod_service_config.zmq_tcp.host = sc_dns
+                        self.debug(f"Configured {service_type} {service_id}: host={sc_dns}")
+
+                    # All services connect to System Controller for proxies
+                    pod_service_config.zmq_tcp.event_bus_proxy_config.host = sc_dns
+                    pod_service_config.zmq_tcp.dataset_manager_proxy_config.host = sc_dns
+                    pod_service_config.zmq_tcp.raw_inference_proxy_config.host = sc_dns
 
                 # Update internal cache
                 pod_service_config._comm_config = pod_service_config.zmq_tcp
-
-                self.debug(
-                    f"Configured service pod {service_id}: main_host=0.0.0.0, "
-                    f"proxy_hosts={sc_dns}"
-                )
 
         # Serialize configs to JSON for environment variables
         # Use exclude_none=False to ensure proxy host overrides are included
@@ -548,7 +673,23 @@ class KubernetesServiceManager(BaseServiceManager):
         return results
 
     async def shutdown_all_services(self) -> list[BaseException | None]:
-        """Stop all service pods gracefully."""
+        """Stop all service pods gracefully.
+
+        In Kubernetes mode, when running in-cluster (inside a pod), we DON'T delete
+        pods here. The CLI will handle cleanup after retrieving results.
+        """
+        # Check if we're running inside a pod
+        namespace_file = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+        running_in_cluster = namespace_file.exists()
+
+        if running_in_cluster:
+            self.debug(
+                "Running in-cluster: skipping pod deletion (CLI will handle cleanup after result retrieval)"
+            )
+            # Just mark services as stopped but don't delete pods
+            return []
+
+        # CLI-side shutdown: delete all pods
         self.debug("Stopping all service pods")
 
         results = []
