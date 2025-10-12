@@ -84,7 +84,7 @@ class MetricResultsProcessor(BaseMetricsProcessor):
 
                 elif metric_type == MetricType.AGGREGATE:
                     metric: BaseAggregateMetric = self._instances_map[tag]  # type: ignore
-                    metric.aggregate_value(value)
+                    metric.aggregate_value(value, incoming_metrics)
                     self._results[tag] = metric.current_value
 
                 else:

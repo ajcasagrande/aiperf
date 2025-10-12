@@ -106,5 +106,5 @@ DEFAULT_ZMQ_CONTEXT_TERM_TIMEOUT = 10.0
 AIPERF_HTTP_CONNECTION_LIMIT = int(os.environ.get("AIPERF_HTTP_CONNECTION_LIMIT", 2500))
 """Maximum number of concurrent connections for HTTP clients."""
 
-GOOD_REQUEST_COUNT_TAG = "good_request_count"
-"""GoodRequestCount metric tag"""
+GOOD_REQUEST_TAG = "good_request"
+"""GoodRequest metric tag"""

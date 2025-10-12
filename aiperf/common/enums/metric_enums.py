@@ -20,7 +20,7 @@ from aiperf.common.exceptions import MetricUnitError
 if TYPE_CHECKING:
     from aiperf.metrics.metric_dicts import MetricArray
 
-MetricValueTypeT: TypeAlias = int | float | list[float] | list[int]
+MetricValueTypeT: TypeAlias = int | float | bool | list[float] | list[int]
 MetricValueTypeVarT = TypeVar("MetricValueTypeVarT", bound=MetricValueTypeT)
 MetricDictValueTypeT: TypeAlias = (
     "MetricValueTypeT | list[MetricValueTypeT] | MetricArray"
@@ -195,6 +195,7 @@ class GenericMetricUnit(BaseMetricUnit):
     TOKENS = _unit("tokens")
     RATIO = _unit("ratio")
     USER = _unit("user")
+    PERCENT = _unit("%")
 
 
 class MetricDateTimeUnit(BaseMetricUnit):
@@ -328,6 +329,12 @@ class MetricValueType(BasePydanticBackedStrEnum):
         default_factory=int,
         converter=int,
         dtype=int,
+    )
+    BOOL = MetricValueTypeInfo(
+        tag="bool",
+        default_factory=bool,
+        converter=bool,
+        dtype=bool,
     )
     FLOAT_LIST = MetricValueTypeInfo(
         tag="list[float]",

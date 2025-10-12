@@ -33,7 +33,7 @@ class BaseAggregateMetric(
             # We just return 1 since we are tracking the total count, and this is a single request.
             return 1
 
-        def _aggregate_value(self, value: int) -> None:
+        def _aggregate_value(self, value: int, record_metrics: MetricRecordDict) -> None:
             # We add the value to the aggregate value.
             self._value += value
     ```
@@ -91,7 +91,9 @@ class BaseAggregateMetric(
     # NOTE: This method does not return a value on purpose, as a hint to the user that the
     #       internal value is supposed to be updated.
     @abstractmethod
-    def _aggregate_value(self, value: MetricValueTypeVarT) -> None:
+    def _aggregate_value(
+        self, value: MetricValueTypeVarT, record_metrics: MetricRecordDict
+    ) -> None:
         """Aggregate the metric value. This method is implemented by subclasses.
 
         This method is called with the result value from the `_parse_record` method, from each distributed record processor.
@@ -99,5 +101,9 @@ class BaseAggregateMetric(
         as summing the values, or taking the min/max/average, etc.
 
         NOTE: The order of the values is not guaranteed.
+
+        Args:
+            value: The value to aggregate.
+            record_metrics: The other metrics for the record that may help in the aggregation.
         """
         raise NotImplementedError("Subclasses must implement this method")

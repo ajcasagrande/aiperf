@@ -38,7 +38,7 @@ class MinRequestTimestampMetric(BaseAggregateMetric[int]):
         # NOTE: Use the request timestamp_ns, not the start_perf_ns, because we want wall-clock timestamps,
         return record.timestamp_ns
 
-    def _aggregate_value(self, value: int) -> None:
+    def _aggregate_value(self, value: int, record_metrics: MetricRecordDict) -> None:
         """Aggregate the metric value. For this metric, we just take the min of the values from the different processes."""
         if value < self._value:
             self._value = value

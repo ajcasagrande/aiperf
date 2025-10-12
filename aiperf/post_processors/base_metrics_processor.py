@@ -4,7 +4,7 @@
 from abc import ABC
 
 from aiperf.common.config import UserConfig
-from aiperf.common.constants import GOOD_REQUEST_COUNT_TAG
+from aiperf.common.constants import GOOD_REQUEST_TAG
 from aiperf.common.enums import MetricFlags, MetricType
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.metrics.base_metric import BaseMetric
@@ -38,11 +38,11 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
 
     def _configure_goodput(self, applicable_tags: set[str]) -> None:
         """
-        If --goodput SLOs are provided, wire the SLOs into the GoodRequestCountMetric.
+        If --goodput SLOs are provided, wire the SLOs into the GoodRequestMetric.
         """
         if not self.user_config.input.goodput:
             return
-        if GOOD_REQUEST_COUNT_TAG not in applicable_tags:
+        if GOOD_REQUEST_TAG not in applicable_tags:
             return
 
         slo_tags = set((self.user_config.input.goodput or {}).keys())
@@ -55,7 +55,7 @@ class BaseMetricsProcessor(AIPerfLoggerMixin, ABC):
             )
 
         try:
-            MetricRegistry.get_class(GOOD_REQUEST_COUNT_TAG).set_slos(
+            MetricRegistry.get_class(GOOD_REQUEST_TAG).set_slos(
                 self.user_config.input.goodput
             )
         except ValueError as e:

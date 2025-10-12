@@ -29,8 +29,15 @@ class BaseMetricDict(
 ):
     """Base class for all metric dicts."""
 
-    def get_or_raise(self, metric: type["BaseMetric"]) -> MetricDictValueTypeT:
+    def __getitem__(self, key: MetricTagT) -> MetricDictValueTypeT:
         """Get the value of a metric, or raise NoMetricValue if it is not available."""
+        try:
+            return super().__getitem__(key)
+        except KeyError as e:
+            raise NoMetricValue(f"Metric {key} is not available for the record.") from e
+
+    def get_or_raise(self, metric: type["BaseMetric"]) -> MetricDictValueTypeT:
+        """Get the value of a metric, or raise NoMetricValue if it is not available or is falsy."""
         value = self.get(metric.tag)
         if not value:
             raise NoMetricValue(f"Metric {metric.tag} is not available for the record.")
@@ -39,7 +46,7 @@ class BaseMetricDict(
     def get_converted_or_raise(
         self, metric: type["BaseMetric"], other_unit: MetricUnitT
     ) -> float:
-        """Get the value of a metric, but converted to a different unit, or raise NoMetricValue if it is not available."""
+        """Get the value of a metric, but converted to a different unit, or raise NoMetricValue if it is not available or is falsy (0)."""
         return metric.unit.convert_to(other_unit, self.get_or_raise(metric))  # type: ignore
 
 

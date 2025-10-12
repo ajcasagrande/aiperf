@@ -6,20 +6,24 @@ from typing import ClassVar
 from aiperf.common.enums import GenericMetricUnit, MetricFlags
 from aiperf.common.exceptions import MetricTypeError, NoMetricValue
 from aiperf.common.models import ParsedResponseRecord
-from aiperf.metrics.base_aggregate_counter_metric import BaseAggregateCounterMetric
-from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.base_aggregate_metric import BaseAggregateMetric
+from aiperf.metrics.base_derived_metric import BaseDerivedMetric
+from aiperf.metrics.base_metric import BaseMetric
+from aiperf.metrics.base_record_metric import BaseRecordMetric
+from aiperf.metrics.metric_dicts import MetricRecordDict, MetricResultsDict
 from aiperf.metrics.metric_registry import MetricRegistry
+from aiperf.metrics.types.request_count_metric import TotalRequestCountMetric
 
 
-class GoodRequestCountMetric(BaseAggregateCounterMetric):
+class GoodRequestMetric(BaseRecordMetric[bool]):
     """
-    Counts requests that satisfy all user-provided SLO thresholds.
+    Keeps track of requests that satisfy all user-provided SLO thresholds.
     """
 
-    tag = "good_request_count"
-    header = "GoodRequestCount"
+    tag = "good_request"
+    header = "GoodRequest"
     short_header_hide_unit = True
-    unit = GenericMetricUnit.REQUESTS
+    unit = None
     flags = MetricFlags.GOODPUT | MetricFlags.NO_CONSOLE
     required_metrics: set[str] | None = None
 
@@ -64,23 +68,11 @@ class GoodRequestCountMetric(BaseAggregateCounterMetric):
         self,
         record: ParsedResponseRecord,
         record_metrics: MetricRecordDict,
-    ) -> int:
-        """
-        Returns 1 if the record meets all SLOs; otherwise 0.
-        If no SLOs were configured, returns 0.
-        """
-        if not self._thresholds:
-            return 0
-        return 1 if self._is_good(record_metrics) else 0
-
-    def _passes(self, metric_cls, record_value: float, threshold_value: float) -> bool:
-        """Compare a record value against its SLO using the metric's directionality."""
-        if metric_cls.flags.has_flags(MetricFlags.LARGER_IS_BETTER):
-            return record_value >= threshold_value
-        return record_value <= threshold_value
-
-    def _is_good(self, record_metrics: MetricRecordDict) -> bool:
+    ) -> bool:
         """Check if the record satisfies all configured SLOs."""
+        if not self._thresholds:
+            raise ValueError("No SLOs configured")
+
         for metric_tag, threshold in self._thresholds.items():
             metric_cls = MetricRegistry.get_class(metric_tag)
 
@@ -94,3 +86,55 @@ class GoodRequestCountMetric(BaseAggregateCounterMetric):
                 return False
 
         return True
+
+    def _passes(
+        self, metric_cls: type[BaseMetric], record_value: float, threshold_value: float
+    ) -> bool:
+        """Compare a record value against its SLO using the metric's directionality."""
+        if metric_cls.flags.has_flags(MetricFlags.LARGER_IS_BETTER):
+            return record_value >= threshold_value
+        return record_value <= threshold_value
+
+
+class GoodRequestCountMetric(BaseAggregateMetric[int]):
+    """
+    Counts requests that satisfy all user-provided SLO thresholds.
+    """
+
+    tag = "good_request_count"
+    header = "GoodRequest Count"
+    short_header = "Good Requests"
+    short_header_hide_unit = True
+    unit = GenericMetricUnit.REQUESTS
+    flags = MetricFlags.GOODPUT | MetricFlags.NO_CONSOLE
+    required_metrics = {GoodRequestMetric.tag}
+
+    def _parse_record(
+        self, record: ParsedResponseRecord, record_metrics: MetricRecordDict
+    ) -> int:
+        raise NoMetricValue("GoodRequestCountMetric does not parse records.")
+
+    def _aggregate_value(self, value: int, record_metrics: MetricRecordDict) -> None:
+        """Aggregate the value by incrementing the count if the good request metric is True."""
+        if record_metrics[GoodRequestMetric.tag]:
+            self._value += 1
+
+
+class GoodRequestPercentMetric(BaseDerivedMetric[float]):
+    """
+    Calculates the percentage of requests that satisfy all user-provided SLO thresholds.
+    """
+
+    tag = "good_request_percent"
+    header = "GoodRequest Percent"
+    short_header = "Good Percent"
+    short_header_hide_unit = True
+    unit = GenericMetricUnit.PERCENT
+    flags = MetricFlags.GOODPUT | MetricFlags.NO_CONSOLE
+    required_metrics = {GoodRequestCountMetric.tag, TotalRequestCountMetric.tag}
+
+    def _derive_value(self, metric_results: MetricResultsDict) -> float:
+        """Derive the good_request_percent value as the percentage of good requests over the total requests."""
+        good_request_count = metric_results[GoodRequestCountMetric.tag]
+        total_request_count = metric_results.get_or_raise(TotalRequestCountMetric)
+        return (good_request_count / total_request_count) * 100.0
