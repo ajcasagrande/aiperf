@@ -93,6 +93,8 @@ class AIPerfTextualApp(App):
         await self.mount(self._quit_dialog)
 
 
+
+
 class TextualUIMixin(AIPerfLifecycleMixin):
     """Enhanced mixin for Textual-based UI functionality with improved visual feedback."""
 
