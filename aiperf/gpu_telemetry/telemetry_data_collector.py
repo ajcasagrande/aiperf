@@ -158,7 +158,7 @@ class TelemetryDataCollector(AIPerfLifecycleMixin):
                 except Exception as callback_error:
                     self.error(f"Failed to send error via callback: {callback_error}")
             else:
-                self.error(f"Telemetry collection error: {e}")
+                self.exception(f"Telemetry collection error: {e}")
 
     async def _collect_and_process_metrics(self) -> None:
         """Collect metrics from DCGM endpoint and process them into TelemetryRecord objects.
@@ -186,7 +186,7 @@ class TelemetryDataCollector(AIPerfLifecycleMixin):
                     self.warning(f"Failed to send telemetry records via callback: {e}")
 
         except Exception as e:
-            self.error(f"Error collecting and processing metrics: {e}")
+            self.exception(f"Error collecting and processing metrics: {e}")
             raise
 
     async def _fetch_metrics(self) -> str:
@@ -213,6 +213,7 @@ class TelemetryDataCollector(AIPerfLifecycleMixin):
         if self._session.closed:
             raise asyncio.CancelledError
 
+        self.info(f"Fetching metrics from {self._dcgm_url}")
         async with self._session.get(self._dcgm_url) as response:
             response.raise_for_status()
             text = await response.text()

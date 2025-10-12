@@ -108,8 +108,8 @@ class TelemetryManager(BaseComponentService):
             str: URL ending with /metrics
         """
         url = url.rstrip("/")
-        if not url.endswith("/metrics"):
-            url = f"{url}/metrics"
+        # if not url.endswith("/metrics"):
+        #     url = f"{url}/metrics"
         return url
 
     @on_init
