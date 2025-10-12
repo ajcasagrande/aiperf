@@ -168,7 +168,7 @@ first-time-setup: #? convenience command to setup the environment for the first 
 
 	@# Install the mock server
 	@printf "$(bold)$(green)Installing mock server...$(reset)\n"
-	@$(MAKE) -C integration-tests --no-print-directory install
+	@$(MAKE) -C mock_server --no-print-directory install
 
 	@# Install pre-commit hooks
 	@printf "$(bold)$(green)Installing pre-commit hooks...$(reset)\n"

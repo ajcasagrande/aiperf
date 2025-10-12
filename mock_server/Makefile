@@ -28,7 +28,7 @@ SHELL := /bin/bash
 PROJECT_NAME ?= AIPerf Integration Tests
 
 # The path to the virtual environment
-VENV_PATH ?= ../.venv
+VENV_PATH ?= .venv
 # The python version to use
 PYTHON_VERSION ?= 3.12
 # The command to activate the virtual environment
