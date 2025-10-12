@@ -5,8 +5,8 @@ from typing import Any, Dict
 
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config.service_config import ServiceConfig
-from aiperf.common.enums import ServiceRunType, Topic
-from aiperf.common.models.messages import BaseMessage, RegistrationMessage
+from aiperf.common.enums import ServiceRunType, Topic, MessageType
+from aiperf.common.models.messages import BaseMessage, RegistrationData
 from aiperf.common.service import ServiceBase
 from aiperf.services.dataset_manager.main import DatasetManager
 from aiperf.services.post_processor_manager.main import PostProcessorManager
@@ -74,11 +74,12 @@ class SystemController(ServiceBase):
         self.logger.debug(
             f"Processing message in System Controller: {topic}, {message}"
         )
+        if message.data.message_type == MessageType.REGISTRATION:
         if topic == Topic.REGISTRATION:
             await self._process_registration_message(message)
         # TODO: Process other message types
 
-    async def _process_registration_message(self, message: RegistrationMessage) -> None:
+    async def _process_registration_message(self, message: RegistrationData) -> None:
         self.logger.debug(f"Processing registration message: {message}")
         # TODO: Process registration message
         raise NotImplementedError

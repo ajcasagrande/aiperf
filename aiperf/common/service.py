@@ -8,9 +8,9 @@ from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.enums import ServiceState, Topic
 from aiperf.common.models.messages import (
     BaseMessage,
-    HeartbeatMessage,
+    HeartbeatData,
     StatusMessage,
-    RegistrationMessage,
+    RegistrationData,
 )
 
 
@@ -60,7 +60,7 @@ class ServiceBase(ABC):
 
     async def _send_heartbeat(self) -> None:
         """Send a heartbeat message to the system controller."""
-        heartbeat_message = HeartbeatMessage(
+        heartbeat_message = HeartbeatData(
             service_id=self.service_id,
             service_type=self.service_type,
         )
@@ -99,7 +99,7 @@ class ServiceBase(ABC):
         self.logger.debug("Registering service with system controller")
         await self._publish_message(
             Topic.REGISTRATION,
-            RegistrationMessage(
+            RegistrationData(
                 service_id=self.service_id,
                 service_type=self.service_type,
             ),
