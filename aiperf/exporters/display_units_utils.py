@@ -41,6 +41,8 @@ GPU_TELEMETRY_METRICS_CONFIG = [
     ("Thermal Violation", "thermal_violation", "us"),
 ]
 
+METRIC_UNITS = {metric_key: unit for _, metric_key, unit in GPU_TELEMETRY_METRICS_CONFIG}
+
 
 def normalize_endpoint_display(url: str) -> str:
     """Normalize endpoint URL for display by removing scheme and trimming /metrics suffix.
