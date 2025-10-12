@@ -25,7 +25,6 @@ from aiperf.common.exceptions import (
     FactoryCreationError,
     InvalidStateError,
 )
-from aiperf.common.plugins import AIPerfUIType
 from aiperf.common.types import (
     ClassEnumT,
     ClassProtocolT,
@@ -332,12 +331,6 @@ class AIPerfSingletonFactory(AIPerfFactory[ClassEnumT, ClassProtocolT]):
     @classmethod
     def has_instance(cls, class_type: ClassEnumT | str) -> bool:
         return class_type in cls._instances
-
-
-class AIPerfUIFactory(AIPerfSingletonFactory[AIPerfUIType, "AIPerfUIProtocol"]):
-    """Factory for registering and creating AIPerfUIProtocol instances based on the specified AIPerfUI type.
-    see: :class:`aiperf.common.factories.AIPerfSingletonFactory` for more details.
-    """
 
 
 class CommunicationClientFactory(
