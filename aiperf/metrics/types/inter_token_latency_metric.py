@@ -6,10 +6,10 @@ from aiperf.common.exceptions import NoMetricValue
 from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.output_sequence_length_metric import (
     OutputSequenceLengthMetric,
 )
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from aiperf.metrics.types.ttft_metric import TTFTMetric
 
 

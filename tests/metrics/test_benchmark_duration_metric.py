@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from aiperf.metrics.types.benchmark_duration_metric import BenchmarkDurationMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.max_response_metric import MaxResponseTimestampMetric
 from aiperf.metrics.types.min_request_metric import MinRequestTimestampMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from tests.metrics.conftest import create_record, run_simple_metrics_pipeline
 
 

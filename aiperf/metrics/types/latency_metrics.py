@@ -91,7 +91,7 @@ class OutputLatencyMetric(BaseRecordMetric[int]):
     unit = MetricTimeUnit.NANOSECONDS
     display_unit = MetricTimeUnit.MILLISECONDS
     flags = MetricFlags.STREAMING_TOKENS_ONLY | MetricFlags.NO_CONSOLE
-    required_metrics = TimeToFirstOutputMetric.tag
+    required_metrics = {TimeToFirstOutputMetric.tag}
 
     def _parse_record(
         self,

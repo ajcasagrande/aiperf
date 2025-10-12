@@ -9,10 +9,10 @@ from aiperf.common.models import MetricResult
 from aiperf.metrics.types.benchmark_duration_metric import BenchmarkDurationMetric
 from aiperf.metrics.types.error_request_count import ErrorRequestCountMetric
 from aiperf.metrics.types.inter_token_latency_metric import InterTokenLatencyMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.output_token_count import (
     OutputTokenCountMetric,
 )
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from aiperf.metrics.types.thinking_efficiency_metrics import ThinkingEfficiencyMetric
 from aiperf.metrics.types.ttft_metric import TTFTMetric
 from aiperf.ui.dashboard.realtime_metrics_dashboard import RealtimeMetricsTable

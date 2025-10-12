@@ -5,7 +5,7 @@ import pytest
 
 from aiperf.common.exceptions import NoMetricValue
 from aiperf.metrics.metric_dicts import MetricRecordDict
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from tests.metrics.conftest import create_record, run_simple_metrics_pipeline
 
 

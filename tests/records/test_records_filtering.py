@@ -10,8 +10,8 @@ from aiperf.common.enums import CreditPhase
 from aiperf.common.messages.inference_messages import MetricRecordsData
 from aiperf.common.models.record_models import MetricRecordMetadata
 from aiperf.common.types import MetricTagT
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.min_request_metric import MinRequestTimestampMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 
 # Constants
 START_TIME = 1000000000

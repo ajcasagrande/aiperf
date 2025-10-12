@@ -7,7 +7,7 @@ from aiperf.common.enums import MetricFlags, MetricTimeUnit
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.metrics.metric_registry import MetricRegistry
 from aiperf.metrics.types.good_request_count_metric import GoodRequestCountMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from tests.metrics.conftest import create_record, run_simple_metrics_pipeline
 
 

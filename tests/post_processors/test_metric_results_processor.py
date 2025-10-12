@@ -10,8 +10,8 @@ from aiperf.common.enums import MetricType
 from aiperf.common.exceptions import NoMetricValue
 from aiperf.common.models import MetricResult
 from aiperf.metrics.metric_dicts import MetricArray, MetricResultsDict
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.request_count_metric import RequestCountMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from aiperf.metrics.types.request_throughput_metric import RequestThroughputMetric
 from aiperf.post_processors.metric_results_processor import MetricResultsProcessor
 from tests.post_processors.conftest import create_metric_records_message

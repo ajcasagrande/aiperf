@@ -17,7 +17,7 @@ from aiperf.common.config import (
 from aiperf.common.enums import CustomDatasetType, MetricFlags, MetricTimeUnit
 from aiperf.common.exceptions import MetricTypeError
 from aiperf.metrics.metric_registry import MetricRegistry
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 
 
 def test_input_config_defaults():

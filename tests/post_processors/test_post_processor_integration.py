@@ -12,8 +12,8 @@ from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.metric_dicts import MetricArray
 from aiperf.metrics.types.benchmark_duration_metric import BenchmarkDurationMetric
 from aiperf.metrics.types.error_request_count import ErrorRequestCountMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.request_count_metric import RequestCountMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from aiperf.metrics.types.request_throughput_metric import RequestThroughputMetric
 from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
 from aiperf.post_processors.metric_results_processor import MetricResultsProcessor

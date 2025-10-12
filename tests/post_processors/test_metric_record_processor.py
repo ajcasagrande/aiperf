@@ -11,8 +11,8 @@ from aiperf.common.models import ParsedResponseRecord
 from aiperf.metrics.base_record_metric import BaseRecordMetric
 from aiperf.metrics.metric_dicts import MetricRecordDict
 from aiperf.metrics.types.error_request_count import ErrorRequestCountMetric
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.request_count_metric import RequestCountMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from aiperf.post_processors.metric_record_processor import MetricRecordProcessor
 from tests.conftest import (
     DEFAULT_LAST_RESPONSE_NS,

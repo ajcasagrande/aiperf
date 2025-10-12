@@ -4,8 +4,8 @@
 from pytest import approx
 
 from aiperf.metrics.metric_dicts import MetricRecordDict
+from aiperf.metrics.types.latency_metrics import RequestLatencyMetric
 from aiperf.metrics.types.max_response_metric import MaxResponseTimestampMetric
-from aiperf.metrics.types.request_latency_metric import RequestLatencyMetric
 from tests.metrics.conftest import create_record
 
 
