@@ -23,7 +23,7 @@ class TestChatEndpoint:
         result = await cli.run(
             f"""
             aiperf profile \
-                --model Qwen/Qwen3-0.6B \
+                --model openai/gpt-oss-20b \
                 --url {fakeai_server.url} \
                 --endpoint-type chat \
                 --concurrency 10 \
@@ -44,21 +44,6 @@ make test-integration
 
 # Run all integration tests (verbose, sequential with AIPerf output)
 make test-integration-verbose
-
-# Run all endpoint tests
-make test-integration tests/integration/endpoints/
-
-# Run all feature tests
-make test-integration tests/integration/features/
-
-# Run specific endpoint tests
-make test-integration tests/integration/endpoints/test_chat.py
-
-# Run specific test class
-make test-integration tests/integration/endpoints/test_chat.py::TestChatEndpoint
-
-# Run specific test
-make test-integration tests/integration/endpoints/test_chat.py::TestChatEndpoint::test_basic_chat
 ```
 
 ## Test Organization
