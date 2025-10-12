@@ -5,13 +5,23 @@ import { motion } from 'framer-motion'
 import { Activity, Search, Download, AlertCircle, Filter, GitBranch } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useDashboardStore } from '@/lib/store'
+import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import WaterfallChart from '@/components/charts/WaterfallChart'
 import TimelineChart from '@/components/charts/TimelineChart'
 
 export default function TracesPage() {
-  const { currentBenchmarkId, benchmarks } = useDashboardStore()
+  const { currentBenchmarkId } = useDashboardStore()
   const [selectedBenchmark, setSelectedBenchmark] = useState(currentBenchmarkId || '')
+
+  // Fetch benchmarks list
+  const { data: benchmarksData } = useQuery({
+    queryKey: ['benchmarks'],
+    queryFn: () => apiClient.listBenchmarks(),
+    refetchOnMount: true,
+  })
+
+  const benchmarks = benchmarksData || []
   const [traces, setTraces] = useState<any[]>([])
   const [errorTraces, setErrorTraces] = useState<any[]>([])
   const [selectedTrace, setSelectedTrace] = useState<any>(null)
@@ -41,18 +51,16 @@ export default function TracesPage() {
 
     setLoading(true)
     try {
-      const response = await apiClient.client.get(`/api/v3/benchmarks/${selectedBenchmark}/traces`, {
-        params: {
-          limit,
-          offset,
-          search: searchTerm || undefined,
-          min_latency: minLatency,
-          max_latency: maxLatency,
-          has_error: showErrorsOnly || undefined,
-        }
+      const traces = await apiClient.getTraces(selectedBenchmark, {
+        limit,
+        offset,
+        search: searchTerm || undefined,
+        min_latency: minLatency,
+        max_latency: maxLatency,
+        has_error: showErrorsOnly || undefined,
       })
-      setTraces(response.data.traces.items)
-      setTotal(response.data.traces.total)
+      setTraces(traces.items)
+      setTotal(traces.total)
     } catch (error) {
       console.error('Failed to load traces:', error)
       toast.error('Failed to load traces')
@@ -65,8 +73,8 @@ export default function TracesPage() {
     if (!selectedBenchmark) return
 
     try {
-      const response = await apiClient.client.get(`/api/v3/benchmarks/${selectedBenchmark}/traces/errors`)
-      setErrorTraces(response.data.errors)
+      const errors = await apiClient.getErrorTraces(selectedBenchmark)
+      setErrorTraces(errors)
     } catch (error) {
       console.error('Failed to load error traces:', error)
       toast.error('Failed to load error traces')
@@ -75,8 +83,8 @@ export default function TracesPage() {
 
   const loadTraceDetail = async (requestId: string) => {
     try {
-      const response = await apiClient.client.get(`/api/v3/benchmarks/${selectedBenchmark}/traces/${requestId}`)
-      setSelectedTrace(response.data)
+      const trace = await apiClient.getTraceDetail(selectedBenchmark, requestId)
+      setSelectedTrace(trace)
     } catch (error) {
       console.error('Failed to load trace detail:', error)
       toast.error('Failed to load trace details')
@@ -85,11 +93,9 @@ export default function TracesPage() {
 
   const exportTraces = async (format: string) => {
     try {
-      const response = await apiClient.client.get(`/api/v3/benchmarks/${selectedBenchmark}/traces/export`, {
-        params: { format }
-      })
+      const data = await apiClient.exportTraces(selectedBenchmark, format)
 
-      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -128,7 +134,7 @@ export default function TracesPage() {
             className="w-full max-w-md px-4 py-3 bg-black/50 border border-white/10 rounded-lg text-white focus:border-nvidia-green focus:outline-none"
           >
             <option value="">Select a benchmark...</option>
-            {benchmarks.map((b) => (
+            {benchmarks.map((b: any) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

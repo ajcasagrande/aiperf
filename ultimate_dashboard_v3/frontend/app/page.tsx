@@ -89,6 +89,17 @@ export default function HomePage() {
                 Request Traces
               </motion.button>
             </Link>
+
+            <Link href="/upload">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 bg-white/10 text-white font-bold rounded-lg border border-white/20 hover:bg-white/20 transition-colors flex items-center gap-2"
+              >
+                <Upload className="w-5 h-5" />
+                Upload Data
+              </motion.button>
+            </Link>
           </div>
         </motion.div>
 
@@ -151,10 +162,17 @@ export default function HomePage() {
           />
 
           <FeatureCard
+            icon={<Upload className="w-8 h-8" />}
+            title="Easy Data Import"
+            description="Upload JSONL benchmark data with drag-and-drop support"
+            delay={0.9}
+          />
+
+          <FeatureCard
             icon={<Database className="w-8 h-8" />}
             title="Smart Data Processing"
             description="Efficient data handling with pandas and DuckDB"
-            delay={0.8}
+            delay={1.0}
           />
 
           <FeatureCard

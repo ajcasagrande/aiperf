@@ -80,15 +80,26 @@ export default function ComparePage() {
         const max = Math.max(...allValues)
         const min = Math.min(...allValues)
 
-        if (max === min) return
-
         const value = comparisonData.data[benchmarkId]?.[metricKey]?.mean || 0
-        const isLatencyMetric = metricKey.includes('latency') || metricKey.includes('ttft')
+
+        // Skip if all values are 0 (no data)
+        if (max === 0) return
+
+        // If all values are identical, give everyone 50 points
+        if (max === min) {
+          totalScore += 50
+          count++
+          return
+        }
+
+        const isLatencyMetric = metricKey.includes('latency') || metricKey.includes('ttft') || metricKey.includes('itl')
 
         let score = 0
         if (isLatencyMetric) {
+          // Lower is better for latency
           score = ((max - value) / (max - min)) * 100
         } else {
+          // Higher is better for throughput/goodput
           score = ((value - min) / (max - min)) * 100
         }
 

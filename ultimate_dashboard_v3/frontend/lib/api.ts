@@ -161,6 +161,42 @@ class APIClient {
     return response.data
   }
 
+  // Get traces
+  async getTraces(
+    benchmarkId: string,
+    params?: {
+      limit?: number
+      offset?: number
+      search?: string
+      min_latency?: number
+      max_latency?: number
+      has_error?: boolean
+    }
+  ) {
+    const response = await this.client.get(`/api/v3/benchmarks/${benchmarkId}/traces`, { params })
+    return response.data.traces
+  }
+
+  // Get trace detail
+  async getTraceDetail(benchmarkId: string, requestId: string) {
+    const response = await this.client.get(`/api/v3/benchmarks/${benchmarkId}/traces/${requestId}`)
+    return response.data
+  }
+
+  // Get error traces
+  async getErrorTraces(benchmarkId: string) {
+    const response = await this.client.get(`/api/v3/benchmarks/${benchmarkId}/traces/errors`)
+    return response.data.errors
+  }
+
+  // Export traces
+  async exportTraces(benchmarkId: string, format: string = 'json') {
+    const response = await this.client.get(`/api/v3/benchmarks/${benchmarkId}/traces/export`, {
+      params: { format }
+    })
+    return response.data
+  }
+
   // WebSocket connection
   createWebSocket() {
     const wsUrl = API_URL.replace('http', 'ws') + '/ws/realtime'
