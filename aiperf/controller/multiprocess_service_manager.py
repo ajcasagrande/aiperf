@@ -366,23 +366,10 @@ class MultiProcessServiceManager(BaseServiceManager, MessageBusClientMixin):
         except Exception as e:
             self.warning(f"Error in subprocess output handling for {service_id}: {e}")
 
-        # Wait for process to complete and log exit code
-        try:
-            exit_code = await process.wait()
-            if exit_code != 0:
-                self.warning(
-                    f"Subprocess {service_id} (PID: {process.pid}) exited with code: {exit_code}"
-                )
-            else:
-                self.debug(
-                    lambda: f"Subprocess {service_id} (PID: {process.pid}) exited successfully"
-                )
-        except Exception as e:
-            self.warning(f"Error waiting for subprocess {service_id}: {e}")
-
     async def _watch_subprocess(self, info: AsyncSubprocessRunInfo) -> None:
         """Watch a subprocess for output and handle it."""
         if not info.process:
+            self.warning(f"Subprocess {info.service_id} not found")
             return
         try:
             await info.process.wait()

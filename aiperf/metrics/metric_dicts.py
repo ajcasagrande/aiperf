@@ -50,7 +50,7 @@ class MetricRecordDict(BaseMetricDict[MetricValueTypeT]):
 
     This will include:
     - The current value of any `BaseRecordMetric` that has been computed for this record.
-    - The new value of any `BaseAggregateMetric` that has been computed for this record.
+    - The individual value of any `BaseAggregateMetric` that has been computed for this record.
     - No `BaseDerivedMetric`s will be included.
     """
 

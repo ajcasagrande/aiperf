@@ -44,6 +44,7 @@ def setup_logging(
         level = _DEBUG
 
     # Set the root logger level to ensure logs are passed to handlers
+    level = level.upper()
     root_logger.setLevel(level)
 
     # Remove all existing handlers to avoid duplicate logs

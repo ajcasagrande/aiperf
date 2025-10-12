@@ -6,6 +6,7 @@ import uuid
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.bootstrap import bootstrap_and_run_service
 from aiperf.common.config import ServiceConfig, UserConfig
+from aiperf.common.config.config_defaults import OutputDefaults
 from aiperf.common.enums import ServiceType
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.logging import setup_logging
@@ -21,11 +22,19 @@ def run_service(
     """Run the specified service with the given configuration."""
     service_id = service_id or f"{service_type}_{uuid.uuid4().hex[:8]}"
 
+    log_folder = (
+        user_config.output.artifact_directory / OutputDefaults.LOG_FOLDER
+        if user_config
+        else None
+    )
+
     setup_logging(
         service_type=service_type,
         service_id=service_id,
-        service_config=service_config,
-        user_config=user_config,
+        level=service_config.log_level,
+        log_folder=log_folder,
+        debug_services=service_config.developer.debug_services,
+        trace_services=service_config.developer.trace_services,
     )
 
     _logger = AIPerfLogger(service_id)
