@@ -92,18 +92,6 @@ class MockServerConfig(BaseSettings):
         ),
     ] = "INFO"
 
-    # Tokenizer settings
-    tokenizer_models: Annotated[
-        list[str],
-        Field(
-            default_factory=list,
-            description="List of tokenizer models to pre-load at startup",
-        ),
-        cyclopts.Parameter(
-            name=("--tokenizer-models", "-m"),
-        ),
-    ] = []
-
     access_logs: Annotated[
         bool,
         Field(

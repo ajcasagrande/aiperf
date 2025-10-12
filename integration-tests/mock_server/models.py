@@ -35,9 +35,6 @@ class ConfigureMessage(BaseModel):
     itl: int | None = Field(
         default=None, description="Inter-token latency in milliseconds"
     )
-    tokenizer_models: list[str] | None = Field(
-        default=None, description="List of tokenizer models to load"
-    )
 
 
 # Rankings models (NVIDIA-specific, not in standard OpenAI)
