@@ -10,6 +10,7 @@ creation, ensuring all subsequent operations are fast and don't need to check sc
 import ast
 import importlib
 import threading
+import time
 from enum import Enum
 from pathlib import Path
 
@@ -91,10 +92,15 @@ class ModuleRegistry:
         if self._loaded:
             return
 
+        _logger.debug("Scanning all Python files for @Factory.register decorators")
+        start_time = time.perf_counter()
+
         aiperf_root = Path(__file__).parent
         for file_path in aiperf_root.rglob("*.py"):
             if "__pycache__" in str(file_path) or file_path.name == "module_loader.py":
                 continue
+
+            _logger.debug(f"Scanning {file_path}")
 
             try:
                 tree = ast.parse(file_path.read_text())
@@ -107,6 +113,9 @@ class ModuleRegistry:
             except Exception:
                 continue
 
+        _logger.debug(
+            f"Finished scanning all Python files for @Factory.register decorators in {(time.perf_counter() - start_time) * 1000:.2f} milliseconds"
+        )
         self._loaded = True
 
     def _parse_decorator(self, decorator: ast.expr, module_path: str) -> None:
