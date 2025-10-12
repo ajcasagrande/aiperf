@@ -20,15 +20,18 @@ class ConfigSerializer:
 
         Excludes zmq_tcp and zmq_ipc as these will be created fresh in each pod
         based on the service type and Kubernetes environment.
+
+        Uses exclude_unset=True to only serialize fields that were explicitly set,
+        avoiding conflicts from default values that trigger mutual exclusion validators.
         """
         return {
             "user_config.json": json.dumps(
-                user_config.model_dump(mode="json", exclude_defaults=True)
+                user_config.model_dump(mode="json", exclude_unset=True)
             ),
             "service_config.json": json.dumps(
                 service_config.model_dump(
                     mode="json",
-                    exclude_defaults=True,
+                    exclude_unset=True,
                     exclude={"zmq_tcp", "zmq_ipc"},  # Create these fresh in each pod
                 )
             ),
@@ -36,7 +39,7 @@ class ConfigSerializer:
 
     @staticmethod
     def deserialize_from_configmap(
-        config_data: dict[str, str]
+        config_data: dict[str, str],
     ) -> tuple[UserConfig, ServiceConfig]:
         """Deserialize configs from ConfigMap data."""
         user_config_dict = json.loads(config_data["user_config.json"])

@@ -42,10 +42,8 @@ from aiperf.common.config.config_defaults import (
     WorkersDefaults,
 )
 from aiperf.common.config.config_validators import (
-    NO_GPU_FLAG,
     coerce_value,
     custom_enum_converter,
-    gpu_telemetry_converter,
     parse_file,
     parse_service_types,
     parse_str_as_numeric_dict,
@@ -148,7 +146,6 @@ __all__ = [
     "KubernetesConfig",
     "LoadGeneratorConfig",
     "LoadGeneratorDefaults",
-    "NO_GPU_FLAG",
     "OutputConfig",
     "OutputDefaults",
     "OutputTokensConfig",
@@ -174,7 +171,6 @@ __all__ = [
     "ZMQTCPProxyConfig",
     "coerce_value",
     "custom_enum_converter",
-    "gpu_telemetry_converter",
     "load_service_config",
     "load_user_config",
     "parse_file",

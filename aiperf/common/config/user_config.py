@@ -6,17 +6,14 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from orjson import JSONDecodeError
-from pydantic import BeforeValidator, Field, model_validator
+from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config.base_config import BaseConfig
 from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
 from aiperf.common.config.config_validators import (
-    NO_GPU_FLAG,
     coerce_value,
-    gpu_telemetry_converter,
-    parse_str_or_list,
 )
 from aiperf.common.config.endpoint_config import EndpointConfig
 from aiperf.common.config.groups import Groups

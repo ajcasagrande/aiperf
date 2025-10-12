@@ -31,7 +31,6 @@ def profile(
     """
     with exit_on_error(title="Error Running AIPerf System"):
         from aiperf.common.config import load_service_config
-        from aiperf.common.config.config_validators import NO_GPU_FLAG
 
         # Parse --gpu-telemetry from cli_command to work around cyclopts bug
         if user_config.cli_command and "--gpu-telemetry" in user_config.cli_command:
@@ -51,7 +50,7 @@ def profile(
                 user_config.gpu_telemetry = None
         else:
             # Flag not provided - keep sentinel to indicate no display
-            user_config.gpu_telemetry = NO_GPU_FLAG
+            user_config.gpu_telemetry = None
 
         service_config = service_config or load_service_config()
 

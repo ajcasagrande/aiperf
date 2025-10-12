@@ -236,6 +236,65 @@ class InputConfig(BaseConfig):
         ),
     ] = InputDefaults.RANDOM_SEED
 
+    enable_chunking: Annotated[
+        bool,
+        Field(
+            description="Enable chunk-based dataset distribution for better performance.\n"
+            "When enabled, workers request multiple conversations at once (default: 100),\n"
+            "reducing network overhead by ~100x in high-concurrency scenarios.\n"
+            "Maintains same reproducibility as single-conversation mode.",
+        ),
+        CLIParameter(
+            name=("--enable-chunking",),
+            group=_CLI_GROUP,
+        ),
+    ] = True
+
+    dataset_chunk_size: Annotated[
+        int,
+        Field(
+            description="Number of conversations per chunk when chunking is enabled.\n"
+            "Higher values reduce network requests but increase worker memory.\n"
+            "Recommended: 50-200 for most workloads.",
+            ge=1,
+            le=1000,
+        ),
+        CLIParameter(
+            name=("--chunk-size",),
+            group=_CLI_GROUP,
+        ),
+    ] = 100
+
+    prefetch_threshold: Annotated[
+        float,
+        Field(
+            description="Prefetch new chunk when worker queue falls below this fraction.\n"
+            "Range: 0.0-1.0. Lower values reduce latency spikes, higher values reduce requests.\n"
+            "Default: 0.2 (prefetch when queue < 20% of chunk size).",
+            ge=0.0,
+            le=1.0,
+        ),
+        CLIParameter(
+            name=("--prefetch-threshold",),
+            group=_CLI_GROUP,
+        ),
+    ] = 0.2
+
+    deterministic_conversation_assignment: Annotated[
+        bool,
+        Field(
+            description="Enable deterministic conversation assignment for perfect reproducibility.\n"
+            "When enabled, conversations are assigned to specific indices, ensuring\n"
+            "identical results across different worker counts with the same random seed.\n"
+            "Requires benchmark duration or request count to be specified.\n"
+            "Trade-off: Slightly higher memory usage and startup time.",
+        ),
+        CLIParameter(
+            name=("--deterministic-conversations",),
+            group=_CLI_GROUP,
+        ),
+    ] = False
+
     goodput: Annotated[
         Any | None,
         Field(

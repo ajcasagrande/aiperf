@@ -4,7 +4,7 @@
 """Kubernetes runner for AIPerf - deploys to K8s cluster."""
 
 import asyncio
-from pathlib import Path
+import sys
 
 from aiperf.cli_utils import raise_startup_error_and_exit
 from aiperf.common.aiperf_logger import AIPerfLogger
@@ -35,9 +35,6 @@ async def run_kubernetes_deployment(
     logger = AIPerfLogger(__name__)
 
     try:
-        # Import CLI orchestrator
-        from aiperf.orchestrator import CLIOrchestrator
-
         # Create Kubernetes cluster orchestrator
         k8s_orchestrator = KubernetesOrchestrator(
             user_config=user_config,
@@ -125,8 +122,21 @@ def run_aiperf_kubernetes(
         )
 
     logger.info("AIPerf Kubernetes Deployment Mode")
-    logger.info(f"Target namespace: {service_config.kubernetes.namespace or 'auto-generated'}")
+    logger.info(
+        f"Target namespace: {service_config.kubernetes.namespace or 'auto-generated'}"
+    )
     logger.info(f"Container image: {service_config.kubernetes.image}")
+
+    # Ensure all modules are loaded (including ZMQ communication backends)
+    from aiperf.module_loader import ensure_modules_loaded
+
+    try:
+        ensure_modules_loaded()
+    except Exception as e:
+        raise_startup_error_and_exit(
+            f"Error loading modules: {e}",
+            title="Error Loading Modules",
+        )
 
     # Run deployment
     try:
@@ -137,7 +147,6 @@ def run_aiperf_kubernetes(
             )
         )
 
-        import sys
         sys.exit(exit_code)
 
     except KeyboardInterrupt:

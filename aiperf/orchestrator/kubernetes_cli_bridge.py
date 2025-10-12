@@ -6,17 +6,11 @@
 import asyncio
 from typing import TYPE_CHECKING
 
-from aiperf.common.base_service import BaseService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.enums import MessageType
 from aiperf.common.factories import AIPerfUIFactory
-from aiperf.common.hooks import on_init, on_message, on_start, on_stop
+from aiperf.common.hooks import on_init, on_start, on_stop
 from aiperf.common.logging import get_global_log_queue
-from aiperf.common.messages import (
-    ProcessRecordsResultMessage,
-    ProcessTelemetryResultMessage,
-    TelemetryStatusMessage,
-)
+from aiperf.common.mixins.aiperf_lifecycle_mixin import AIPerfLifecycleMixin
 from aiperf.common.models import ProcessRecordsResult, TelemetryResults
 from aiperf.common.models.error_models import ExitErrorInfo
 from aiperf.common.protocols import AIPerfUIProtocol
@@ -25,7 +19,7 @@ if TYPE_CHECKING:
     from aiperf.kubernetes.orchestrator import KubernetesOrchestrator
 
 
-class KubernetesCliBridge(BaseService):
+class KubernetesCliBridge(AIPerfLifecycleMixin):
     """Bridge between local CLI and Kubernetes cluster.
 
     This component runs LOCALLY and provides:
@@ -44,12 +38,11 @@ class KubernetesCliBridge(BaseService):
         k8s_orchestrator: "KubernetesOrchestrator",
         service_id: str | None = None,
     ):
-        super().__init__(
-            service_config=service_config,
-            user_config=user_config,
-            service_id=service_id or "k8s_cli_bridge",
-        )
+        super().__init__()
 
+        self.service_config = service_config
+        self.user_config = user_config
+        self.service_id = service_id or "k8s_cli_bridge"
         self.k8s_orchestrator = k8s_orchestrator
 
         # Create UI locally

@@ -103,4 +103,5 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: marks tests as integration tests (require external services)",
     "kubernetes: marks tests that require a Kubernetes cluster",
+    "e2e: marks tests as end-to-end tests",
 ]

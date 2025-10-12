@@ -86,6 +86,15 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         # Chunking state for optimized distribution
         self._chunk_counter = 0  # Total chunks served (for tracking)
 
+        # Deterministic mode: pre-generated conversation sequence
+        self._deterministic_sequence: list[str] = []  # List of session IDs
+        self._deterministic_index = 0  # Current position in sequence
+
+        # Chunking statistics for monitoring
+        self._total_conversations_served = 0
+        self._total_chunk_requests = 0
+        self._total_single_requests = 0
+
     @on_command(CommandType.PROFILE_CONFIGURE)
     async def _profile_configure_command(
         self, message: ProfileConfigureCommand
@@ -204,8 +213,13 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         self.dataset = {conv.session_id: conv for conv in conversations}
         self._session_ids_cache = list(self.dataset.keys())
 
-        # Reset chunking counter when dataset changes
+        # Reset chunking state when dataset changes
         self._chunk_counter = 0
+        self._deterministic_index = 0
+
+        # Pre-generate deterministic sequence if enabled
+        if self.user_config.input.deterministic_conversation_assignment:
+            await self._generate_deterministic_sequence()
 
         self.dataset_configured.set()
         await self.publish(
@@ -227,6 +241,10 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             raise self._service_error(
                 "Dataset is empty and must be configured before handling requests.",
             )
+
+        # Track single requests for monitoring
+        self._total_single_requests += 1
+        self._total_conversations_served += 1
 
         if message.conversation_id is None:
             return self._return_any_conversation(
@@ -354,6 +372,95 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
             timing_data=timing_dataset,
         )
 
+    async def _generate_deterministic_sequence(self) -> None:
+        """Pre-generate deterministic conversation sequence for perfect reproducibility.
+
+        This ensures that benchmarks with the same seed produce identical results
+        regardless of worker count, by pre-assigning conversations to specific indices.
+        """
+        # Calculate expected total requests from timing configuration
+        expected_requests = self._calculate_expected_requests()
+
+        if expected_requests == 0:
+            self.warning(
+                "Deterministic mode enabled but cannot calculate expected requests. "
+                "Falling back to non-deterministic mode. "
+                "Specify --benchmark-duration or --request-count for deterministic mode."
+            )
+            return
+
+        self.info(
+            f"Generating deterministic conversation sequence for {expected_requests} requests "
+            f"with seed {self.user_config.input.random_seed}"
+        )
+
+        # Create temporary random instance for sequence generation
+        temp_random = random.Random(self.user_config.input.random_seed)
+
+        # Pre-generate the sequence
+        self._deterministic_sequence = []
+        for i in range(expected_requests):
+            session_id = temp_random.choice(self._session_ids_cache)
+            self._deterministic_sequence.append(session_id)
+
+            # Log progress for large sequences
+            if (i + 1) % 10000 == 0:
+                self.debug(
+                    f"Generated {i + 1}/{expected_requests} conversation assignments"
+                )
+
+        self.info(
+            f"Deterministic sequence generated: {len(self._deterministic_sequence)} conversations"
+        )
+
+    def _calculate_expected_requests(self) -> int:
+        """Calculate expected total requests from configuration.
+
+        Returns:
+            Expected number of requests, or 0 if cannot be determined
+        """
+        warmup_count = self.user_config.loadgen.warmup_request_count or 0
+
+        # Prefer explicit request_count
+        if (
+            self.user_config.loadgen.request_count is not None
+            and self.user_config.loadgen.request_count > 0
+        ):
+            # Check if this is an explicit value or just the default
+            # If benchmark_duration is set, prefer duration-based calculation
+            if self.user_config.loadgen.benchmark_duration is not None:
+                duration = self.user_config.loadgen.benchmark_duration
+                if self.user_config.loadgen.request_rate is not None:
+                    profiling_count = int(
+                        duration * self.user_config.loadgen.request_rate
+                    )
+                elif self.user_config.loadgen.concurrency is not None:
+                    # Conservative estimate: assume ~10 requests per second per worker
+                    profiling_count = int(
+                        duration * self.user_config.loadgen.concurrency * 10
+                    )
+                else:
+                    # Fall back to request_count
+                    profiling_count = self.user_config.loadgen.request_count
+            else:
+                # Use explicit request_count
+                profiling_count = self.user_config.loadgen.request_count
+        elif self.user_config.loadgen.benchmark_duration is not None:
+            duration = self.user_config.loadgen.benchmark_duration
+            if self.user_config.loadgen.request_rate is not None:
+                profiling_count = int(duration * self.user_config.loadgen.request_rate)
+            elif self.user_config.loadgen.concurrency is not None:
+                # Conservative estimate: assume ~10 requests per second per worker
+                profiling_count = int(
+                    duration * self.user_config.loadgen.concurrency * 10
+                )
+            else:
+                return 0
+        else:
+            return 0
+
+        return warmup_count + profiling_count
+
     async def _wait_for_dataset_configuration(self) -> None:
         """Wait for the dataset to be configured if it is not already."""
         if not self.dataset_configured.is_set():
@@ -391,9 +498,14 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
         conversations = self._get_conversation_chunk(chunk_size)
 
         self._chunk_counter += 1
+        self._total_chunk_requests += 1
+        self._total_conversations_served += len(conversations)
 
         self.trace_or_debug(
-            lambda: f"Sending chunk {self._chunk_counter} with {len(conversations)} conversations",
+            lambda: f"Sending chunk {self._chunk_counter} with {len(conversations)} conversations "
+            f"(total served: {self._total_conversations_served}, "
+            f"chunk reqs: {self._total_chunk_requests}, "
+            f"single reqs: {self._total_single_requests})",
             lambda: f"Chunk {self._chunk_counter}: {len(conversations)} conversations",
         )
 
@@ -408,12 +520,12 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
     def _get_conversation_chunk(self, size: int) -> list[Conversation]:
         """Get a chunk of conversations maintaining reproducibility.
 
-        CRITICAL: Uses the seeded random generator to maintain the exact same
-        random sequence as single-conversation mode. This ensures benchmarks
-        are reproducible with the same random seed.
+        Supports three modes for different reproducibility guarantees:
 
-        For sequential iteration mode (e.g., mooncake trace), uses index-based
-        iteration to maintain trace order.
+        1. Deterministic mode: Pre-generated sequence → perfect reproducibility
+           across different worker counts
+        2. Sequential mode: Index-based iteration → maintains trace order
+        3. Random mode: Seeded random → reproducible with same worker count
 
         Args:
             size: Number of conversations to return
@@ -426,29 +538,39 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
 
         conversations = []
 
-        for _ in range(size):
-            if self._use_sequential_iteration:
-                # Sequential mode: deterministic index-based iteration
+        # Mode 1: Deterministic assignment (perfect cross-worker-count reproducibility)
+        if self._deterministic_sequence:
+            for _ in range(size):
+                if self._deterministic_index >= len(self._deterministic_sequence):
+                    # Wraparound for infinite benchmarks
+                    self._deterministic_index = 0
+
+                session_id = self._deterministic_sequence[self._deterministic_index]
+                conversations.append(self.dataset[session_id])
+                self._deterministic_index += 1
+
+        # Mode 2: Sequential iteration (for traces)
+        elif self._use_sequential_iteration:
+            for _ in range(size):
                 if self._sequential_iterator_index >= len(self._session_ids_cache):
-                    # Reset iterator if we've gone through all conversations
                     _logger.warning(
                         "All conversations used in sequential mode. Resetting iterator."
                     )
                     self._sequential_iterator_index = 0
 
                 session_id = self._session_ids_cache[self._sequential_iterator_index]
+                conversations.append(self.dataset[session_id])
                 self._sequential_iterator_index += 1
-            else:
-                # Random mode: use seeded random generator (CRITICAL for reproducibility!)
-                # This maintains the exact same random sequence as single-conversation mode:
-                # - Same seed → same sequence of random.choice() calls
-                # - 100 conversations in chunk = 100 choice() calls
-                # - Identical to 100 separate single-conversation requests
+
+        # Mode 3: Random mode (reproducible with same worker count)
+        else:
+            for _ in range(size):
+                # Use seeded random generator to maintain reproducibility
+                # Same seed + same worker count → same sequence
                 session_id = self._conversation_query_random.choice(
                     self._session_ids_cache
                 )
-
-            conversations.append(self.dataset[session_id])
+                conversations.append(self.dataset[session_id])
 
         return conversations
 

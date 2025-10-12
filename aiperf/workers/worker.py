@@ -32,6 +32,8 @@ from aiperf.common.factories import (
 from aiperf.common.hooks import background_task, on_command, on_pull_message, on_stop
 from aiperf.common.messages import (
     CommandAcknowledgedResponse,
+    ConversationChunkRequestMessage,
+    ConversationChunkResponseMessage,
     ConversationRequestMessage,
     ConversationResponseMessage,
     CreditDropMessage,
@@ -123,6 +125,18 @@ class Worker(PullClientMixin, BaseComponentService, ProcessHealthMixin):
                 model_endpoint=self.model_endpoint,
             )
         )
+
+        # Chunking configuration and state
+        self._enable_chunking = self.user_config.input.enable_chunking
+        self._chunk_size = self.user_config.input.dataset_chunk_size
+        self._prefetch_threshold = int(
+            self._chunk_size * self.user_config.input.prefetch_threshold
+        )
+
+        # Local conversation queue for chunked distribution
+        self._conversation_queue: asyncio.Queue[Conversation] = asyncio.Queue()
+        self._prefetch_task: asyncio.Task | None = None
+        self._chunking_initialized = False
 
     @on_pull_message(MessageType.CREDIT_DROP)
     async def _credit_drop_callback(self, message: CreditDropMessage) -> None:
@@ -238,11 +252,112 @@ class Worker(PullClientMixin, BaseComponentService, ProcessHealthMixin):
         conversation_id: str | None,
         phase: CreditPhase,
     ) -> Conversation:
-        """Retrieve the conversation from the dataset manager. If a conversation
-        cannot be retrieved, an error message will be sent to the
+        """Retrieve the conversation from the dataset manager.
+
+        Uses chunked distribution for better performance when enabled.
+        Falls back to single-conversation requests for specific conversation IDs
+        or when chunking is disabled.
+
+        If a conversation cannot be retrieved, an error message will be sent to the
         inference results client and an Exception is raised.
         """
-        # retrieve the prompt from the dataset
+        # If specific conversation requested, must use old API
+        if conversation_id is not None:
+            return await self._retrieve_single_conversation(
+                service_id, conversation_id, phase
+            )
+
+        # Use chunking if enabled
+        if self._enable_chunking:
+            # Initialize queue on first request
+            if not self._chunking_initialized:
+                await self._request_conversation_chunk()
+                self._chunking_initialized = True
+
+            # Check if we need to prefetch
+            await self._check_and_prefetch()
+
+            # Get conversation from local queue
+            try:
+                conversation = await asyncio.wait_for(
+                    self._conversation_queue.get(),
+                    timeout=30.0,  # Prevent deadlock
+                )
+                return conversation
+            except asyncio.TimeoutError:
+                self.warning(
+                    "Timeout getting conversation from queue, falling back to single request"
+                )
+                # Fall back to single request
+                return await self._retrieve_single_conversation(service_id, None, phase)
+        else:
+            # Chunking disabled, use old API
+            return await self._retrieve_single_conversation(service_id, None, phase)
+
+    async def _request_conversation_chunk(self) -> None:
+        """Request a chunk of conversations from DatasetManager.
+
+        This method requests multiple conversations at once to reduce
+        network overhead and improve throughput in high-concurrency scenarios.
+        """
+        try:
+            request = ConversationChunkRequestMessage(
+                service_id=self.service_id,
+                request_id=str(uuid.uuid4()),
+                chunk_size=self._chunk_size,
+                worker_id=self.service_id,
+            )
+
+            self.trace_or_debug(
+                lambda: f"Requesting chunk of {self._chunk_size} conversations",
+                f"Requesting chunk (size={self._chunk_size})",
+            )
+
+            response: ConversationChunkResponseMessage = (
+                await self.conversation_request_client.request(request)
+            )
+
+            # Add conversations to local queue
+            for conversation in response.conversations:
+                await self._conversation_queue.put(conversation)
+
+            self.trace_or_debug(
+                lambda: f"Received chunk {response.chunk_index} with {len(response.conversations)} conversations. "
+                f"Queue size now: {self._conversation_queue.qsize()}",
+                f"Chunk received: {len(response.conversations)} conversations",
+            )
+
+        except Exception as e:
+            self.error(f"Error requesting conversation chunk: {e!r}")
+            # On error, fall back to single-conversation mode
+            self._enable_chunking = False
+            raise
+
+    async def _check_and_prefetch(self) -> None:
+        """Check if we need to prefetch and start background request if needed."""
+        if not self._enable_chunking:
+            return
+
+        queue_size = self._conversation_queue.qsize()
+
+        # Trigger prefetch if below threshold and no active prefetch
+        if queue_size < self._prefetch_threshold and (
+            self._prefetch_task is None or self._prefetch_task.done()
+        ):
+            self.debug(
+                f"Triggering prefetch (queue={queue_size}, threshold={self._prefetch_threshold})"
+            )
+            self._prefetch_task = asyncio.create_task(
+                self._request_conversation_chunk()
+            )
+
+    async def _retrieve_single_conversation(
+        self,
+        service_id: str,
+        conversation_id: str | None,
+        phase: CreditPhase,
+    ) -> Conversation:
+        """Retrieve a single conversation (legacy/fallback mode)."""
         conversation_response: ConversationResponseMessage = (
             await self.conversation_request_client.request(
                 ConversationRequestMessage(
@@ -252,6 +367,7 @@ class Worker(PullClientMixin, BaseComponentService, ProcessHealthMixin):
                 )
             )
         )
+
         if self.is_trace_enabled:
             self.trace(f"Received response message: {conversation_response}")
 

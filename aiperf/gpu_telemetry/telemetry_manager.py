@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 
 from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
-from aiperf.common.config.config_validators import NO_GPU_FLAG
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import (
     CommAddress,
@@ -80,7 +79,7 @@ class TelemetryManager(BaseComponentService):
 
         # NO_GPU_FLAG means flag not provided - collect default telemetry but don't display
         # None means flag provided with no args - collect default and display to console
-        if user_endpoints == NO_GPU_FLAG or user_endpoints is None:
+        if user_endpoints is None:
             user_endpoints = []
         elif isinstance(user_endpoints, str):
             user_endpoints = [user_endpoints]
