@@ -24,29 +24,41 @@ AIPerf provides server metrics collection with automatic endpoint discovery and 
 
 | Usage | Command | What Gets Collected | Console Display | JSONL Export |
 |-------|---------|---------------------|-----------------|--------------|
-| **No flag** | `aiperf profile --url localhost:8000 ...` | Inference endpoint + `/metrics` (e.g., `http://localhost:8000/metrics`) | ❌ No | ✅ Yes |
-| **Flag only** | `aiperf profile --url localhost:8000 ... --server-metrics` | Inference endpoint + `/metrics` | ✅ Yes | ✅ Yes |
-| **Custom URLs** | `aiperf profile --url localhost:8000 ... --server-metrics http://worker:8081/metrics` | Inference endpoint + `/metrics` + custom URLs | ✅ Yes | ✅ Yes |
+| **No flag** | `aiperf profile --url localhost:8000 ...` | Inference endpoint + `/metrics` + default endpoints (:8081, :7777, :2379) | ❌ No | ✅ Yes |
+| **Flag only** | `aiperf profile --url localhost:8000 ... --server-metrics` | Inference endpoint + `/metrics` + default endpoints | ✅ Yes | ✅ Yes |
+| **Custom URLs** | `aiperf profile --url localhost:8000 ... --server-metrics http://worker:9000/metrics` | Inference endpoint + defaults + custom URLs | ✅ Yes | ✅ Yes |
 
 > [!IMPORTANT]
-> Server metrics are **ALWAYS collected automatically** from your inference endpoint URL + `/metrics`, regardless of whether the `--server-metrics` flag is used. The flag primarily controls whether metrics are displayed on the console and allows you to specify additional custom Prometheus endpoints (e.g., separate frontend/backend servers).
+> Server metrics are **ALWAYS collected automatically** from multiple default endpoints, regardless of whether the `--server-metrics` flag is used:
+> - **Inference endpoint**: Auto-derived from `--url` (e.g., `http://localhost:8000/metrics`)
+> - **Additional defaults**: `localhost:8081/metrics`, `localhost:7777/metrics`, `localhost:2379/metrics`
+>
+> The flag primarily controls whether metrics are displayed on the console and allows you to specify additional custom Prometheus endpoints (e.g., separate frontend/backend servers).
 
 > [!NOTE]
 > When specifying custom Prometheus endpoint URLs, the `http://` prefix is optional. URLs like `localhost:8081` will automatically be treated as `http://localhost:8081`. Both formats work identically.
 
 ### Automatic Endpoint Discovery
 
-AIPerf automatically derives the server metrics endpoint from your inference endpoint:
+AIPerf automatically collects server metrics from multiple default endpoints:
 
 ```bash
-# If you specify --url localhost:8000
-# AIPerf automatically tries: http://localhost:8000/metrics
+# When you run: aiperf profile --url localhost:8000 ...
+# AIPerf automatically tries ALL of these endpoints:
+#   - http://localhost:8000/metrics  (auto-derived from --url)
+#   - http://localhost:8081/metrics  (default backend/worker)
+#   - http://localhost:7777/metrics  (default backend/worker)
+#   - http://localhost:2379/metrics  (default service, e.g., etcd)
 
-# If you specify --url http://server:9090
-# AIPerf automatically tries: http://server:9090/metrics
+# When you run: aiperf profile --url http://server:9090 ...
+# AIPerf automatically tries:
+#   - http://server:9090/metrics     (auto-derived from --url)
+#   - http://localhost:8081/metrics  (default)
+#   - http://localhost:7777/metrics  (default)
+#   - http://localhost:2379/metrics  (default)
 ```
 
-This means server metrics "just work" without any additional configuration!
+This means server metrics from distributed systems "just work" without any additional configuration! Only reachable endpoints will be collected and exported.
 
 ---
 
@@ -299,13 +311,14 @@ aiperf profile \
     --warmup-request-count 1 \
     --num-dataset-entries 8 \
     --random-seed 100 \
-    --server-metrics http://worker1:8081/metrics http://worker2:8082/metrics
+    --server-metrics localhost:8081 localhost:7777 localhost:2379
 ```
 
 This will collect server metrics from:
 - `http://localhost:8000/metrics` (inference endpoint, automatically derived)
-- `http://worker1:8081/metrics` (custom worker 1)
-- `http://worker2:8082/metrics` (custom worker 2)
+- `http://localhost:8081/metrics` (worker/backend service 1)
+- `http://localhost:7777/metrics` (worker/backend service 2)
+- `http://localhost:2379/metrics` (additional service, e.g., etcd)
 
 All metrics are displayed on the console and saved to the `server_metrics_export.jsonl` file.
 
@@ -367,7 +380,7 @@ AIPerf collects the following metrics from Dynamo inference servers:
 │       Component Request Bytes (bytes) │  4,256.80 │  4,096.00 │  4,608.00 │  4,608.00 │  4,608.00 │  4,352.00 │  142.35 │
 │      Component Response Bytes (bytes) │ 12,845.20 │ 12,288.00 │ 13,824.00 │ 13,824.00 │ 13,824.00 │ 13,056.00 │  427.05 │
 │         KVStats Active Blocks (count) │     18.45 │      0.00 │     32.00 │     32.00 │     32.00 │     20.00 │    9.67 │
-│        KVStats GPU Cache Usage (rate) │      0.15 │      0.00 │      0.25 │      0.25 │      0.25 │      0.16 │    0.08 │
+│          KVStats GPU Cache Usage (%)  │     15.00 │      0.00 │     25.00 │     25.00 │     25.00 │     16.00 │    8.00 │
 │    Frontend In-Flight Requests (rate) │      2.35 │      0.00 │      4.00 │      4.00 │      4.00 │      3.00 │    1.42 │
 │ Frontend Time to First Token (seconds)│      0.08 │      0.05 │      0.12 │      0.12 │      0.11 │      0.08 │    0.02 │
 │        Model Total KV Blocks (blocks) │    128.00 │    128.00 │    128.00 │    128.00 │    128.00 │    128.00 │    0.00 │
@@ -396,7 +409,7 @@ Server metrics are always exported to `server_metrics_export.jsonl` in the artif
     "component_request_bytes_total": 4352.0,
     "component_response_bytes_total": 13056.0,
     "kvstats_active_blocks": 24.0,
-    "kvstats_gpu_cache_usage_percent": 0.1875,
+    "kvstats_gpu_cache_usage_percent": 18.75,
     "frontend_inflight_requests": 3.0,
     "frontend_time_to_first_token_seconds": 0.085,
     "model_total_kv_blocks": 128.0,

@@ -11,9 +11,12 @@ from aiperf.common.enums.metric_enums import (
 )
 
 # Unit conversion scaling factors
+# Maps field names to their scaling multipliers
 SCALING_FACTORS = {
-    # Add any scaling factors needed here
-    # For now, most Prometheus metrics are already in the correct units
+    # Convert 0.0-1.0 decimal percentages to 0-100 percentages
+    "kvstats_gpu_cache_usage_percent": 100.0,
+    "kvstats_gpu_prefix_cache_hit_rate": 100.0,
+    "cpu_usage_percent": 100.0,
 }
 
 # Prometheus metric mapping to server metrics record fields

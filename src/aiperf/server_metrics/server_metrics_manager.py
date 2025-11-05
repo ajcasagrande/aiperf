@@ -4,6 +4,7 @@
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
 from aiperf.common.enums import ServiceType
+from aiperf.common.environment import Environment
 from aiperf.common.factories import ServiceFactory
 from aiperf.common.messages import (
     ServerMetricRecordsMessage,
@@ -30,12 +31,14 @@ class ServerMetricsManager(
     collector creation, and message handling.
 
     This service:
-    - ALWAYS attempts to collect server metrics from inference endpoint URL + /metrics
+    - ALWAYS attempts to collect server metrics from multiple default endpoints:
+      * Inference endpoint URL + /metrics (auto-derived from --url)
+      * Environment default endpoints (localhost:8081, :7777, :2379)
     - Collection happens automatically even without --server-metrics flag (like GPU telemetry)
     - Console display only enabled when --server-metrics flag is provided
     - JSONL export always happens if data is collected
     - Manages lifecycle of ServerMetricsDataCollector instances
-    - Collects metrics from multiple server endpoints (inference + user-specified)
+    - Collects metrics from multiple server endpoints (defaults + user-specified)
     - Sends ServerMetricRecordsMessage to RecordsManager via message system
     - Handles errors gracefully with ErrorDetails
     - Follows centralized architecture patterns
@@ -52,11 +55,20 @@ class ServerMetricsManager(
         user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
-        # ALWAYS derive default server metrics endpoint from inference endpoint URL
+        # ALWAYS derive server metrics endpoint from inference endpoint URL
         # This ensures server metrics are attempted even without --server-metrics flag
-        # (similar to how GPU telemetry always tries default DCGM endpoints)
         inference_url = user_config.endpoint.url
-        default_server_metrics_endpoint = self._derive_metrics_endpoint(inference_url)
+        inference_endpoint = self._derive_metrics_endpoint(inference_url)
+
+        # Get default endpoints from environment (localhost:8081, :7777, :2379)
+        # These are ALWAYS attempted in addition to the inference endpoint
+        env_default_endpoints = Environment.SERVER_METRICS.DEFAULT_ENDPOINTS
+        if isinstance(env_default_endpoints, str):
+            env_default_endpoints = [env_default_endpoints]
+
+        normalized_env_defaults = [
+            self._normalize_metrics_url(url) for url in env_default_endpoints
+        ]
 
         # Store user-provided endpoints separately for display filtering
         user_endpoints = user_config.server_metrics_urls or []
@@ -67,21 +79,25 @@ class ServerMetricsManager(
             self._normalize_metrics_url(url) for url in user_endpoints
         ]
 
+        # Separate user-provided endpoints from defaults for display purposes
         self._user_provided_endpoints = [
             ep
             for ep in normalized_user_endpoints
-            if ep != default_server_metrics_endpoint
+            if ep not in [inference_endpoint] + normalized_env_defaults
         ]
 
         # Store the default endpoint for display filtering
-        self._default_server_metrics_endpoint = default_server_metrics_endpoint
+        self._default_server_metrics_endpoint = inference_endpoint
+        self._env_default_endpoints = normalized_env_defaults
 
-        # ALWAYS combine default + user endpoints before calling super().__init__()
-        # This ensures server metrics are ALWAYS attempted from the inference endpoint
+        # ALWAYS combine inference + env defaults + user endpoints
+        # This ensures server metrics are ALWAYS attempted from all default sources
         # Console display is still gated by --server-metrics flag in the exporter
         combined_endpoints = list(
             dict.fromkeys(
-                [default_server_metrics_endpoint] + self._user_provided_endpoints
+                [inference_endpoint]
+                + normalized_env_defaults
+                + self._user_provided_endpoints
             )
         )
 
@@ -264,11 +280,11 @@ class ServerMetricsManager(
             ServerMetricsStatusMessage: Status message ready to broadcast
         """
         # Apply display filtering for server metrics
-        reachable_defaults = [
-            ep
-            for ep in [self._default_server_metrics_endpoint]
-            if ep in endpoints_reachable
-        ]
+        # Include both inference endpoint and env defaults in reachable list
+        all_defaults = [
+            self._default_server_metrics_endpoint
+        ] + self._env_default_endpoints
+        reachable_defaults = [ep for ep in all_defaults if ep in endpoints_reachable]
         endpoints_for_display = self._compute_endpoints_for_display(reachable_defaults)
 
         return ServerMetricsStatusMessage(

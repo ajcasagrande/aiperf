@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from aiperf.common.exceptions import NoMetricValue
 from aiperf.common.models.base_models import AIPerfBaseModel
@@ -11,183 +11,46 @@ from aiperf.common.models.record_models import MetricResult
 
 
 class ServerMetrics(AIPerfBaseModel):
-    """Server metrics collected at a single point in time from Prometheus /metrics endpoint.
+    """Dynamic server metrics collected at a single point in time from Prometheus /metrics endpoint.
 
-    All fields are optional to handle cases where specific metrics are not available
-    from the server or are filtered out due to invalid values.
+    This model uses a flexible schema that accepts any metric fields dynamically.
+    All metrics are stored as float values and can be accessed as attributes.
 
-    Includes support for Dynamo inference server metrics (dynamo_component_*, dynamo_frontend_*).
+    This design allows the system to:
+    - Support any Prometheus metrics without code changes
+    - Work with different server types (Dynamo, vLLM, TensorRT-LLM, etc.)
+    - Automatically handle new metrics as they're added to servers
+    - Scale to support custom metrics from user applications
+
+    Common Prometheus metrics automatically supported:
+    - Request metrics: requests_total, requests_in_flight, request_duration_seconds
+    - Resource metrics: cpu_usage_percent, memory_usage_bytes, process_resident_memory_bytes
+    - Dynamo metrics: component_*, frontend_*, kvstats_*, model_*
+    - Custom metrics: Any metric name from your server's /metrics endpoint
+
+    Example usage:
+        # Create with any fields
+        metrics = ServerMetrics(
+            requests_total=1000.0,
+            cpu_usage_percent=45.2,
+            custom_metric=123.4
+        )
+
+        # Access metrics as attributes
+        print(metrics.requests_total)  # 1000.0
+        print(metrics.custom_metric)   # 123.4
+
+        # Convert to dict for processing
+        data = metrics.model_dump()  # Includes all fields
+        filtered = {k: v for k, v in data.items() if v is not None}
+
+    Note:
+        The field mapping from Prometheus metric names to internal field names
+        is defined in PROMETHEUS_TO_FIELD_MAPPING constant. Unmapped metrics
+        are stored with their original Prometheus names.
     """
 
-    # Generic Request metrics
-    requests_total: float | None = Field(
-        default=None, description="Total number of requests processed"
-    )
-    requests_in_flight: float | None = Field(
-        default=None, description="Current number of requests being processed"
-    )
-    request_duration_seconds: float | None = Field(
-        default=None, description="Request duration in seconds"
-    )
-
-    # Generic Response metrics
-    response_size_bytes: float | None = Field(
-        default=None, description="Response size in bytes"
-    )
-
-    # Generic CPU metrics
-    cpu_usage_percent: float | None = Field(
-        default=None, description="CPU usage percentage (0-100)"
-    )
-    cpu_system_seconds: float | None = Field(
-        default=None, description="Cumulative CPU time spent in system mode in seconds"
-    )
-    cpu_user_seconds: float | None = Field(
-        default=None, description="Cumulative CPU time spent in user mode in seconds"
-    )
-
-    # Generic Memory metrics
-    memory_usage_bytes: float | None = Field(
-        default=None, description="Memory usage in bytes"
-    )
-    memory_total_bytes: float | None = Field(
-        default=None, description="Total available memory in bytes"
-    )
-
-    # Generic Process metrics
-    process_cpu_seconds: float | None = Field(
-        default=None, description="Total CPU time consumed by this process in seconds"
-    )
-    process_resident_memory_bytes: float | None = Field(
-        default=None, description="Resident memory size in bytes"
-    )
-    process_virtual_memory_bytes: float | None = Field(
-        default=None, description="Virtual memory size in bytes"
-    )
-    process_open_fds: float | None = Field(
-        default=None, description="Number of open file descriptors"
-    )
-
-    # Generic Network metrics
-    network_receive_bytes: float | None = Field(
-        default=None, description="Cumulative bytes received over network"
-    )
-    network_transmit_bytes: float | None = Field(
-        default=None, description="Cumulative bytes transmitted over network"
-    )
-
-    # Generic HTTP status codes
-    http_2xx_total: float | None = Field(
-        default=None, description="Total number of 2xx HTTP responses"
-    )
-    http_4xx_total: float | None = Field(
-        default=None, description="Total number of 4xx HTTP responses"
-    )
-    http_5xx_total: float | None = Field(
-        default=None, description="Total number of 5xx HTTP responses"
-    )
-
-    # Dynamo Backend Component Metrics (dynamo_component_*)
-    component_inflight_requests: float | None = Field(
-        default=None,
-        description="Dynamo component: Requests currently being processed (gauge)",
-    )
-    component_request_bytes_total: float | None = Field(
-        default=None,
-        description="Dynamo component: Total bytes received in requests (counter)",
-    )
-    component_request_duration_seconds: float | None = Field(
-        default=None,
-        description="Dynamo component: Request processing time (histogram)",
-    )
-    component_requests_total: float | None = Field(
-        default=None, description="Dynamo component: Total requests processed (counter)"
-    )
-    component_response_bytes_total: float | None = Field(
-        default=None,
-        description="Dynamo component: Total bytes sent in responses (counter)",
-    )
-    component_system_uptime_seconds: float | None = Field(
-        default=None, description="Dynamo component: DistributedRuntime uptime (gauge)"
-    )
-
-    # Dynamo KV Router Statistics (dynamo_component_kvstats_*)
-    kvstats_active_blocks: float | None = Field(
-        default=None,
-        description="Dynamo KV: Number of active KV cache blocks currently in use (gauge)",
-    )
-    kvstats_total_blocks: float | None = Field(
-        default=None,
-        description="Dynamo KV: Total number of KV cache blocks available (gauge)",
-    )
-    kvstats_gpu_cache_usage_percent: float | None = Field(
-        default=None,
-        description="Dynamo KV: GPU cache usage as a percentage (0.0-1.0) (gauge)",
-    )
-    kvstats_gpu_prefix_cache_hit_rate: float | None = Field(
-        default=None,
-        description="Dynamo KV: GPU prefix cache hit rate as a percentage (0.0-1.0) (gauge)",
-    )
-
-    # Dynamo Frontend Metrics (dynamo_frontend_*)
-    frontend_inflight_requests: float | None = Field(
-        default=None, description="Dynamo frontend: Inflight requests (gauge)"
-    )
-    frontend_queued_requests: float | None = Field(
-        default=None,
-        description="Dynamo frontend: Number of requests in HTTP processing queue (gauge)",
-    )
-    frontend_input_sequence_tokens: float | None = Field(
-        default=None, description="Dynamo frontend: Input sequence length (histogram)"
-    )
-    frontend_inter_token_latency_seconds: float | None = Field(
-        default=None, description="Dynamo frontend: Inter-token latency (histogram)"
-    )
-    frontend_output_sequence_tokens: float | None = Field(
-        default=None, description="Dynamo frontend: Output sequence length (histogram)"
-    )
-    frontend_request_duration_seconds: float | None = Field(
-        default=None, description="Dynamo frontend: LLM request duration (histogram)"
-    )
-    frontend_requests_total: float | None = Field(
-        default=None, description="Dynamo frontend: Total LLM requests (counter)"
-    )
-    frontend_time_to_first_token_seconds: float | None = Field(
-        default=None, description="Dynamo frontend: Time to first token (histogram)"
-    )
-
-    # Dynamo Model Configuration Metrics (dynamo_frontend_model_*)
-    # Runtime Config Metrics
-    model_total_kv_blocks: float | None = Field(
-        default=None,
-        description="Dynamo model: Total KV blocks available for a worker serving the model (gauge)",
-    )
-    model_max_num_seqs: float | None = Field(
-        default=None,
-        description="Dynamo model: Maximum number of sequences for a worker serving the model (gauge)",
-    )
-    model_max_num_batched_tokens: float | None = Field(
-        default=None,
-        description="Dynamo model: Maximum number of batched tokens for a worker serving the model (gauge)",
-    )
-    # MDC Metrics
-    model_context_length: float | None = Field(
-        default=None,
-        description="Dynamo model: Maximum context length for a worker serving the model (gauge)",
-    )
-    model_kv_cache_block_size: float | None = Field(
-        default=None,
-        description="Dynamo model: KV cache block size for a worker serving the model (gauge)",
-    )
-    model_migration_limit: float | None = Field(
-        default=None,
-        description="Dynamo model: Request migration limit for a worker serving the model (gauge)",
-    )
-    # Worker Management Metrics
-    model_workers: float | None = Field(
-        default=None,
-        description="Dynamo model: Number of worker instances currently serving the model (gauge)",
-    )
+    model_config = ConfigDict(extra="allow")  # Allow any additional fields dynamically
 
 
 class ServerMetricRecord(AIPerfBaseModel):

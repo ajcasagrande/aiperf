@@ -770,10 +770,10 @@ class RecordsManager(PullClientMixin, BaseComponentService):
             return None
 
         server_metrics_results = ServerMetricsResults(
-            server_metrics_data=server_metrics_hierarchy,
+            metrics_data=server_metrics_hierarchy,
             start_ns=self.start_time_ns or time.time_ns(),
             end_ns=self.end_time_ns or time.time_ns(),
-            endpoints_tested=list(server_metrics_hierarchy.server_endpoints.keys()),
+            endpoints_configured=list(server_metrics_hierarchy.server_endpoints.keys()),
             endpoints_successful=list(server_metrics_hierarchy.server_endpoints.keys()),
             error_summary=await self.get_server_metrics_error_summary(),
         )
@@ -853,7 +853,7 @@ class RecordsManager(PullClientMixin, BaseComponentService):
         server_metrics_results = await self.export_server_metrics_independently()
         if not server_metrics_results:
             server_metrics_results = ServerMetricsResults(
-                server_metrics_data=ServerMetricsHierarchy(),
+                metrics_data=ServerMetricsHierarchy(),
                 start_ns=self.start_time_ns or time.time_ns(),
                 end_ns=self.end_time_ns or time.time_ns(),
             )

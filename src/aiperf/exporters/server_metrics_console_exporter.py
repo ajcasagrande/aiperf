@@ -78,7 +78,7 @@ class ServerMetricsConsoleExporter(AIPerfLoggerMixin):
             RenderableType: Rich Group containing multiple Tables, or Text message if no data
         """
         renderables = []
-        server_metrics_data = self._server_metrics_results.server_metrics_data
+        server_metrics_data = self._server_metrics_results.metrics_data
         first_table = True
 
         for server_url, servers_data in server_metrics_data.server_endpoints.items():
