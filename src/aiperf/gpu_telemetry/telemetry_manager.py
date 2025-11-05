@@ -1,30 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
-
-from aiperf.common.base_component_service import BaseComponentService
 from aiperf.common.config import ServiceConfig, UserConfig
 from aiperf.common.decorators import implements_protocol
-from aiperf.common.enums import (
-    CommAddress,
-    CommandType,
-    ServiceType,
-)
+from aiperf.common.enums import ServiceType
 from aiperf.common.environment import Environment
 from aiperf.common.factories import ServiceFactory
-from aiperf.common.hooks import on_command, on_init, on_stop
 from aiperf.common.messages import (
-    ProfileCancelCommand,
-    ProfileConfigureCommand,
     TelemetryRecordsMessage,
     TelemetryStatusMessage,
 )
+from aiperf.common.metrics.base_metrics_manager import BaseMetricsManager
 from aiperf.common.models import ErrorDetails, TelemetryRecord
-from aiperf.common.protocols import (
-    PushClientProtocol,
-    ServiceProtocol,
-)
+from aiperf.common.protocols import ServiceProtocol
 from aiperf.gpu_telemetry.telemetry_data_collector import TelemetryDataCollector
 
 __all__ = ["TelemetryManager"]
@@ -32,12 +20,11 @@ __all__ = ["TelemetryManager"]
 
 @implements_protocol(ServiceProtocol)
 @ServiceFactory.register(ServiceType.TELEMETRY_MANAGER)
-class TelemetryManager(BaseComponentService):
+class TelemetryManager(BaseMetricsManager[TelemetryDataCollector, TelemetryRecord]):
     """Coordinates multiple TelemetryDataCollector instances for GPU telemetry collection.
 
-    The TelemetryManager coordinates multiple TelemetryDataCollector instances
-    to collect GPU telemetry from multiple DCGM endpoints and send unified
-    TelemetryRecordsMessage to RecordsManager.
+    Extends BaseMetricsManager to provide DCGM-specific endpoint management,
+    collector creation, and message handling.
 
     This service:
     - Manages lifecycle of TelemetryDataCollector instances
@@ -58,45 +45,53 @@ class TelemetryManager(BaseComponentService):
         user_config: UserConfig,
         service_id: str | None = None,
     ) -> None:
-        super().__init__(
-            service_config=service_config,
-            user_config=user_config,
-            service_id=service_id,
-        )
-
-        self.records_push_client: PushClientProtocol = self.comms.create_push_client(
-            CommAddress.RECORDS,
-        )
-
-        self._collectors: dict[str, TelemetryDataCollector] = {}
-        self._collector_id_to_url: dict[str, str] = {}
-
-        self._user_explicitly_configured_telemetry = (
-            user_config.gpu_telemetry is not None
-        )
-
+        # Store user-provided endpoints separately for display filtering (excluding auto-inserted defaults)
         user_endpoints = user_config.gpu_telemetry_urls or []
         if isinstance(user_endpoints, str):
             user_endpoints = [user_endpoints]
 
-        valid_endpoints = [self._normalize_dcgm_url(url) for url in user_endpoints]
+        normalized_user_endpoints = [
+            self._normalize_dcgm_url(url) for url in user_endpoints
+        ]
 
-        # Store user-provided endpoints separately for display filtering (excluding auto-inserted defaults)
         self._user_provided_endpoints = [
             ep
-            for ep in valid_endpoints
+            for ep in normalized_user_endpoints
             if ep not in Environment.GPU.DEFAULT_DCGM_ENDPOINTS
         ]
 
-        # Combine defaults + user endpoints, preserving order and removing duplicates
-        self._dcgm_endpoints = list(
+        # Combine defaults + user endpoints before calling super().__init__()
+        # This ensures _configured_endpoints in base class has the full list
+        combined_endpoints = list(
             dict.fromkeys(
                 list(Environment.GPU.DEFAULT_DCGM_ENDPOINTS)
                 + self._user_provided_endpoints
             )
         )
 
-        self._collection_interval = Environment.GPU.COLLECTION_INTERVAL
+        # Temporarily store to pass to base
+        self._temp_combined_endpoints = combined_endpoints
+        self._user_explicitly_configured_telemetry = (
+            user_config.gpu_telemetry is not None
+        )
+
+        super().__init__(
+            service_config=service_config,
+            user_config=user_config,
+            service_id=service_id,
+        )
+
+    def _get_endpoints_from_config(self, user_config: UserConfig) -> list[str]:
+        """Extract DCGM endpoint URLs from user configuration.
+
+        Returns the combined list of default and user-provided endpoints.
+        """
+        # Return the temporary combined list created in __init__
+        return self._temp_combined_endpoints
+
+    def _normalize_endpoint_url(self, url: str) -> str:
+        """Ensure DCGM URL ends with /metrics endpoint."""
+        return self._normalize_dcgm_url(url)
 
     @staticmethod
     def _normalize_dcgm_url(url: str) -> str:
@@ -126,11 +121,7 @@ class TelemetryManager(BaseComponentService):
             reachable_defaults: List of default DCGM endpoints that are reachable
 
         Returns:
-            List of endpoint URLs to display in console/export output:
-            - reachable_defaults if any defaults are reachable
-            - user_provided_endpoints + reachable_defaults if custom endpoints and defaults reachable
-            - user_provided_endpoints if user configured but no defaults reachable
-            - Empty list if no reachable defaults and user did not configure telemetry
+            List of endpoint URLs to display in console/export output
         """
         if reachable_defaults and self._user_provided_endpoints:
             return list(self._user_provided_endpoints) + reachable_defaults
@@ -140,256 +131,90 @@ class TelemetryManager(BaseComponentService):
             return self._user_provided_endpoints
         return []
 
-    @on_init
-    async def _initialize(self) -> None:
-        """Initialize telemetry manager.
-
-        Called automatically during service startup via @on_init hook.
-        Actual collector initialization happens in _profile_configure_command
-        after configuration is received from SystemController.
-        """
-        pass
-
-    @on_command(CommandType.PROFILE_CONFIGURE)
-    async def _profile_configure_command(
-        self, message: ProfileConfigureCommand
-    ) -> None:
-        """Configure the telemetry collectors but don't start them yet.
-
-        Creates TelemetryDataCollector instances for each configured DCGM endpoint,
-        tests reachability, and sends status message to RecordsManager.
-        If no endpoints are reachable, disables telemetry and stops the service.
+    def _create_collector(
+        self,
+        endpoint_url: str,
+        collection_interval: float,
+        collector_id: str,
+    ) -> TelemetryDataCollector:
+        """Create a TelemetryDataCollector instance.
 
         Args:
-            message: Profile configuration command from SystemController
+            endpoint_url: The DCGM metrics endpoint URL
+            collection_interval: Collection interval in seconds
+            collector_id: Unique identifier for the collector
+
+        Returns:
+            TelemetryDataCollector: A configured telemetry collector
         """
+        return TelemetryDataCollector(
+            dcgm_url=endpoint_url,
+            collection_interval=collection_interval,
+            record_callback=self._on_metric_records,
+            error_callback=self._on_metric_error,
+            collector_id=collector_id,
+        )
 
-        self._collectors.clear()
-        self._collector_id_to_url.clear()
-        for dcgm_url in self._dcgm_endpoints:
-            self.debug(f"GPU Telemetry: Testing reachability of {dcgm_url}")
-            collector_id = f"collector_{dcgm_url.replace(':', '_').replace('/', '_')}"
-            self._collector_id_to_url[collector_id] = dcgm_url
-            collector = TelemetryDataCollector(
-                dcgm_url=dcgm_url,
-                collection_interval=self._collection_interval,
-                record_callback=self._on_telemetry_records,
-                error_callback=self._on_telemetry_error,
-                collector_id=collector_id,
-            )
+    def _create_records_message(
+        self,
+        collector_id: str,
+        endpoint_url: str,
+        records: list[TelemetryRecord],
+        error: ErrorDetails | None,
+    ) -> TelemetryRecordsMessage:
+        """Create a TelemetryRecordsMessage to send to RecordsManager.
 
-            try:
-                is_reachable = await collector.is_url_reachable()
-                if is_reachable:
-                    self._collectors[dcgm_url] = collector
-                    self.debug(f"GPU Telemetry: DCGM endpoint {dcgm_url} is reachable")
-                else:
-                    self.debug(
-                        f"GPU Telemetry: DCGM endpoint {dcgm_url} is not reachable"
-                    )
-            except Exception as e:
-                self.error(f"GPU Telemetry: Exception testing {dcgm_url}: {e}")
+        Args:
+            collector_id: ID of the collector that produced the records
+            endpoint_url: The DCGM endpoint URL
+            records: List of collected telemetry records (empty if error occurred)
+            error: Error details if collection failed, None otherwise
 
-        # Determine which defaults are reachable for display filtering
-        reachable_endpoints = list(self._collectors.keys())
+        Returns:
+            TelemetryRecordsMessage: Message ready to send to RecordsManager
+        """
+        return TelemetryRecordsMessage(
+            service_id=self.service_id,
+            collector_id=collector_id,
+            dcgm_url=endpoint_url,
+            records=records,
+            error=error,
+        )
+
+    def _create_status_message(
+        self,
+        enabled: bool,
+        reason: str | None,
+        endpoints_configured: list[str],
+        endpoints_reachable: list[str],
+    ) -> TelemetryStatusMessage:
+        """Create a TelemetryStatusMessage to send to SystemController.
+
+        Args:
+            enabled: Whether telemetry collection is enabled
+            reason: Reason for disabled status (if applicable)
+            endpoints_configured: List of configured DCGM endpoint URLs
+            endpoints_reachable: List of reachable DCGM endpoint URLs
+
+        Returns:
+            TelemetryStatusMessage: Status message ready to broadcast
+        """
+        # Apply display filtering for telemetry
         reachable_defaults = [
             ep
             for ep in Environment.GPU.DEFAULT_DCGM_ENDPOINTS
-            if ep in reachable_endpoints
+            if ep in endpoints_reachable
         ]
         endpoints_for_display = self._compute_endpoints_for_display(reachable_defaults)
 
-        if not self._collectors:
-            # Telemetry manager shutdown occurs in _on_start_profiling to prevent hang
-            await self._send_telemetry_status(
-                enabled=False,
-                reason="no DCGM endpoints reachable",
-                endpoints_configured=endpoints_for_display,
-                endpoints_reachable=[],
-            )
-            return
-
-        await self._send_telemetry_status(
-            enabled=True,
-            reason=None,
+        return TelemetryStatusMessage(
+            service_id=self.service_id,
+            enabled=enabled,
+            reason=reason,
             endpoints_configured=endpoints_for_display,
-            endpoints_reachable=reachable_endpoints,
+            endpoints_reachable=endpoints_reachable,
         )
 
-    @on_command(CommandType.PROFILE_START)
-    async def _on_start_profiling(self, message) -> None:
-        """Start all telemetry collectors.
-
-        Initializes and starts each configured collector.
-        If no collectors start successfully, sends disabled status to SystemController.
-
-        Args:
-            message: Profile start command from SystemController
-        """
-        if not self._collectors:
-            # Telemetry disabled status already sent in _profile_configure_command, only shutdown here
-            self._shutdown_task = asyncio.create_task(self._delayed_shutdown())
-            return
-
-        started_count = 0
-        for dcgm_url, collector in self._collectors.items():
-            try:
-                await collector.initialize()
-                await collector.start()
-                started_count += 1
-            except Exception as e:
-                self.error(f"Failed to start collector for {dcgm_url}: {e}")
-
-        if started_count == 0:
-            self.warning("No GPU telemetry collectors successfully started")
-            await self._send_telemetry_status(
-                enabled=False,
-                reason="all collectors failed to start",
-                endpoints_configured=self._compute_endpoints_for_display([]),
-                endpoints_reachable=[],
-            )
-            self._shutdown_task = asyncio.create_task(self._delayed_shutdown())
-            return
-
-    @on_command(CommandType.PROFILE_CANCEL)
-    async def _handle_profile_cancel_command(
-        self, message: ProfileCancelCommand
-    ) -> None:
-        """Stop all telemetry collectors when profiling is cancelled.
-
-        Called when user cancels profiling or an error occurs during profiling.
-        Stops all running collectors gracefully and cleans up resources.
-
-        Args:
-            message: Profile cancel command from SystemController
-        """
-        await self._stop_all_collectors()
-
-    @on_stop
-    async def _telemetry_manager_stop(self) -> None:
-        """Stop all telemetry collectors during service shutdown.
-
-        Called automatically by BaseComponentService lifecycle management via @on_stop hook.
-        Ensures all collectors are properly stopped and cleaned up even if shutdown
-        command was not received.
-        """
-        await self._stop_all_collectors()
-
-    async def _delayed_shutdown(self) -> None:
-        """Shutdown service after a delay to allow command response to be sent.
-
-        Waits before calling stop() to ensure the command response
-        has time to be published and transmitted to the SystemController.
-        """
-        await asyncio.sleep(Environment.GPU.SHUTDOWN_DELAY)
-        await self.stop()
-
-    async def _stop_all_collectors(self) -> None:
-        """Stop all telemetry collectors.
-
-        Attempts to stop each collector gracefully, logging errors but continuing with
-        remaining collectors to ensure all resources are released. Does nothing if no
-        collectors are configured.
-
-        Errors during individual collector shutdown do not prevent other collectors
-        from being stopped.
-        """
-
-        if not self._collectors:
-            return
-
-        for dcgm_url, collector in self._collectors.items():
-            try:
-                await collector.stop()
-            except Exception as e:
-                self.error(f"Failed to stop collector for {dcgm_url}: {e}")
-
-    async def _on_telemetry_records(
-        self, records: list[TelemetryRecord], collector_id: str
-    ) -> None:
-        """Async callback for receiving telemetry records from collectors.
-
-        Sends TelemetryRecordsMessage to RecordsManager via message system.
-        Empty record lists are ignored.
-
-        Args:
-            records: List of TelemetryRecord objects from a collector
-            collector_id: Unique identifier of the collector that sent the records
-        """
-
-        if not records:
-            return
-
-        try:
-            dcgm_url = self._collector_id_to_url.get(collector_id, "")
-            message = TelemetryRecordsMessage(
-                service_id=self.service_id,
-                collector_id=collector_id,
-                dcgm_url=dcgm_url,
-                records=records,
-                error=None,
-            )
-
-            await self.records_push_client.push(message)
-
-        except Exception as e:
-            self.error(f"Failed to send telemetry records: {e}")
-
-    async def _on_telemetry_error(self, error: ErrorDetails, collector_id: str) -> None:
-        """Async callback for receiving telemetry errors from collectors.
-
-        Sends error TelemetryRecordsMessage to RecordsManager via message system.
-        The message contains an empty records list and the error details.
-
-        Args:
-            error: ErrorDetails describing the collection error
-            collector_id: Unique identifier of the collector that encountered the error
-        """
-
-        try:
-            dcgm_url = self._collector_id_to_url.get(collector_id, "")
-            error_message = TelemetryRecordsMessage(
-                service_id=self.service_id,
-                collector_id=collector_id,
-                dcgm_url=dcgm_url,
-                records=[],
-                error=error,
-            )
-
-            await self.records_push_client.push(error_message)
-
-        except Exception as e:
-            self.error(f"Failed to send telemetry error message: {e}")
-
-    async def _send_telemetry_status(
-        self,
-        enabled: bool,
-        reason: str | None = None,
-        endpoints_configured: list[str] | None = None,
-        endpoints_reachable: list[str] | None = None,
-    ) -> None:
-        """Send telemetry status message to SystemController.
-
-        Publishes TelemetryStatusMessage to inform SystemController about telemetry
-        availability and endpoint reachability. Used during configuration phase and
-        when telemetry is disabled due to errors.
-
-        Args:
-            enabled: Whether telemetry collection is enabled/available
-            reason: Optional human-readable reason for status (e.g., "no DCGM endpoints reachable")
-            endpoints_configured: List of DCGM endpoint URLs in configured scope for display
-            endpoints_reachable: List of DCGM endpoint URLs that are accessible
-        """
-        try:
-            status_message = TelemetryStatusMessage(
-                service_id=self.service_id,
-                enabled=enabled,
-                reason=reason,
-                endpoints_configured=endpoints_configured or [],
-                endpoints_reachable=endpoints_reachable or [],
-            )
-
-            await self.publish(status_message)
-
-        except Exception as e:
-            self.error(f"Failed to send telemetry status message: {e}")
+    def _get_metrics_type_name(self) -> str:
+        """Get a human-readable name for this metrics type for logging."""
+        return "GPU Telemetry"

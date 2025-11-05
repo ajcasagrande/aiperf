@@ -227,6 +227,22 @@ class UserConfig(BaseConfig):
     _gpu_telemetry_mode: GPUTelemetryMode = GPUTelemetryMode.SUMMARY
     _gpu_telemetry_urls: list[str] = []
 
+    server_metrics: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            description="Enable console display of server metrics. Server metrics are ALWAYS collected automatically from inference endpoint URL + /metrics (even without this flag), but console display requires this flag. Use without parameters to show collected metrics in console. Optionally specify additional URLs to collect from (e.g., http://frontend:8080/metrics http://worker:8081/metrics). Supports Dynamo inference server metrics. JSONL export always generated at server_metrics_export.jsonl if data collected",
+        ),
+        BeforeValidator(parse_str_or_list),
+        CLIParameter(
+            name=("--server-metrics",),
+            consume_multiple=True,
+            group=Groups.TELEMETRY,
+        ),
+    ]
+
+    _server_metrics_urls: list[str] = []
+
     @model_validator(mode="after")
     def _parse_gpu_telemetry_config(self) -> Self:
         """Parse gpu_telemetry list into mode and URLs."""
@@ -261,6 +277,35 @@ class UserConfig(BaseConfig):
     def gpu_telemetry_urls(self) -> list[str]:
         """Get the parsed GPU telemetry DCGM endpoint URLs."""
         return self._gpu_telemetry_urls
+
+    @model_validator(mode="after")
+    def _parse_server_metrics_config(self) -> Self:
+        """Parse server_metrics list into URLs.
+
+        Handles special markers:
+        - "console": Presence marker to enable server metrics (URLs auto-derived from inference endpoint)
+        """
+        if not self.server_metrics:
+            return self
+
+        urls = []
+
+        for item in self.server_metrics:
+            # Skip special markers that aren't actual URLs
+            if item in ["console"]:
+                continue
+            # Process actual URL entries
+            elif item.startswith("http") or ":" in item:
+                normalized_url = item if item.startswith("http") else f"http://{item}"
+                urls.append(normalized_url)
+
+        self._server_metrics_urls = urls
+        return self
+
+    @property
+    def server_metrics_urls(self) -> list[str]:
+        """Get the parsed server metrics endpoint URLs."""
+        return self._server_metrics_urls
 
     @model_validator(mode="after")
     def _compute_config(self) -> Self:
