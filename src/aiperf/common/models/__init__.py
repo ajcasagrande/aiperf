@@ -98,6 +98,17 @@ from aiperf.common.models.sequence_distribution import (
     create_uniform_distribution,
     logger,
 )
+from aiperf.common.models.server_metrics_models import (
+    ProcessServerMetricsResult,
+    ServerMetadata,
+    ServerMetricRecord,
+    ServerMetrics,
+    ServerMetricsData,
+    ServerMetricsHierarchy,
+    ServerMetricSnapshot,
+    ServerMetricsResults,
+    ServerMetricTimeSeries,
+)
 from aiperf.common.models.service_models import (
     ServiceRunInfo,
 )
@@ -161,6 +172,7 @@ __all__ = [
     "ParsedResponseRecord",
     "ProcessHealth",
     "ProcessRecordsResult",
+    "ProcessServerMetricsResult",
     "ProcessTelemetryResult",
     "ProcessingStats",
     "ProfileResults",
@@ -176,6 +188,14 @@ __all__ = [
     "SSEMessage",
     "SequenceLengthDistribution",
     "SequenceLengthPair",
+    "ServerMetadata",
+    "ServerMetricRecord",
+    "ServerMetricSnapshot",
+    "ServerMetricTimeSeries",
+    "ServerMetrics",
+    "ServerMetricsData",
+    "ServerMetricsHierarchy",
+    "ServerMetricsResults",
     "ServiceRunInfo",
     "SessionPayloads",
     "StatsProtocol",
