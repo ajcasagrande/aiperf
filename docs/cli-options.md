@@ -16,6 +16,10 @@ Install shell completion for this application.
 
 Analyze a mooncake trace file for ISL/OSL distributions and cache hit rates.
 
+### [`env`](#aiperf-env)
+
+Inspect AIPerf environment variables: aiperf env [subsystem] [--all] [--describe] [--defaults]
+
 ### [`profile`](#aiperf-profile)
 
 Run the Profile subcommand.
@@ -68,6 +72,28 @@ KV cache block size for analysis (default: 512).
 #### `--output-file` `<str>`
 
 Optional output path for analysis report (JSON).
+
+<hr/>
+
+## `aiperf env`
+
+Inspect AIPerf environment variables: aiperf env [subsystem] [--all] [--describe] [--defaults]
+
+#### `--subsystem` `<str>`
+
+Subsystem to filter (e.g. http, worker, zmq).
+
+#### `-a`, `--all`, `--no-all`
+
+Show all env vars, not just overridden ones.
+
+#### `-d`, `--describe`, `--no-describe`
+
+Include field descriptions.
+
+#### `--defaults`, `--no-defaults`
+
+Show reference table with defaults and constraints.
 
 <hr/>
 
