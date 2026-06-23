@@ -44,6 +44,41 @@ Whatever you pass to `--model` becomes the model the server actually sees. Trace
 
 The `--fixed-schedule` flag replays requests at their recorded timestamps; subagents run in parallel and the parent's next turn waits until they complete.
 
+### Replay a Dynamo Request Trace
+
+Convert a canonical `dynamo.request.trace.v1` JSONL capture into Weka traces:
+
+```bash
+aiperf synthesize dynamo-trace /path/to/dynamo-request-trace.jsonl \
+    --output /tmp/dynamo-weka
+```
+
+The converter writes one Weka file per root trajectory and preserves request
+timing, token lengths, sequence hashes, and direct parent-child relationships.
+Every trajectory must end with exactly one `trajectory_final=true` request.
+The current Weka schema supports one subagent level; deeper trees are rejected.
+Non-request tool events are not replayed, but their elapsed time remains in the
+recorded gaps between requests.
+
+Replay the converted corpus through Dynamo:
+
+```bash
+AIPERF_DATASET_WEKA_SPLIT_FLATTENED_AGENTS=false \
+aiperf profile \
+    --url localhost:8000 \
+    --model zai-org/GLM-4.7-Flash \
+    --endpoint-type chat \
+    --input-file /tmp/dynamo-weka \
+    --custom-dataset-type weka_trace \
+    --fixed-schedule \
+    --fixed-schedule-auto-offset \
+    --use-dynamo-conv-aware-routing
+```
+
+`--use-dynamo-conv-aware-routing` emits trajectory, parent-trajectory, and
+final-trajectory headers without modifying request bodies. Omit it for an
+untagged baseline. Use `--synthesis-speedup-ratio` to scale the recorded timing.
+
 ### Directory vs Single File
 
 Both work:
