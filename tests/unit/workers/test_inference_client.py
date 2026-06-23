@@ -549,7 +549,12 @@ class TestInferenceClientDynamoSessionControl:
             )
 
     def _request_info(
-        self, inference_client, *, is_final_turn, x_correlation_id="corr-1"
+        self,
+        inference_client,
+        *,
+        is_final_turn,
+        x_correlation_id="corr-1",
+        parent_correlation_id=None,
     ):
         return RequestInfo(
             model_endpoint=inference_client.model_endpoint,
@@ -561,6 +566,7 @@ class TestInferenceClientDynamoSessionControl:
             x_correlation_id=x_correlation_id,
             conversation_id="conv",
             is_final_turn=is_final_turn,
+            parent_correlation_id=parent_correlation_id,
         )
 
     async def _sent_payload(self, inference_client, request_info):
@@ -576,37 +582,55 @@ class TestInferenceClientDynamoSessionControl:
     async def test_non_final_turn_binds_with_x_correlation_id_and_timeout(
         self, inference_client
     ):
+        request_info = self._request_info(
+            inference_client,
+            is_final_turn=False,
+            parent_correlation_id="parent-corr",
+        )
         payload = await self._sent_payload(
             inference_client,
-            self._request_info(inference_client, is_final_turn=False),
+            request_info,
         )
         assert payload["nvext"]["session_control"] == {
             "session_id": "corr-1",
             "action": "bind",
             "timeout": 123,
         }
+        assert request_info.endpoint_headers == {
+            "X-Dynamo-Trajectory-ID": "corr-1",
+            "X-Dynamo-Parent-Trajectory-ID": "parent-corr",
+        }
         # Endpoint-built fields are preserved.
         assert payload["messages"] == [{"role": "user", "content": "hi"}]
 
     @pytest.mark.asyncio
     async def test_final_turn_closes_session(self, inference_client):
+        request_info = self._request_info(inference_client, is_final_turn=True)
         payload = await self._sent_payload(
             inference_client,
-            self._request_info(inference_client, is_final_turn=True),
+            request_info,
         )
         assert payload["nvext"]["session_control"] == {
             "session_id": "corr-1",
             "action": "close",
         }
+        assert request_info.endpoint_headers == {
+            "X-Dynamo-Trajectory-ID": "corr-1",
+            "X-Dynamo-Trajectory-Final": "true",
+        }
 
     @pytest.mark.asyncio
     async def test_disabled_leaves_payload_untouched(self, inference_client):
         inference_client.model_endpoint.endpoint.use_dynamo_conv_aware_routing = False
+        request_info = self._request_info(inference_client, is_final_turn=False)
         payload = await self._sent_payload(
             inference_client,
-            self._request_info(inference_client, is_final_turn=False),
+            request_info,
         )
         assert "nvext" not in payload
+        assert not any(
+            key.startswith("X-Dynamo-") for key in request_info.endpoint_headers
+        )
 
 
 class TestInferenceClientLegacySessionControl:

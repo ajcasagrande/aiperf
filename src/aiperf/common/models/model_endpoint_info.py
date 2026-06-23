@@ -116,7 +116,7 @@ class EndpointInfo(AIPerfBaseModel):
     )
     use_dynamo_conv_aware_routing: bool = Field(
         default=EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING,
-        description="Emit Dynamo nvext.session_control for conversation-aware routing.",
+        description="Emit Dynamo session control and trajectory headers.",
     )
     use_legacy_dynamo_session_control: bool = Field(
         default=EndpointDefaults.USE_LEGACY_DYNAMO_SESSION_CONTROL,

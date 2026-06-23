@@ -268,7 +268,7 @@ Use server-reported token counts from API usage fields instead of client-side to
 
 #### `--use-dynamo-conv-aware-routing`, `--use-dynamo-session-control`
 
-Emit Dynamo nvext.session_control in OpenAI-compatible request bodies so Dynamo can bind all turns from the same replayed conversation lineage to the same backend worker. This is only intended for Dynamo frontends that implement session_control.
+Emit Dynamo nvext.session_control in OpenAI-compatible request bodies so Dynamo can bind all turns from the same replayed conversation lineage to the same backend worker, and emit Dynamo trajectory headers for agent-aware tracing. This is only intended for Dynamo frontends that implement session_control.
 <br/>_Flag (no value required)_
 
 #### `--use-legacy-dynamo-session-control`

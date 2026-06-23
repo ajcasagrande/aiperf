@@ -345,8 +345,9 @@ class EndpointConfig(BaseConfig):
             description=(
                 "Emit Dynamo nvext.session_control in OpenAI-compatible request "
                 "bodies so Dynamo can bind all turns from the same replayed "
-                "conversation lineage to the same backend worker. This is only "
-                "intended for Dynamo frontends that implement session_control."
+                "conversation lineage to the same backend worker, and emit Dynamo "
+                "trajectory headers for agent-aware tracing. This is only intended "
+                "for Dynamo frontends that implement session_control."
             ),
         ),
         CLIParameter(

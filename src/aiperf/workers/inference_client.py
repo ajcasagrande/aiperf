@@ -125,6 +125,7 @@ class InferenceClient(AIPerfLifecycleMixin):
             RequestRecord containing the response data and metadata.
         """
         request_info.endpoint_headers = self.endpoint.get_endpoint_headers(request_info)
+        request_info.endpoint_headers.update(_dynamo_trajectory_headers(request_info))
         request_info.endpoint_params = self.endpoint.get_endpoint_params(request_info)
         if request_info.payload_bytes is not None:
             # PAYLOAD_BYTES fast path: bytes were validated at dataset-load time
@@ -149,9 +150,8 @@ class InferenceClient(AIPerfLifecycleMixin):
                 formatted_payload = self.endpoint.format_payload(request_info)
             # Dynamo conversation-aware routing (opt-in): overlay
             # nvext.session_control onto the structured request body. Done here,
-            # after the endpoint built the dict, so it is endpoint-agnostic and
-            # never mutates a cached Turn. The verbatim PAYLOAD_BYTES path is
-            # excluded by the dataset-load guard, so it is not handled here.
+            # after the endpoint built the dict; PAYLOAD_BYTES is excluded by the
+            # dataset-load guard, so cached Turns are never mutated here.
             endpoint = self.model_endpoint.endpoint
             if endpoint.use_dynamo_conv_aware_routing:
                 session_id = request_info.x_correlation_id
@@ -332,3 +332,14 @@ class InferenceClient(AIPerfLifecycleMixin):
         )
         record.request_headers = redact_headers(source_headers)
         return record
+
+
+def _dynamo_trajectory_headers(request_info: RequestInfo) -> dict[str, str]:
+    if not request_info.model_endpoint.endpoint.use_dynamo_conv_aware_routing:
+        return {}
+    headers = {"X-Dynamo-Trajectory-ID": request_info.x_correlation_id}
+    if request_info.parent_correlation_id:
+        headers["X-Dynamo-Parent-Trajectory-ID"] = request_info.parent_correlation_id
+    if request_info.is_final_turn:
+        headers["X-Dynamo-Trajectory-Final"] = "true"
+    return headers
