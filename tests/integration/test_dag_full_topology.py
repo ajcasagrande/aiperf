@@ -15,6 +15,8 @@ runs a single root conversation through the DAG loader, and validates:
    interleaved between turns.
 4. ``branch_stats`` lands in ``profile_export_aiperf.json`` with the expected
    children-spawned/completed/errored counts.
+5. Dynamo trajectory headers reach the wire for root and child requests without
+   adding ``nvext.session_control`` to request bodies.
 
 The shared ``aiperf_mock_server`` fixture in ``tests/integration/conftest.py``
 drives all I/O; no orchestrator or credit-issuer mocking happens here.
@@ -113,6 +115,7 @@ class TestDagFullTopologyEndToEnd:
                 --request-count 1 \
                 --concurrency 1 \
                 --workers-max 2 \
+                --use-dynamo-conv-aware-routing \
                 --export-level raw \
                 --ui simple
             """,
@@ -169,7 +172,31 @@ class TestDagFullTopologyEndToEnd:
             assert rec.metadata.agent_depth == 1
 
         # -------------------------------------------------------------------
-        # B. Ordering (fork after root)
+        # B. Dynamo trajectory headers reach the wire without body mutation
+        # -------------------------------------------------------------------
+        assert root_rec.request_headers is not None
+        assert root_rec.request_headers["X-Dynamo-Trajectory-ID"] == root_corr
+        assert "X-Dynamo-Parent-Trajectory-ID" not in root_rec.request_headers
+        assert root_rec.request_headers["X-Dynamo-Trajectory-Final"] == "true"
+
+        for rec, correlation_id, is_final in (
+            (a0, branch_a_corr, False),
+            (a1, branch_a_corr, True),
+            (b0, branch_b_corr, False),
+            (b1, branch_b_corr, True),
+        ):
+            assert rec.request_headers is not None
+            assert rec.request_headers["X-Dynamo-Trajectory-ID"] == correlation_id
+            assert rec.request_headers["X-Dynamo-Parent-Trajectory-ID"] == root_corr
+            assert (
+                rec.request_headers.get("X-Dynamo-Trajectory-Final") == "true"
+            ) is is_final
+            assert "nvext" not in rec.payload
+
+        assert "nvext" not in root_rec.payload
+
+        # -------------------------------------------------------------------
+        # C. Ordering (fork after root)
         # -------------------------------------------------------------------
         assert root_rec.metadata.request_end_ns <= a0.metadata.request_start_ns
         assert root_rec.metadata.request_end_ns <= b0.metadata.request_start_ns
@@ -182,7 +209,7 @@ class TestDagFullTopologyEndToEnd:
         assert sibling_skew_ns < 2_000_000_000
 
         # -------------------------------------------------------------------
-        # C. Payload merge correctness — pure append, one system at root
+        # D. Payload merge correctness — pure append, one system at root
         # -------------------------------------------------------------------
         def _assert_messages(
             rec,
@@ -272,7 +299,7 @@ class TestDagFullTopologyEndToEnd:
         )
 
         # -------------------------------------------------------------------
-        # D. BranchStats in profile_export_aiperf.json
+        # E. BranchStats in profile_export_aiperf.json
         # -------------------------------------------------------------------
         assert result.json is not None, "profile_export_aiperf.json must exist"
         assert result.json.branch_stats is not None
@@ -281,7 +308,7 @@ class TestDagFullTopologyEndToEnd:
         assert result.json.branch_stats.children_errored == 0
 
         # -------------------------------------------------------------------
-        # E. Sticky routing: all 5 requests land on the same worker.
+        # F. Sticky routing: all 5 requests land on the same worker.
         # -------------------------------------------------------------------
         worker_ids = {rec.metadata.worker_id for rec in result.raw_records}
         assert len(worker_ids) == 1, (
