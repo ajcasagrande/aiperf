@@ -114,7 +114,8 @@ def _make_request_info(
 async def test_send_request_allows_empty_turns_with_payload_bytes(
     inference_client, model_endpoint
 ):
-    """Empty turns are accepted when payload_bytes is set."""
+    """Dynamo headers work without mutating verbatim payload bytes."""
+    model_endpoint.endpoint.use_dynamo_conv_aware_routing = True
     info = _make_request_info(model_endpoint, turns=[], payload_bytes=b'{"a":1}')
     inference_client.transport.send_request = AsyncMock(
         return_value=RequestRecord(request_info=info)
@@ -125,6 +126,10 @@ async def test_send_request_allows_empty_turns_with_payload_bytes(
     assert record is not None
     call_args = inference_client.transport.send_request.call_args
     assert call_args.kwargs["payload"] == b'{"a":1}'
+    assert info.endpoint_headers == {
+        "X-Dynamo-Trajectory-ID": "cid",
+        "X-Dynamo-Trajectory-Final": "true",
+    }
     inference_client.endpoint.format_payload.assert_not_called()
 
 

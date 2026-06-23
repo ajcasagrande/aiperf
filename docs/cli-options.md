@@ -266,21 +266,10 @@ Use the legacy 'max_tokens' field instead of 'max_completion_tokens' in request 
 Use server-reported token counts from API usage fields instead of client-side tokenization. When enabled, tokenizers are still loaded (needed for dataset generation) but tokenizer.encode() is not called for computing metrics. Token count fields will be None if the server does not provide usage information. For OpenAI-compatible streaming endpoints (chat/completions), stream_options.include_usage is automatically configured when this flag is enabled. Recommended whenever the AIPerf tokenizer can disagree with the server's tokenizer (e.g. unmatched tokenizer revision, vendor-specific BPE merges, or chat templates that differ from the server) — this most often shows up as an output sequence length (OSL) mismatch even when the server is honoring the request (e.g. with ignore_eos=true).
 <br/>_Flag (no value required)_
 
-#### `--use-dynamo-conv-aware-routing`, `--use-dynamo-session-control`
+#### `--use-dynamo-conv-aware-routing`
 
-Emit Dynamo nvext.session_control in OpenAI-compatible request bodies so Dynamo can bind all turns from the same replayed conversation lineage to the same backend worker, and emit Dynamo trajectory headers for agent-aware tracing. This is only intended for Dynamo frontends that implement session_control.
+Emit Dynamo trajectory headers so Dynamo can trace and route all turns from the same replayed conversation lineage.
 <br/>_Flag (no value required)_
-
-#### `--use-legacy-dynamo-session-control`
-
-Emit the legacy Dynamo nvext.session_control lifecycle that released Dynamo (v1.2.x) understands: action 'open' on the first turn, session_id only on intermediate turns, and action 'close' on the final turn. Use this when the target Dynamo predates the 'bind' action (added in v1.3.0-dev); otherwise 'bind' is rejected with an HTTP 400. Requires --use-dynamo-conv-aware-routing, and the Dynamo deployment must expose a worker session_control endpoint for 'open' to take effect.
-<br/>_Flag (no value required)_
-
-#### `--dynamo-session-timeout-seconds` `<int>`
-
-Dynamo nvext.session_control timeout in seconds when --use-dynamo-conv-aware-routing is enabled.
-<br/>_Constraints: ≥ 1_
-<br/>_Default: `300`_
 
 #### `--connection-reuse-strategy` `<str>`
 
