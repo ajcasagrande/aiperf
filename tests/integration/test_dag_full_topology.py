@@ -177,20 +177,16 @@ class TestDagFullTopologyEndToEnd:
         assert root_rec.request_headers is not None
         assert root_rec.request_headers["X-Dynamo-Trajectory-ID"] == root_corr
         assert "X-Dynamo-Parent-Trajectory-ID" not in root_rec.request_headers
-        assert root_rec.request_headers["X-Dynamo-Trajectory-Final"] == "true"
 
-        for rec, correlation_id, is_final in (
-            (a0, branch_a_corr, False),
-            (a1, branch_a_corr, True),
-            (b0, branch_b_corr, False),
-            (b1, branch_b_corr, True),
+        for rec, correlation_id in (
+            (a0, branch_a_corr),
+            (a1, branch_a_corr),
+            (b0, branch_b_corr),
+            (b1, branch_b_corr),
         ):
             assert rec.request_headers is not None
             assert rec.request_headers["X-Dynamo-Trajectory-ID"] == correlation_id
             assert rec.request_headers["X-Dynamo-Parent-Trajectory-ID"] == root_corr
-            assert (
-                rec.request_headers.get("X-Dynamo-Trajectory-Final") == "true"
-            ) is is_final
             assert "nvext" not in rec.payload
 
         assert "nvext" not in root_rec.payload

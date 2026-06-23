@@ -595,7 +595,7 @@ class TestInferenceClientDynamoTrajectoryHeaders:
         assert payload["messages"] == [{"role": "user", "content": "hi"}]
 
     @pytest.mark.asyncio
-    async def test_final_turn_emits_terminal_header(self, inference_client):
+    async def test_final_turn_emits_trajectory_header(self, inference_client):
         request_info = self._request_info(inference_client, is_final_turn=True)
         payload = await self._sent_payload(
             inference_client,
@@ -604,7 +604,6 @@ class TestInferenceClientDynamoTrajectoryHeaders:
         assert "nvext" not in payload
         assert request_info.endpoint_headers == {
             "X-Dynamo-Trajectory-ID": "corr-1",
-            "X-Dynamo-Trajectory-Final": "true",
         }
 
     @pytest.mark.asyncio

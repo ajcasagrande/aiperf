@@ -302,6 +302,4 @@ def _dynamo_trajectory_headers(request_info: RequestInfo) -> dict[str, str]:
     headers = {"X-Dynamo-Trajectory-ID": request_info.x_correlation_id}
     if request_info.parent_correlation_id:
         headers["X-Dynamo-Parent-Trajectory-ID"] = request_info.parent_correlation_id
-    if request_info.is_final_turn:
-        headers["X-Dynamo-Trajectory-Final"] = "true"
     return headers

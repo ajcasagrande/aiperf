@@ -128,7 +128,6 @@ def _parse_dynamo_record(record: Any, line_number: int) -> _TraceRow | None:
     return {
         "trajectory_id": trajectory_id,
         "parent_trajectory_id": parent_id,
-        "trajectory_final": context.get("trajectory_final") is True,
         "received_ms": float(received_ms),
         "block_size": block_size,
         "input_length": input_length,
@@ -161,7 +160,7 @@ def _load_dynamo_rows(input_file: Path) -> list[_TraceRow]:
     return sorted(rows, key=lambda row: row["received_ms"])
 
 
-def _group_complete_trajectories(
+def _group_trajectories(
     rows: list[_TraceRow],
 ) -> tuple[dict[str, list[_TraceRow]], dict[str, str | None]]:
     grouped: dict[str, list[_TraceRow]] = {}
@@ -181,16 +180,6 @@ def _group_complete_trajectories(
                 f"Trajectory {trajectory_id} references missing parent {parent_id}"
             )
         parents[trajectory_id] = parent_id
-
-        final_indexes = [
-            index
-            for index, row in enumerate(trajectory_rows)
-            if row["trajectory_final"]
-        ]
-        if final_indexes != [len(trajectory_rows) - 1]:
-            raise ValueError(
-                f"Trajectory must end with exactly one final request: {trajectory_id}"
-            )
 
     return grouped, parents
 
@@ -357,7 +346,7 @@ def _dynamo_traces_to_weka(
     input_file: Path, root_trajectory_id: str | None = None
 ) -> list[WekaTrace]:
     rows = _load_dynamo_rows(input_file)
-    grouped, parents = _group_complete_trajectories(rows)
+    grouped, parents = _group_trajectories(rows)
     roots = _lineage_roots(grouped, parents, root_trajectory_id)
     origin_ms = min(row["received_ms"] for row in rows)
     return [

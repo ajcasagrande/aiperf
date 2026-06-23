@@ -16,13 +16,10 @@ def _record(
     hashes: list[int],
     *,
     parent_id: str | None = None,
-    final: bool = False,
 ) -> dict:
     context = {"trajectory_id": trajectory_id}
     if parent_id is not None:
         context["parent_trajectory_id"] = parent_id
-    if final:
-        context["trajectory_final"] = True
     return {
         "event": {
             "event_type": "request_end",
@@ -54,10 +51,10 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
         input_file,
         [
             _record("root-a", 1_000, [10, 20]),
-            _record("root-b", 1_500, [50], final=True),
+            _record("root-b", 1_500, [50]),
             _record("child-a", 2_000, [10, 20, 30], parent_id="root-a"),
-            _record("child-a", 3_000, [10, 20, 30, 31], parent_id="root-a", final=True),
-            _record("root-a", 5_000, [10, 40], final=True),
+            _record("child-a", 3_000, [10, 20, 30, 31], parent_id="root-a"),
+            _record("root-a", 5_000, [10, 40]),
         ],
     )
 
@@ -82,21 +79,13 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
     assert root_b.requests[0].t == 0.5
 
 
-@pytest.mark.parametrize("malformed", ["incomplete", "nested"])
-def test_dynamo_trace_rejects_unrepresentable_trajectories(
-    tmp_path: Path, malformed: str
-) -> None:
+def test_dynamo_trace_rejects_nested_trajectories(tmp_path: Path) -> None:
     input_file = tmp_path / "trace.jsonl"
-    records = [_record("root", 1_000, [1], final=True)]
-    if malformed == "incomplete":
-        records[0]["event"]["agent_context"].pop("trajectory_final")
-    else:
-        records.extend(
-            [
-                _record("child", 2_000, [1, 2], parent_id="root", final=True),
-                _record("grandchild", 3_000, [1, 2, 3], parent_id="child", final=True),
-            ]
-        )
+    records = [
+        _record("root", 1_000, [1]),
+        _record("child", 2_000, [1, 2], parent_id="root"),
+        _record("grandchild", 3_000, [1, 2, 3], parent_id="child"),
+    ]
     _write_trace(input_file, records)
 
     with pytest.raises(ValueError):

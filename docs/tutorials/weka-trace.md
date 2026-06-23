@@ -55,7 +55,7 @@ aiperf synthesize dynamo-trace /path/to/dynamo-request-trace.jsonl \
 
 The converter writes one Weka file per root trajectory and preserves request
 timing, token lengths, sequence hashes, and direct parent-child relationships.
-Every trajectory must end with exactly one `trajectory_final=true` request.
+It infers the final turn from the last request in each trajectory.
 The current Weka schema supports one subagent level; deeper trees are rejected.
 Non-request tool events are not replayed, but their elapsed time remains in the
 recorded gaps between requests.
@@ -75,8 +75,8 @@ aiperf profile \
     --use-dynamo-conv-aware-routing
 ```
 
-`--use-dynamo-conv-aware-routing` emits trajectory, parent-trajectory, and
-final-trajectory headers without modifying request bodies. Omit it for an
+`--use-dynamo-conv-aware-routing` emits trajectory and parent-trajectory
+headers without modifying request bodies. Omit it for an
 untagged baseline. Use `--synthesis-speedup-ratio` to scale the recorded timing.
 
 ### Directory vs Single File
