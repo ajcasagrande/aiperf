@@ -150,53 +150,10 @@ class TestFixedScheduleSetup:
         assert timestamps == sorted(timestamps)
 
     async def test_skips_children_dispatched_by_branch_orchestrator(self) -> None:
-        scheduler, stop_checker, issuer, lifecycle = (
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-        )
-        stop_checker.can_send_any_turn = MagicMock(return_value=True)
-        stop_checker.can_start_new_session = MagicMock(return_value=True)
-        issuer.issue_credit = lambda *args, **kwargs: True
-        lifecycle.started_at_perf_ns = 1_000_000_000
-        dataset = DatasetMetadata(
-            conversations=[
-                ConversationMetadata(
-                    conversation_id="root",
-                    turns=[TurnMetadata(timestamp_ms=0)],
-                    is_root=True,
-                ),
-                ConversationMetadata(
-                    conversation_id="child",
-                    turns=[TurnMetadata(timestamp_ms=100)],
-                    is_root=False,
-                    parent_conversation_id="root",
-                    agent_depth=1,
-                ),
-            ],
-            sampling_strategy=DatasetSamplingStrategy.SEQUENTIAL,
-        )
-        source = ConversationSource(
-            dataset,
-            make_sampler(["root"], DatasetSamplingStrategy.SEQUENTIAL),
-        )
-        strategy = FixedScheduleStrategy(
-            config=CreditPhaseConfig(
-                phase=CreditPhase.PROFILING,
-                timing_mode=TimingMode.FIXED_SCHEDULE,
-                total_expected_requests=2,
-                auto_offset_timestamps=True,
-            ),
-            conversation_source=source,
-            scheduler=scheduler,
-            stop_checker=stop_checker,
-            credit_issuer=issuer,
-            lifecycle=lifecycle,
-        )
+        strategy, _, _ = make_strategy([(0, "root"), (100, "child")])
+        strategy._conversation_source.dataset_metadata.conversations[1].is_root = False
 
         await strategy.setup_phase()
-
         assert [
             entry.turn.conversation_id for entry in strategy._absolute_schedule
         ] == ["root"]
