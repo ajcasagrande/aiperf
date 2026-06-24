@@ -51,7 +51,7 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
         input_file,
         [
             _record("root-a", 1_000, [10, 20]),
-            _record("root-b", 1_500, [50]),
+            _record("root-b", 1_500, [10, 50]),
             _record("child-a", 2_000, [10, 20, 30], parent_id="root-a"),
             _record("child-a", 3_000, [10, 20, 30, 31], parent_id="root-a"),
             _record("root-a", 5_000, [10, 40]),
@@ -66,9 +66,10 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
     ]
     assert [trace.id for trace in traces] == ["root-a", "root-b"]
     root_a, root_b = traces
+    assert root_a.hash_id_scope == root_b.hash_id_scope == "global"
     assert [request.type for request in root_a.requests] == ["n", "subagent", "n"]
     assert [request.t for request in root_a.requests] == [0.0, 1.0, 4.0]
-    assert root_a.requests[0].hash_ids == [1, 2]
+    assert root_a.requests[0].hash_ids == [10, 20]
     child = root_a.requests[1]
     assert child.agent_id == "child-a"
     assert child.requests[0].hash_ids[:2] == root_a.requests[0].hash_ids
@@ -77,6 +78,7 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
     assert root_a.requests[-1].hash_ids[-1] != child.requests[0].hash_ids[-1]
     assert root_a.requests[-1].stop == "end_turn"
     assert root_b.requests[0].t == 0.5
+    assert root_b.requests[0].hash_ids[0] == root_a.requests[0].hash_ids[0]
 
 
 def test_dynamo_trace_rejects_nested_sessions(tmp_path: Path) -> None:

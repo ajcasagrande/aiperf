@@ -4,10 +4,9 @@
 """Per-trace parallel reconstruction for WekaTraceLoader.
 
 Each Weka trace (one parent + zero or more subagent children) is a
-self-contained reconstruction unit: one trace-scoped cache and
-HashIdRandomGenerator shared by the parent and all its children
-(``hash_id_scope: "local"`` = one namespace per trace file), plus
-scope-keyed partial-tail seeds. The byte-exact
+self-contained reconstruction unit. Its parent and children share one
+declared hash scope; global scopes use the same deterministic key in every
+worker process. The byte-exact
 LCP-driven reconstruction in
 :class:`aiperf.dataset.loader.weka_synth_buf.ConversationReconstructor`
 carries cross-turn state, but never cross-trace state.
@@ -27,7 +26,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from multiprocessing import shared_memory
-from typing import TypeAlias, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -108,7 +107,7 @@ class _WekaNormalRequestPayload(TypedDict):
     effective_t: NotRequired[float]
     effective_delay_ms: NotRequired[float | None]
     # Theoretical prefix-cache values precomputed parent-side from the
-    # per-trace shared seen-set (one hash namespace per trace file).
+    # declared hash-scope seen-set.
     theoretical_hit_blocks: int
     theoretical_total_blocks: int
 
@@ -225,6 +224,7 @@ class _WekaTraceTask:
     think_time_only: bool
     model_map: dict[str, str]
     block_size: int
+    hash_id_scope: Literal["local", "global"] = "local"
     emit_assistant_segments: bool = True
     tool_shaped_messages: bool = False
 
@@ -295,6 +295,9 @@ def _make_scope_helpers(
     worker; see ``WekaTraceLoader._block_size_for_trace``). The closure
     captures it so multiple traces processed by the same worker can use
     different block sizes.
+
+    ``scope`` is either the trace ID or the shared block-size namespace used
+    to seed deterministic hash-block synthesis.
     """
     assert _worker_state is not None
     state = _worker_state
@@ -353,8 +356,13 @@ def _process_task(task: _WekaTraceTask) -> _WekaProcessTaskResult:
     delay_tracker = DelayCapTracker(cap_seconds=cap_seconds)
 
     parent = task.parent
+    hash_scope = (
+        task.trace_id
+        if task.hash_id_scope == "local"
+        else f"__global__:{task.block_size}"
+    )
     parent_decode, parent_partial, parent_decode_text = _make_scope_helpers(
-        task.trace_id, bs
+        hash_scope, bs
     )
 
     parent_recon = ConversationReconstructor(
@@ -584,11 +592,8 @@ def _process_task(task: _WekaTraceTask) -> _WekaProcessTaskResult:
         if cp["subagent_index"] in dropped_subagent_indices:
             continue
 
-        # Subagents share the parent trace's ``hash_id_scope: "local"``
-        # namespace (see _reconstruct_serial): scope on parent_trace_id, not
-        # the child session_id, so shared blocks decode identically.
         child_decode, child_partial, child_decode_text = _make_scope_helpers(
-            cp["parent_trace_id"], bs
+            hash_scope, bs
         )
         child_recon = ConversationReconstructor(
             block_size=bs,

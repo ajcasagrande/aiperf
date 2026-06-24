@@ -2,13 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Shared theoretical prefix-cache pre-pass for Weka traces (spec §5.5).
 
-``hash_id_scope: "local"`` means one hash namespace per trace FILE, so a
-block first sent by any conversation of a trace (root, subagent child, or
-detected flat chain) is a cache hit when any other conversation of the same
-trace re-sends it. This module computes those values over ONE shared
-per-trace seen-set consumed in global time order; emission then looks them
-up per ``(session_id, turn_index)`` instead of keeping per-conversation
-seen-sets.
+The caller groups records by the declared hash namespace: one trace file for
+``local`` scope or all same-block-size files for ``global`` scope. This module
+computes values over that shared seen-set in timestamp order.
 """
 
 from __future__ import annotations
@@ -18,7 +14,7 @@ from dataclasses import dataclass
 
 @dataclass(slots=True, frozen=True)
 class MetricRecord:
-    """One request's contribution to the per-trace shared seen-set."""
+    """One request's contribution to a shared hash-scope seen-set."""
 
     sort_key: tuple[float, int, int, int]
     """(absolute_t, outer_idx, stream_idx, k) — deterministic global order."""
@@ -33,8 +29,7 @@ class MetricRecord:
 def compute_shared_prefix_cache_metrics(
     records: list[MetricRecord],
 ) -> dict[tuple[str, int], tuple[int, int]]:
-    """{(session_id, k): (hit_blocks, total_blocks)} over ONE shared
-    per-trace seen-set, consumed in global time order (spec §5.5)."""
+    """Compute ``(hit_blocks, total_blocks)`` over one hash scope."""
     out: dict[tuple[str, int], tuple[int, int]] = {}
     seen: set[int] = set()
     for rec in sorted(records, key=lambda r: r.sort_key):

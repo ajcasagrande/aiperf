@@ -214,19 +214,14 @@ def _weka_request(
     *,
     origin_ms: float,
     final: bool,
-    normalized_hashes: dict[int, int],
 ) -> dict[str, Any]:
-    hashes = [
-        normalized_hashes.setdefault(raw_hash, len(normalized_hashes) + 1)
-        for raw_hash in row["hashes"]
-    ]
     request = {
         "t": round((row["received_ms"] - origin_ms) / 1000, 6),
         "type": "n",
         "model": row["model"],
         "in": row["input_length"],
         "out": row["output_length"],
-        "hash_ids": hashes,
+        "hash_ids": row["hashes"],
         "stop": "end_turn" if final else "tool_use",
     }
     if row["total_time_ms"] is not None:
@@ -239,14 +234,12 @@ def _weka_subagent(
     child_rows: list[_TraceRow],
     *,
     origin_ms: float,
-    normalized_hashes: dict[int, int],
 ) -> dict[str, Any]:
     requests = [
         _weka_request(
             row,
             origin_ms=origin_ms,
             final=index == len(child_rows) - 1,
-            normalized_hashes=normalized_hashes,
         )
         for index, row in enumerate(child_rows)
     ]
@@ -286,7 +279,6 @@ def _build_weka_trace(
     if len(block_sizes) != 1:
         raise ValueError(f"Lineage must use one trace block size: {root_id}")
 
-    normalized_hashes: dict[int, int] = {}
     timeline: list[tuple[float, int, dict[str, Any]]] = []
     root_rows = grouped[root_id]
     for index, row in enumerate(root_rows):
@@ -298,7 +290,6 @@ def _build_weka_trace(
                     row,
                     origin_ms=origin_ms,
                     final=index == len(root_rows) - 1,
-                    normalized_hashes=normalized_hashes,
                 ),
             )
         )
@@ -313,7 +304,6 @@ def _build_weka_trace(
                     child_id,
                     child_rows,
                     origin_ms=origin_ms,
-                    normalized_hashes=normalized_hashes,
                 ),
             )
         )
@@ -323,7 +313,7 @@ def _build_weka_trace(
             "id": root_id,
             "models": sorted({row["model"] for row in selected_rows}),
             "block_size": next(iter(block_sizes)),
-            "hash_id_scope": "local",
+            "hash_id_scope": "global",
             "tool_tokens": 0,
             "system_tokens": 0,
             "requests": [
