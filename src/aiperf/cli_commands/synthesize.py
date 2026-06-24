@@ -30,9 +30,13 @@ def dynamo_trace(
         output: Empty directory for generated Weka trace files.
         root_trajectory_id: Optional root lineage to select instead of converting all roots.
     """
+    if output.exists():
+        if not output.is_dir():
+            raise ValueError(f"Output path must be a directory: {output}")
+        if any(output.iterdir()):
+            raise ValueError(f"Output directory must be empty: {output}")
+
     traces = _dynamo_traces_to_weka(input_file, root_trajectory_id)
-    if output.exists() and any(output.iterdir()):
-        raise ValueError(f"Output directory must be empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
     for index, trace in enumerate(traces):
         (output / f"trace_{index:06d}.json").write_bytes(

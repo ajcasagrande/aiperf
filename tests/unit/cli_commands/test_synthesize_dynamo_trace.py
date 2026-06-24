@@ -90,3 +90,11 @@ def test_dynamo_trace_rejects_nested_trajectories(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         dynamo_trace(input_file, output=tmp_path / "weka")
+
+
+def test_dynamo_trace_validates_output_before_conversion(tmp_path: Path) -> None:
+    output = tmp_path / "weka"
+    output.touch()
+
+    with pytest.raises(ValueError, match="Output path must be a directory"):
+        dynamo_trace(tmp_path / "missing.jsonl", output=output)
