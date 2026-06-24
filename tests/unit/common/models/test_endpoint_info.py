@@ -39,8 +39,8 @@ class TestEndpointInfoMultiURL:
         with pytest.raises(ValueError):
             EndpointInfo(base_urls=[])
 
-    def test_dynamo_trajectory_headers_from_user_config(self):
-        """Dynamo trajectory-header opt-in should flow into endpoint info."""
+    def test_dynamo_session_headers_from_user_config(self):
+        """Dynamo session-header opt-in should flow into endpoint info."""
         user_config = UserConfig(
             endpoint=EndpointConfig(
                 model_names=["test-model"],

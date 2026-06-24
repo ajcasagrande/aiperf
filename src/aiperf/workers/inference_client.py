@@ -112,7 +112,7 @@ class InferenceClient(AIPerfLifecycleMixin):
             RequestRecord containing the response data and metadata.
         """
         request_info.endpoint_headers = self.endpoint.get_endpoint_headers(request_info)
-        request_info.endpoint_headers.update(_dynamo_trajectory_headers(request_info))
+        request_info.endpoint_headers.update(_dynamo_session_headers(request_info))
         request_info.endpoint_params = self.endpoint.get_endpoint_params(request_info)
         if request_info.payload_bytes is not None:
             # PAYLOAD_BYTES fast path: bytes were validated at dataset-load time
@@ -296,10 +296,10 @@ class InferenceClient(AIPerfLifecycleMixin):
         return record
 
 
-def _dynamo_trajectory_headers(request_info: RequestInfo) -> dict[str, str]:
+def _dynamo_session_headers(request_info: RequestInfo) -> dict[str, str]:
     if not request_info.model_endpoint.endpoint.use_dynamo_conv_aware_routing:
         return {}
-    headers = {"X-Dynamo-Trajectory-ID": request_info.x_correlation_id}
+    headers = {"X-Dynamo-Session-ID": request_info.x_correlation_id}
     if request_info.parent_correlation_id:
-        headers["X-Dynamo-Parent-Trajectory-ID"] = request_info.parent_correlation_id
+        headers["X-Dynamo-Parent-Session-ID"] = request_info.parent_correlation_id
     return headers

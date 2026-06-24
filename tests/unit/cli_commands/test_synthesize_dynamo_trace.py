@@ -11,15 +11,15 @@ from aiperf.dataset.loader.weka_trace_models import WekaTrace
 
 
 def _record(
-    trajectory_id: str,
+    session_id: str,
     received_ms: int,
     hashes: list[int],
     *,
     parent_id: str | None = None,
 ) -> dict:
-    context = {"trajectory_id": trajectory_id}
+    context = {"session_id": session_id}
     if parent_id is not None:
-        context["parent_trajectory_id"] = parent_id
+        context["parent_session_id"] = parent_id
     return {
         "event": {
             "event_type": "request_end",
@@ -79,7 +79,7 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
     assert root_b.requests[0].t == 0.5
 
 
-def test_dynamo_trace_rejects_nested_trajectories(tmp_path: Path) -> None:
+def test_dynamo_trace_rejects_nested_sessions(tmp_path: Path) -> None:
     input_file = tmp_path / "trace.jsonl"
     records = [
         _record("root", 1_000, [1]),

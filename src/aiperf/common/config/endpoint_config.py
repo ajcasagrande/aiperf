@@ -326,8 +326,8 @@ class EndpointConfig(BaseConfig):
         bool,
         Field(
             description=(
-                "Emit Dynamo trajectory headers so Dynamo can trace and route all "
-                "turns from the same replayed conversation lineage."
+                "Emit Dynamo session headers for tracing and configured session-aware "
+                "routing across a replayed conversation lineage."
             ),
         ),
         CLIParameter(

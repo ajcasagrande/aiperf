@@ -21,14 +21,14 @@ def dynamo_trace(
     input_file: Path,
     *,
     output: Path,
-    root_trajectory_id: str | None = None,
+    root_session_id: str | None = None,
 ) -> None:
     """Convert canonical Dynamo request traces into replayable Weka traces.
 
     Args:
         input_file: Dynamo ``dynamo.request.trace.v1`` JSONL file.
         output: Empty directory for generated Weka trace files.
-        root_trajectory_id: Optional root lineage to select instead of converting all roots.
+        root_session_id: Optional root session to select instead of converting all roots.
     """
     if output.exists():
         if not output.is_dir():
@@ -36,7 +36,7 @@ def dynamo_trace(
         if any(output.iterdir()):
             raise ValueError(f"Output directory must be empty: {output}")
 
-    traces = _dynamo_traces_to_weka(input_file, root_trajectory_id)
+    traces = _dynamo_traces_to_weka(input_file, root_session_id)
     output.mkdir(parents=True, exist_ok=True)
     for index, trace in enumerate(traces):
         (output / f"trace_{index:06d}.json").write_bytes(
@@ -52,13 +52,11 @@ def dynamo_trace(
 _TraceRow = dict[str, Any]
 
 
-def _validate_identity(trajectory_id: Any, parent_id: Any, line_number: int) -> None:
-    if not isinstance(trajectory_id, str) or not trajectory_id:
-        raise ValueError(
-            f"Line {line_number}: trajectory_id must be a non-empty string"
-        )
+def _validate_identity(session_id: Any, parent_id: Any, line_number: int) -> None:
+    if not isinstance(session_id, str) or not session_id:
+        raise ValueError(f"Line {line_number}: session_id must be a non-empty string")
     if parent_id is not None and (not isinstance(parent_id, str) or not parent_id):
-        raise ValueError(f"Line {line_number}: parent_trajectory_id must be a string")
+        raise ValueError(f"Line {line_number}: parent_session_id must be a string")
 
 
 def _validate_request_fields(
@@ -100,7 +98,7 @@ def _parse_dynamo_record(record: Any, line_number: int) -> _TraceRow | None:
     if not isinstance(event, dict) or event.get("event_type") != "request_end":
         return None
     context = event.get("agent_context")
-    if not isinstance(context, dict) or not context.get("trajectory_id"):
+    if not isinstance(context, dict) or not context.get("session_id"):
         return None
     request = event.get("request")
     replay = request.get("replay") if isinstance(request, dict) else None
@@ -109,8 +107,8 @@ def _parse_dynamo_record(record: Any, line_number: int) -> _TraceRow | None:
             f"Line {line_number}: agent request is missing replay metadata"
         )
 
-    trajectory_id = context["trajectory_id"]
-    parent_id = context.get("parent_trajectory_id")
+    session_id = context["session_id"]
+    parent_id = context.get("parent_session_id")
     received_ms = request.get("request_received_ms")
     block_size = replay.get("trace_block_size")
     input_length = replay.get("input_length")
@@ -118,7 +116,7 @@ def _parse_dynamo_record(record: Any, line_number: int) -> _TraceRow | None:
     hashes = replay.get("input_sequence_hashes")
     model = request.get("model")
     total_time_ms = request.get("total_time_ms")
-    _validate_identity(trajectory_id, parent_id, line_number)
+    _validate_identity(session_id, parent_id, line_number)
     _validate_request_fields(
         received_ms=received_ms,
         block_size=block_size,
@@ -130,8 +128,8 @@ def _parse_dynamo_record(record: Any, line_number: int) -> _TraceRow | None:
         line_number=line_number,
     )
     return {
-        "trajectory_id": trajectory_id,
-        "parent_trajectory_id": parent_id,
+        "session_id": session_id,
+        "parent_session_id": parent_id,
         "received_ms": float(received_ms),
         "block_size": block_size,
         "input_length": input_length,
@@ -164,26 +162,26 @@ def _load_dynamo_rows(input_file: Path) -> list[_TraceRow]:
     return sorted(rows, key=lambda row: row["received_ms"])
 
 
-def _group_trajectories(
+def _group_sessions(
     rows: list[_TraceRow],
 ) -> tuple[dict[str, list[_TraceRow]], dict[str, str | None]]:
     grouped: dict[str, list[_TraceRow]] = {}
     for row in rows:
-        grouped.setdefault(row["trajectory_id"], []).append(row)
+        grouped.setdefault(row["session_id"], []).append(row)
 
     parents: dict[str, str | None] = {}
-    for trajectory_id, trajectory_rows in grouped.items():
-        parent_ids = {row["parent_trajectory_id"] for row in trajectory_rows}
+    for session_id, session_rows in grouped.items():
+        parent_ids = {row["parent_session_id"] for row in session_rows}
         if len(parent_ids) != 1:
-            raise ValueError(f"Trajectory has inconsistent parents: {trajectory_id}")
+            raise ValueError(f"Session has inconsistent parents: {session_id}")
         parent_id = next(iter(parent_ids))
-        if parent_id == trajectory_id:
-            raise ValueError(f"Trajectory cannot parent itself: {trajectory_id}")
+        if parent_id == session_id:
+            raise ValueError(f"Session cannot parent itself: {session_id}")
         if parent_id is not None and parent_id not in grouped:
             raise ValueError(
-                f"Trajectory {trajectory_id} references missing parent {parent_id}"
+                f"Session {session_id} references missing parent {parent_id}"
             )
-        parents[trajectory_id] = parent_id
+        parents[session_id] = parent_id
 
     return grouped, parents
 
@@ -194,19 +192,19 @@ def _lineage_roots(
     requested_root: str | None,
 ) -> list[str]:
     roots = sorted(
-        (trajectory_id for trajectory_id, parent in parents.items() if parent is None),
-        key=lambda trajectory_id: grouped[trajectory_id][0]["received_ms"],
+        (session_id for session_id, parent in parents.items() if parent is None),
+        key=lambda session_id: grouped[session_id][0]["received_ms"],
     )
     if requested_root is not None:
         if requested_root not in roots:
-            raise ValueError(f"Root trajectory not found: {requested_root}")
+            raise ValueError(f"Root session not found: {requested_root}")
         roots = [requested_root]
 
-    for trajectory_id, parent_id in parents.items():
+    for session_id, parent_id in parents.items():
         if parent_id is not None and parents[parent_id] is not None:
             raise ValueError(
                 "Nested subagents are not representable by the Weka trace schema: "
-                f"{trajectory_id}"
+                f"{session_id}"
             )
     return roots
 
@@ -279,12 +277,8 @@ def _build_weka_trace(
     origin_ms: float,
 ) -> WekaTrace:
     child_ids = sorted(
-        (
-            trajectory_id
-            for trajectory_id, parent in parents.items()
-            if parent == root_id
-        ),
-        key=lambda trajectory_id: grouped[trajectory_id][0]["received_ms"],
+        (session_id for session_id, parent in parents.items() if parent == root_id),
+        key=lambda session_id: grouped[session_id][0]["received_ms"],
     )
     selected_ids = [root_id, *child_ids]
     selected_rows = [row for item in selected_ids for row in grouped[item]]
@@ -347,11 +341,11 @@ def _build_weka_trace(
 
 
 def _dynamo_traces_to_weka(
-    input_file: Path, root_trajectory_id: str | None = None
+    input_file: Path, root_session_id: str | None = None
 ) -> list[WekaTrace]:
     rows = _load_dynamo_rows(input_file)
-    grouped, parents = _group_trajectories(rows)
-    roots = _lineage_roots(grouped, parents, root_trajectory_id)
+    grouped, parents = _group_sessions(rows)
+    roots = _lineage_roots(grouped, parents, root_session_id)
     origin_ms = min(row["received_ms"] for row in rows)
     return [
         _build_weka_trace(root_id, grouped, parents, origin_ms) for root_id in roots

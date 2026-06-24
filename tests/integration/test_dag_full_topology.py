@@ -15,7 +15,7 @@ runs a single root conversation through the DAG loader, and validates:
    interleaved between turns.
 4. ``branch_stats`` lands in ``profile_export_aiperf.json`` with the expected
    children-spawned/completed/errored counts.
-5. Dynamo trajectory headers reach the wire for root and child requests without
+5. Dynamo session headers reach the wire for root and child requests without
    adding ``nvext.session_control`` to request bodies.
 
 The shared ``aiperf_mock_server`` fixture in ``tests/integration/conftest.py``
@@ -172,11 +172,11 @@ class TestDagFullTopologyEndToEnd:
             assert rec.metadata.agent_depth == 1
 
         # -------------------------------------------------------------------
-        # B. Dynamo trajectory headers reach the wire without body mutation
+        # B. Dynamo session headers reach the wire without body mutation
         # -------------------------------------------------------------------
         assert root_rec.request_headers is not None
-        assert root_rec.request_headers["X-Dynamo-Trajectory-ID"] == root_corr
-        assert "X-Dynamo-Parent-Trajectory-ID" not in root_rec.request_headers
+        assert root_rec.request_headers["X-Dynamo-Session-ID"] == root_corr
+        assert "X-Dynamo-Parent-Session-ID" not in root_rec.request_headers
 
         for rec, correlation_id in (
             (a0, branch_a_corr),
@@ -185,8 +185,8 @@ class TestDagFullTopologyEndToEnd:
             (b1, branch_b_corr),
         ):
             assert rec.request_headers is not None
-            assert rec.request_headers["X-Dynamo-Trajectory-ID"] == correlation_id
-            assert rec.request_headers["X-Dynamo-Parent-Trajectory-ID"] == root_corr
+            assert rec.request_headers["X-Dynamo-Session-ID"] == correlation_id
+            assert rec.request_headers["X-Dynamo-Parent-Session-ID"] == root_corr
             assert "nvext" not in rec.payload
 
         assert "nvext" not in root_rec.payload

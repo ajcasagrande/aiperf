@@ -127,7 +127,7 @@ async def test_send_request_allows_empty_turns_with_payload_bytes(
     call_args = inference_client.transport.send_request.call_args
     assert call_args.kwargs["payload"] == b'{"a":1}'
     assert info.endpoint_headers == {
-        "X-Dynamo-Trajectory-ID": "cid",
+        "X-Dynamo-Session-ID": "cid",
     }
     inference_client.endpoint.format_payload.assert_not_called()
 

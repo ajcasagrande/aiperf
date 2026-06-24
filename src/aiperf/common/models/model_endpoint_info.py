@@ -116,7 +116,7 @@ class EndpointInfo(AIPerfBaseModel):
     )
     use_dynamo_conv_aware_routing: bool = Field(
         default=EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING,
-        description="Emit Dynamo trajectory headers for agent-aware routing and tracing.",
+        description="Emit Dynamo session headers for tracing and configured session-aware routing.",
     )
     connection_reuse_strategy: ConnectionReuseStrategy = Field(
         default=EndpointDefaults.CONNECTION_REUSE_STRATEGY,

@@ -268,7 +268,7 @@ Use server-reported token counts from API usage fields instead of client-side to
 
 #### `--use-dynamo-conv-aware-routing`
 
-Emit Dynamo trajectory headers so Dynamo can trace and route all turns from the same replayed conversation lineage.
+Emit Dynamo session headers for tracing and configured session-aware routing across a replayed conversation lineage.
 <br/>_Flag (no value required)_
 
 #### `--connection-reuse-strategy` `<str>`

@@ -494,8 +494,8 @@ class TestInferenceClient:
         assert enriched.request_info.payload_bytes == request_info.payload_bytes
 
 
-class TestInferenceClientDynamoTrajectoryHeaders:
-    """Dynamo routing uses trajectory headers without mutating request bodies."""
+class TestInferenceClientDynamoSessionHeaders:
+    """Dynamo routing uses session headers without mutating request bodies."""
 
     @pytest.fixture
     def model_endpoint(self):
@@ -574,7 +574,7 @@ class TestInferenceClientDynamoTrajectoryHeaders:
         )
 
     @pytest.mark.asyncio
-    async def test_non_final_turn_emits_trajectory_and_parent_headers(
+    async def test_non_final_turn_emits_session_and_parent_headers(
         self, inference_client
     ):
         request_info = self._request_info(
@@ -588,14 +588,14 @@ class TestInferenceClientDynamoTrajectoryHeaders:
         )
         assert "nvext" not in payload
         assert request_info.endpoint_headers == {
-            "X-Dynamo-Trajectory-ID": "corr-1",
-            "X-Dynamo-Parent-Trajectory-ID": "parent-corr",
+            "X-Dynamo-Session-ID": "corr-1",
+            "X-Dynamo-Parent-Session-ID": "parent-corr",
         }
         # Endpoint-built fields are preserved.
         assert payload["messages"] == [{"role": "user", "content": "hi"}]
 
     @pytest.mark.asyncio
-    async def test_final_turn_emits_trajectory_header(self, inference_client):
+    async def test_final_turn_emits_session_header(self, inference_client):
         request_info = self._request_info(inference_client, is_final_turn=True)
         payload = await self._sent_payload(
             inference_client,
@@ -603,7 +603,7 @@ class TestInferenceClientDynamoTrajectoryHeaders:
         )
         assert "nvext" not in payload
         assert request_info.endpoint_headers == {
-            "X-Dynamo-Trajectory-ID": "corr-1",
+            "X-Dynamo-Session-ID": "corr-1",
         }
 
     @pytest.mark.asyncio
