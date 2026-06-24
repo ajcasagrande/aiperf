@@ -45,10 +45,12 @@ class TestEndpointInfoMultiURL:
             endpoint=EndpointConfig(
                 model_names=["test-model"],
                 use_dynamo_conv_aware_routing=True,
+                dynamo_session_timeout_seconds=123,
             )
         )
         info = ModelEndpointInfo.from_user_config(user_config).endpoint
         assert info.use_dynamo_conv_aware_routing is True
+        assert info.dynamo_session_timeout_seconds == 123
 
 
 class TestEndpointInfoGetUrl:

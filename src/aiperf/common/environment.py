@@ -14,6 +14,7 @@ Structure:
     Environment.DAG.*            - DAG branch orchestration settings
     Environment.DATASET.*        - Dataset management
     Environment.DEV.*            - Development and debugging settings
+    Environment.DYNAMO.*         - Dynamo request identity transport
     Environment.GPU.*            - GPU telemetry collection
     Environment.HTTP.*           - HTTP client socket and connection settings
     Environment.LOGGING.*        - Logging configuration
@@ -460,6 +461,20 @@ class _DatasetSettings(BaseSettings):
         "shot sidecar never becomes a worker-group member. Set to 0 to disable "
         "worker-group tagging (parallel workers keep the generic ::fa: tag). Only "
         "applies when WEKA_SPLIT_FLATTENED_AGENTS is True.",
+    )
+
+
+class _DynamoSettings(BaseSettings):
+    """Dynamo request identity transport compatibility settings."""
+
+    model_config = SettingsConfigDict(env_prefix="AIPERF_DYNAMO_")
+
+    SESSION_TRANSPORT: Literal["nvext", "headers"] = Field(
+        default="nvext",
+        description="Transport used by the Dynamo conversation-aware routing flags. "
+        "The deprecated nvext.session_control body transport is the temporary "
+        "default; set to headers to emit X-Dynamo-Session-ID headers instead. "
+        "Valid values: nvext, headers.",
     )
 
 
@@ -1351,6 +1366,10 @@ class _Environment(BaseSettings):
     DEV: _DeveloperSettings = Field(
         default_factory=_DeveloperSettings,
         description="Development and debugging settings",
+    )
+    DYNAMO: _DynamoSettings = Field(
+        default_factory=_DynamoSettings,
+        description="Dynamo request identity transport settings",
     )
     GPU: _GPUSettings = Field(
         default_factory=_GPUSettings,

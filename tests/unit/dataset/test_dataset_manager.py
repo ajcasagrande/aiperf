@@ -1325,14 +1325,31 @@ class TestSelectMmapFormat:
             == MemoryMapFormat.CONVERSATION
         )
 
-    def test_select_format_allows_payload_bytes_when_dynamo_routing_enabled(
-        self, initialized_dataset_manager
+    def test_select_format_rejects_payload_bytes_with_default_dynamo_transport(
+        self, initialized_dataset_manager, monkeypatch
     ):
-        """Dynamo routing is header-only and does not mutate raw payloads."""
-        from aiperf.common.enums import MemoryMapFormat
+        from aiperf.common.environment import Environment
 
         initialized_dataset_manager.user_config.endpoint.use_dynamo_conv_aware_routing = True
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "nvext")
 
+        conversations = [
+            Conversation(
+                session_id="s1",
+                turns=[Turn(role="user", raw_payload={"a": 1})],
+            ),
+        ]
+        with pytest.raises(ValueError, match="DYNAMO_SESSION_TRANSPORT=nvext"):
+            initialized_dataset_manager._select_mmap_format(conversations)
+
+    def test_select_format_allows_payload_bytes_with_dynamo_headers(
+        self, initialized_dataset_manager, monkeypatch
+    ):
+        from aiperf.common.enums import MemoryMapFormat
+        from aiperf.common.environment import Environment
+
+        initialized_dataset_manager.user_config.endpoint.use_dynamo_conv_aware_routing = True
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "headers")
         conversations = [
             Conversation(
                 session_id="s1",

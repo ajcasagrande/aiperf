@@ -507,6 +507,18 @@ class DatasetManager(ReplyClientMixin, BaseComponentService):
                 "type that produces structured turns "
                 "(e.g. single_turn / multi_turn / dag_jsonl)."
             )
+        if (
+            has_payload_bytes
+            and self.user_config is not None
+            and self.user_config.endpoint.use_dynamo_conv_aware_routing
+            and Environment.DYNAMO.SESSION_TRANSPORT == "nvext"
+        ):
+            raise ValueError(
+                "AIPERF_DYNAMO_SESSION_TRANSPORT=nvext is incompatible with the "
+                "PAYLOAD_BYTES mmap fast path because nvext.session_control must "
+                "mutate the request body; set the transport to headers or use a "
+                "dataset type that produces structured turns"
+            )
         return (
             MemoryMapFormat.PAYLOAD_BYTES
             if has_payload_bytes

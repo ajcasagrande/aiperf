@@ -15,8 +15,7 @@ runs a single root conversation through the DAG loader, and validates:
    interleaved between turns.
 4. ``branch_stats`` lands in ``profile_export_aiperf.json`` with the expected
    children-spawned/completed/errored counts.
-5. Dynamo session headers reach the wire for root and child requests without
-   adding ``nvext.session_control`` to request bodies.
+5. Both Dynamo session transports reach the wire with the expected shape.
 
 The shared ``aiperf_mock_server`` fixture in ``tests/integration/conftest.py``
 drives all I/O; no orchestrator or credit-issuer mocking happens here.
@@ -96,13 +95,17 @@ def _classify(record) -> str:
 class TestDagFullTopologyEndToEnd:
     """End-to-end DAG benchmark through the real aiperf subprocess."""
 
+    @pytest.mark.parametrize("session_transport", ["nvext", "headers"])
     async def test_full_dag_payload_merge_and_stats(
         self,
         cli: AIPerfCLI,
         aiperf_mock_server: AIPerfMockServer,
+        monkeypatch: pytest.MonkeyPatch,
+        session_transport: str,
     ):
         """Run the two-branch DAG topology and validate merges + stats."""
         assert FIXTURE.exists(), f"fixture missing: {FIXTURE}"
+        monkeypatch.setenv("AIPERF_DYNAMO_SESSION_TRANSPORT", session_transport)
 
         result = await cli.run(
             f"""
@@ -172,24 +175,33 @@ class TestDagFullTopologyEndToEnd:
             assert rec.metadata.agent_depth == 1
 
         # -------------------------------------------------------------------
-        # B. Dynamo session headers reach the wire without body mutation
+        # B. Selected Dynamo session transport reaches the wire
         # -------------------------------------------------------------------
-        assert root_rec.request_headers is not None
-        assert root_rec.request_headers["X-Dynamo-Session-ID"] == root_corr
-        assert "X-Dynamo-Parent-Session-ID" not in root_rec.request_headers
-
-        for rec, correlation_id in (
-            (a0, branch_a_corr),
-            (a1, branch_a_corr),
-            (b0, branch_b_corr),
-            (b1, branch_b_corr),
-        ):
-            assert rec.request_headers is not None
-            assert rec.request_headers["X-Dynamo-Session-ID"] == correlation_id
-            assert rec.request_headers["X-Dynamo-Parent-Session-ID"] == root_corr
-            assert "nvext" not in rec.payload
-
-        assert "nvext" not in root_rec.payload
+        records = (
+            (root_rec, root_corr, None),
+            (a0, branch_a_corr, root_corr),
+            (a1, branch_a_corr, root_corr),
+            (b0, branch_b_corr, root_corr),
+            (b1, branch_b_corr, root_corr),
+        )
+        if session_transport == "headers":
+            for rec, correlation_id, parent_id in records:
+                assert rec.request_headers is not None
+                assert rec.request_headers["X-Dynamo-Session-ID"] == correlation_id
+                if parent_id is None:
+                    assert "X-Dynamo-Parent-Session-ID" not in rec.request_headers
+                else:
+                    assert (
+                        rec.request_headers["X-Dynamo-Parent-Session-ID"] == parent_id
+                    )
+                assert "nvext" not in rec.payload
+        else:
+            for rec, correlation_id, _ in records:
+                assert rec.request_headers is not None
+                assert "X-Dynamo-Session-ID" not in rec.request_headers
+                assert rec.payload["nvext"]["session_control"]["session_id"] == (
+                    correlation_id
+                )
 
         # -------------------------------------------------------------------
         # C. Ordering (fork after root)

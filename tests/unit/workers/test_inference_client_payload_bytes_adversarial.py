@@ -27,6 +27,7 @@ import orjson
 import pytest
 
 from aiperf.common.enums import CreditPhase, ModelSelectionStrategy
+from aiperf.common.environment import Environment
 from aiperf.common.models.dataset_models import Text, Turn
 from aiperf.common.models.model_endpoint_info import (
     EndpointInfo,
@@ -112,10 +113,11 @@ def _make_request_info(
 
 @pytest.mark.asyncio
 async def test_send_request_allows_empty_turns_with_payload_bytes(
-    inference_client, model_endpoint
+    inference_client, model_endpoint, monkeypatch
 ):
     """Dynamo headers work without mutating verbatim payload bytes."""
     model_endpoint.endpoint.use_dynamo_conv_aware_routing = True
+    monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "headers")
     info = _make_request_info(model_endpoint, turns=[], payload_bytes=b'{"a":1}')
     inference_client.transport.send_request = AsyncMock(
         return_value=RequestRecord(request_info=info)
@@ -130,6 +132,19 @@ async def test_send_request_allows_empty_turns_with_payload_bytes(
         "X-Dynamo-Session-ID": "cid",
     }
     inference_client.endpoint.format_payload.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_request_rejects_payload_bytes_with_nvext(
+    inference_client, model_endpoint, monkeypatch
+):
+    model_endpoint.endpoint.use_dynamo_conv_aware_routing = True
+    monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "nvext")
+    info = _make_request_info(model_endpoint, turns=[], payload_bytes=b'{"a":1}')
+
+    record = await inference_client.send_request(info)
+    assert record.error is not None
+    assert "DYNAMO_SESSION_TRANSPORT=nvext" in record.error.message
 
 
 @pytest.mark.asyncio

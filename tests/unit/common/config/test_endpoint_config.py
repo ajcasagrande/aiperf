@@ -30,6 +30,10 @@ def test_endpoint_config_defaults():
         config.use_dynamo_conv_aware_routing
         == EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING
     )
+    assert (
+        config.dynamo_session_timeout_seconds
+        == EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS
+    )
 
 
 def test_endpoint_config_custom_values():
@@ -54,6 +58,7 @@ def test_endpoint_config_custom_values():
         "timeout_seconds": 10,
         "api_key": "custom_api_key",
         "use_dynamo_conv_aware_routing": True,
+        "dynamo_session_timeout_seconds": 123,
     }
     config = EndpointConfig(**custom_values)
     for key, value in custom_values.items():

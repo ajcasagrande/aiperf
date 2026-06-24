@@ -116,7 +116,12 @@ class EndpointInfo(AIPerfBaseModel):
     )
     use_dynamo_conv_aware_routing: bool = Field(
         default=EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING,
-        description="Emit Dynamo session headers for tracing and configured session-aware routing.",
+        description="Enable Dynamo conversation-aware routing using the configured transport.",
+    )
+    dynamo_session_timeout_seconds: int = Field(
+        default=EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS,
+        ge=1,
+        description="Timeout in seconds for deprecated Dynamo nvext.session_control sessions.",
     )
     connection_reuse_strategy: ConnectionReuseStrategy = Field(
         default=EndpointDefaults.CONNECTION_REUSE_STRATEGY,
@@ -170,6 +175,9 @@ class EndpointInfo(AIPerfBaseModel):
             use_server_token_count=user_config.endpoint.use_server_token_count,
             use_dynamo_conv_aware_routing=(
                 user_config.endpoint.use_dynamo_conv_aware_routing
+            ),
+            dynamo_session_timeout_seconds=(
+                user_config.endpoint.dynamo_session_timeout_seconds
             ),
             connection_reuse_strategy=user_config.endpoint.connection_reuse_strategy,
             download_video_content=user_config.endpoint.download_video_content,

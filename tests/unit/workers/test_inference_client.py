@@ -9,6 +9,7 @@ import pytest
 from pytest import param
 
 from aiperf.common.enums import CreditPhase, ModelSelectionStrategy
+from aiperf.common.environment import Environment
 from aiperf.common.models.dataset_models import Text, Turn
 from aiperf.common.models.model_endpoint_info import (
     EndpointInfo,
@@ -494,9 +495,7 @@ class TestInferenceClient:
         assert enriched.request_info.payload_bytes == request_info.payload_bytes
 
 
-class TestInferenceClientDynamoSessionHeaders:
-    """Dynamo routing uses session headers without mutating request bodies."""
-
+class TestInferenceClientDynamoSessionTransport:
     @pytest.fixture
     def model_endpoint(self):
         return ModelEndpointInfo(
@@ -508,6 +507,7 @@ class TestInferenceClientDynamoSessionHeaders:
                 type=EndpointType.CHAT,
                 base_url="http://localhost:8000/v1/test",
                 use_dynamo_conv_aware_routing=True,
+                dynamo_session_timeout_seconds=123,
             ),
         )
 
@@ -575,8 +575,9 @@ class TestInferenceClientDynamoSessionHeaders:
 
     @pytest.mark.asyncio
     async def test_non_final_turn_emits_session_and_parent_headers(
-        self, inference_client
+        self, inference_client, monkeypatch
     ):
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "headers")
         request_info = self._request_info(
             inference_client,
             is_final_turn=False,
@@ -595,7 +596,8 @@ class TestInferenceClientDynamoSessionHeaders:
         assert payload["messages"] == [{"role": "user", "content": "hi"}]
 
     @pytest.mark.asyncio
-    async def test_final_turn_emits_session_header(self, inference_client):
+    async def test_final_turn_emits_session_header(self, inference_client, monkeypatch):
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "headers")
         request_info = self._request_info(inference_client, is_final_turn=True)
         payload = await self._sent_payload(
             inference_client,
@@ -604,6 +606,32 @@ class TestInferenceClientDynamoSessionHeaders:
         assert "nvext" not in payload
         assert request_info.endpoint_headers == {
             "X-Dynamo-Session-ID": "corr-1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_nvext_transport_binds_and_warns(self, inference_client, monkeypatch):
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "nvext")
+        request_info = self._request_info(inference_client, is_final_turn=False)
+        with patch.object(inference_client, "warning") as warning:
+            payload = await self._sent_payload(inference_client, request_info)
+        warning.assert_called_once()
+        assert request_info.endpoint_headers == {}
+        assert payload["nvext"]["session_control"] == {
+            "session_id": "corr-1",
+            "action": "bind",
+            "timeout": 123,
+        }
+
+    @pytest.mark.asyncio
+    async def test_nvext_transport_closes(self, inference_client, monkeypatch):
+        monkeypatch.setattr(Environment.DYNAMO, "SESSION_TRANSPORT", "nvext")
+        payload = await self._sent_payload(
+            inference_client,
+            self._request_info(inference_client, is_final_turn=True),
+        )
+        assert payload["nvext"]["session_control"] == {
+            "session_id": "corr-1",
+            "action": "close",
         }
 
     @pytest.mark.asyncio

@@ -64,6 +64,7 @@ Replay the converted corpus through Dynamo:
 
 ```bash
 AIPERF_DATASET_WEKA_SPLIT_FLATTENED_AGENTS=false \
+AIPERF_DYNAMO_SESSION_TRANSPORT=headers \
 aiperf profile \
     --url localhost:8000 \
     --model zai-org/GLM-4.7-Flash \
@@ -75,11 +76,14 @@ aiperf profile \
     --use-dynamo-conv-aware-routing
 ```
 
-`--use-dynamo-conv-aware-routing` emits session and parent-session
-headers without modifying request bodies. Dynamo uses them for tracing and for
-routing when the frontend enables `--router-session-affinity-ttl-secs`. Omit the
-option for an untagged baseline. Use `--synthesis-speedup-ratio` to scale the
-recorded timing.
+`--use-dynamo-conv-aware-routing` and `--use-dynamo-session-control` are aliases.
+`AIPERF_DYNAMO_SESSION_TRANSPORT` selects their wire format. The temporary
+default, `nvext`, injects `nvext.session_control` into request bodies for older
+Dynamo deployments. This path is deprecated and will be removed soon. Set the
+variable to `headers` to emit `X-Dynamo-Session-ID` and
+`X-Dynamo-Parent-Session-ID` without modifying request bodies; header affinity
+also requires `--router-session-affinity-ttl-secs` on the Dynamo frontend. Omit
+the AIPerf flag for an untagged baseline.
 
 ### Directory vs Single File
 

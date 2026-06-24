@@ -326,15 +326,34 @@ class EndpointConfig(BaseConfig):
         bool,
         Field(
             description=(
-                "Emit Dynamo session headers for tracing and configured session-aware "
-                "routing across a replayed conversation lineage."
+                "Enable Dynamo conversation-aware routing. Both flag names are aliases. "
+                "AIPERF_DYNAMO_SESSION_TRANSPORT selects the wire path: the temporary "
+                "default 'nvext' injects deprecated nvext.session_control request-body "
+                "metadata and will be removed soon; 'headers' emits session headers."
             ),
         ),
         CLIParameter(
-            name=("--use-dynamo-conv-aware-routing",),
+            name=(
+                "--use-dynamo-conv-aware-routing",
+                "--use-dynamo-session-control",
+            ),
             group=Groups.ENDPOINT,
         ),
     ] = EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING
+
+    dynamo_session_timeout_seconds: Annotated[
+        int,
+        Field(
+            description=(
+                "Timeout in seconds for the deprecated nvext.session_control path."
+            ),
+            ge=1,
+        ),
+        CLIParameter(
+            name=("--dynamo-session-timeout-seconds",),
+            group=Groups.ENDPOINT,
+        ),
+    ] = EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS
 
     connection_reuse_strategy: Annotated[
         ConnectionReuseStrategy,

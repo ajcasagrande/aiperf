@@ -266,10 +266,16 @@ Use the legacy 'max_tokens' field instead of 'max_completion_tokens' in request 
 Use server-reported token counts from API usage fields instead of client-side tokenization. When enabled, tokenizers are still loaded (needed for dataset generation) but tokenizer.encode() is not called for computing metrics. Token count fields will be None if the server does not provide usage information. For OpenAI-compatible streaming endpoints (chat/completions), stream_options.include_usage is automatically configured when this flag is enabled. Recommended whenever the AIPerf tokenizer can disagree with the server's tokenizer (e.g. unmatched tokenizer revision, vendor-specific BPE merges, or chat templates that differ from the server) — this most often shows up as an output sequence length (OSL) mismatch even when the server is honoring the request (e.g. with ignore_eos=true).
 <br/>_Flag (no value required)_
 
-#### `--use-dynamo-conv-aware-routing`
+#### `--use-dynamo-conv-aware-routing`, `--use-dynamo-session-control`
 
-Emit Dynamo session headers for tracing and configured session-aware routing across a replayed conversation lineage.
+Enable Dynamo conversation-aware routing. Both flag names are aliases. AIPERF_DYNAMO_SESSION_TRANSPORT selects the wire path: the temporary default 'nvext' injects deprecated nvext.session_control request-body metadata and will be removed soon; 'headers' emits session headers.
 <br/>_Flag (no value required)_
+
+#### `--dynamo-session-timeout-seconds` `<int>`
+
+Timeout in seconds for the deprecated nvext.session_control path.
+<br/>_Constraints: ≥ 1_
+<br/>_Default: `300`_
 
 #### `--connection-reuse-strategy` `<str>`
 
