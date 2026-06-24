@@ -203,6 +203,25 @@ def test_open_count_by_phase(registry):
     assert registry.open_count(WARMUP) == 1
 
 
+def test_tree_does_not_drain_while_request_queued(registry):
+    """A request ready-but-queued on the inner semaphore is real outstanding work:
+    the tree must NOT drain while queued > 0, even when outstanding has hit zero."""
+    registry.open_tree("r", PROFILING, root_pending=False)  # rootless
+    registry.register_descendants("r", 1)
+    registry.note_queued("r", +1)  # a sibling continuation is queued
+
+    # outstanding 0 but queued 1 -> NOT drained.
+    assert registry.on_descendant_done("r") is False
+
+    # queued -> 0 -> now drains.
+    assert registry.note_queued("r", -1) is True
+
+
+def test_note_queued_unknown_tree_returns_false(registry):
+    """note_queued on a never-opened tree is a no-op returning False."""
+    assert registry.note_queued("ghost", +1) is False
+
+
 def test_release_uses_the_trees_own_phase(cm, registry):
     """A tree releases against the phase it was opened with, even if drained
     via a descendant-done call that carries no phase."""

@@ -135,6 +135,48 @@ async def test_pre_session_background_spawn_dispatches_before_turn_0():
 
 
 @pytest.mark.asyncio
+async def test_pre_session_child_inherits_root_tree_marker():
+    """A pre-session background SPAWN child must carry the tree-ROOT's cache-bust
+    marker, not one keyed on its own conversation id.
+
+    The marker is a property of the trajectory TREE: every descendant shares the
+    root's marker so the whole tree is one server-side prefix-cache domain (the
+    per-turn spawn path does this via ``_marker_for_root``). At pre-dispatch the
+    root session does not exist yet, so the value cannot be resolved from the
+    ledger by ``root_correlation_id`` -- but it is deterministic: the root's
+    primary instance (lane 0, pass 0) digests ``base_trace_id(root)``, so the
+    child must carry exactly that value.
+    """
+    from aiperf.timing.strategies.cache_bust import build_cache_bust_marker
+
+    cs = _mk_source(_pre_session_metadata())
+    issuer = MagicMock()
+    issuer.dispatch_first_turn = AsyncMock(return_value=True)
+
+    orch = BranchOrchestrator(
+        conversation_source=cs,
+        credit_issuer=issuer,
+        benchmark_id="bench-1",
+        cache_bust_target=CacheBustTarget.FIRST_TURN_PREFIX,
+    )
+
+    await orch.dispatch_pre_session_branches()
+
+    expected = build_cache_bust_marker(
+        "bench-1", 0, 0, "root", target=CacheBustTarget.FIRST_TURN_PREFIX
+    )
+    child_keyed = build_cache_bust_marker(
+        "bench-1", 0, 0, "early", target=CacheBustTarget.FIRST_TURN_PREFIX
+    )
+    assert expected != child_keyed  # guards the test's own premise
+    cs.start_pre_session_child.assert_called_once_with(
+        "early",
+        cache_bust_marker=expected,
+        cache_bust_target=CacheBustTarget.FIRST_TURN_PREFIX,
+    )
+
+
+@pytest.mark.asyncio
 async def test_intercept_skips_pre_dispatched_on_turn_0_credit():
     """On parent turn-0 credit return, intercept must NOT re-dispatch the
     pre-dispatched branch's children."""

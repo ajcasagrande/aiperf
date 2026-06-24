@@ -239,6 +239,28 @@ In agentic replay a "session" is not a single root conversation — it is a whol
 
 `SessionTreeRegistry` (`src/aiperf/timing/session_tree.py`) owns this. It holds **exactly one session slot per tree**, keyed by `root_correlation_id` — the depth-0 root's `x_correlation_id`, which every node of the tree inherits and which is persisted in `profile_export.jsonl`. The slot is released **once, when the whole tree drains**: the root has sent its terminal turn **and** every descendant has terminally completed. The physical slot is still acquired by `CreditIssuer`/`ConcurrencyManager` (so the session semaphore hard-caps occupancy at `--concurrency`); the registry only owns the *release* decision, and on release fires a drain callback so the freed lane recycles into a fresh root. This makes a background subagent that outlives its root keep the lane's slot — preventing a new root from starting early and pushing live trees above N. Lanes that begin with no dispatchable root (a *rootless* snapshot whose root is all before the sampled `t*`, or a *gated* parent waiting on a child join) hold the same per-tree slot via a lane credit. The registry is engaged for agentic-replay PROFILING only; other timing modes keep the per-root-credit release.
 
+##### Per-tree in-flight bound (`--use-end-to-start-delays`)
+
+`--concurrency N` bounds the number of concurrent **trees** (trajectory lanes), not the number of concurrent **requests**. Inside a single tree, the recorded trace can put several streams in flight at once, so without an inner bound a tree's in-flight request count is unbounded by `--concurrency` and tracks whatever the trace replays — `--concurrency` is **not** a request-level server guard.
+
+Under agentic replay with end-to-start delays (`--use-end-to-start-delays`, forced on by the `inferencex-agentx-mvp` scenario), each tree additionally gets a **per-tree inner-session semaphore** (`InnerSessionLimiter`, `src/aiperf/timing/inner_semaphore.py`) sized to the trajectory's **session-achievable peak** P (`TrajectorySource.peak_for` → `session_achievable_peak`, `src/aiperf/timing/session_peak.py`). P is the max number of the tree's streams that are *simultaneously busy* over the replayed post-`t*` slice, where each stream is treated as serially busy across the union of its `[timestamp_ms, timestamp_ms + api_time_ms]` request intervals (within-stream overlap is collapsed because a session replays its turns serially). Every wire send for the tree passes through a single chokepoint (`AgenticReplayStrategy._issue_gated`) that acquires a slot before the request goes on the wire and releases it on the request's terminal outcome (credit return, refusal, or error); release is idempotent, so a tree's in-flight requests never exceed P. The total in-flight across the whole run is therefore bounded by **Σ Pᵢ** over the live trees, not by `--concurrency`. Timestamp-less trajectories get no limiter (unbounded no-op). When the flag is off (the default), the chokepoint is a byte-for-byte pass-through with no inner bound.
+
+```mermaid
+flowchart LR
+    subgraph Run["live trees (≤ --concurrency)"]
+        direction TB
+        subgraph T1["tree 1 — sem(P₁)"]
+            A1["stream a"] --> S1{"slot ≤ P₁"}
+            B1["stream b"] --> S1
+        end
+        subgraph T2["tree 2 — sem(P₂)"]
+            A2["stream a"] --> S2{"slot ≤ P₂"}
+        end
+    end
+    S1 --> Wire[("inference server")]
+    S2 --> Wire
+```
+
 See:
 - [DAG Benchmarking (Sub-Agents)](benchmark-modes/dag.md) — user-facing guide and example.
 

@@ -64,6 +64,7 @@ from aiperf.common.scenario.base import TrajectoryWarmupFailedError
 from aiperf.common.scenario.context_overflow import is_context_overflow_response
 from aiperf.credit.structs import TurnToSend
 from aiperf.timing.conversation_source import SampledSession
+from aiperf.timing.inner_semaphore import InnerSessionLimiter, _Token
 from aiperf.timing.trajectory_source import (
     Trajectory,
     TrajectorySnapshot,
@@ -135,6 +136,24 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         # release + the rootless lane-credit / ``_rootless_lane_outstanding``
         # path below.
         self._session_tree_registry = session_tree_registry
+
+        # Inner-session concurrency limiter (agentic replay PROFILING only, opt
+        # in via ``--use-end-to-start-delays``). One asyncio.Semaphore per
+        # session tree (keyed by root_correlation_id), sized to the trajectory's
+        # session-achievable peak, gating wire entry so a tree never exceeds its
+        # replayed peak concurrency. ``is True`` guards MagicMock/None configs
+        # (mirrors ``_burst_phase_starts``) -> default OFF: every wire send falls
+        # straight through ``_issue_gated`` to the underlying issuer, byte-for-byte
+        # identical to today. The release token for an on-wire request is stashed
+        # by ``(x_correlation_id, turn_index)`` and released on its credit return.
+        self._inner_limit_enabled: bool = (
+            getattr(
+                getattr(user_config, "input", None), "use_end_to_start_delays", False
+            )
+            is True
+        )
+        self._limiter = InnerSessionLimiter()
+        self._release_tokens: dict[tuple[str, int], _Token] = {}
 
         # Double-recycle guard, keyed on x_correlation_id (not trace_id): the
         # guard's intent is to catch the same final turn firing
@@ -265,6 +284,10 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         """
         lane = self._correlation_to_lane.pop(root_corr, None)
         self._session_marker.pop(root_corr, None)
+        # The tree is gone: drop its inner-session semaphore so a late release
+        # becomes a no-op and the recycled root opens a fresh one.
+        if self._inner_limit_enabled:
+            self._limiter.close_tree(root_corr)
         if lane is None:
             self.warning(
                 lambda: (
@@ -573,8 +596,17 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
             )
             return
 
+        # A snapshot-less trajectory is a depth-0 root tree; peak_for falls back
+        # to 1 (no timestamps to derive a session-achievable peak). Open the
+        # limiter so its resume + every subsequent turn route through the gated
+        # chokepoint, closed when the tree drains / recycles.
+        root_corr = session.effective_root_correlation_id
+        if self._inner_limit_enabled:
+            self._limiter.open_tree(
+                root_corr, self.conversation_source.peak_for(trajectory)
+            )
         turn = self._build_turn_for_session(session, resume_index)
-        await self.credit_issuer.issue_credit(turn)
+        await self._issue_gated(turn, root_corr, is_child=False)
 
     async def handle_credit_return(
         self, credit: Credit, *, error: str | None = None
@@ -609,6 +641,16 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         """
         if self.config.phase == CreditPhase.WARMUP:
             return
+
+        # Release the inner-session slot this credit held on the wire (PROFILING
+        # only). Done before any recycle/next-turn logic so the freed slot is
+        # available the instant the next turn (or a queued sibling) acquires.
+        # Idempotent: a missing or already-released token is a no-op, so a
+        # duplicate return can never over-release the semaphore.
+        if self._inner_limit_enabled:
+            self._limiter.release(
+                self._pop_release_token(credit.x_correlation_id, credit.turn_index)
+            )
 
         terminal_overflow = (
             not credit.is_final_turn
@@ -672,6 +714,11 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         ``issue_credit`` return — including on the delayed (``delay_ms``) path,
         where the refusal would otherwise fire long after the callback handler
         decided the child could proceed. Root continuations keep ``issue_credit``.
+
+        Both paths route the wire send through the inner-session chokepoint
+        (``_issue_gated``); the coro is built but not awaited until after the
+        ``delay_ms`` think-time elapses, so the limiter slot is acquired at
+        wire-send time and never held through the inter-turn delay.
         """
         next_meta = self.conversation_source.get_next_turn_metadata(credit)
         turn = TurnToSend.from_previous_credit(credit, next_meta)
@@ -680,7 +727,9 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         coro = (
             self._issue_child_continuation_or_drain(turn)
             if is_child
-            else self.credit_issuer.issue_credit(turn)
+            else self._issue_gated(
+                turn, turn.effective_root_correlation_id, is_child=False
+            )
         )
         if next_meta.delay_ms is not None and next_meta.delay_ms > 0:
             self.scheduler.schedule_later(next_meta.delay_ms / MILLIS_PER_SECOND, coro)
@@ -698,9 +747,87 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         turns will never be issued. Centralizing here means no dispatch site can
         "forget" to drain on refusal.
         """
-        on_wire = await self.credit_issuer.dispatch_child_turn(turn)
+        on_wire = await self._issue_gated(
+            turn, turn.effective_root_correlation_id, is_child=True
+        )
         if not on_wire and self.branch_orchestrator is not None:
             await self.branch_orchestrator.on_child_stopped(turn.x_correlation_id)
+
+    async def _issue_gated(
+        self, turn: TurnToSend, root_corr: str | None, *, is_child: bool
+    ) -> bool:
+        """Single wire-send chokepoint: acquire the tree's inner slot, send, and
+        release on the terminal outcome.
+
+        When the inner limiter is disabled (the default), this is a zero-overhead
+        pass-through to the underlying issuer (``dispatch_child_turn`` for a child,
+        ``issue_credit`` for a root) so gating-off behavior is byte-for-byte
+        identical to today. When enabled, it acquires the per-tree semaphore slot
+        (a no-op token when the tree has no limiter open, e.g. timestamp-less or
+        an unopened tree), bumps the registry's queued count so the tree can't
+        drain while a request is queued, and sends inside a try/finally:
+
+          - NOT on wire (refused / errored / cancelled / GeneratorExit before the
+            wire): release the slot here and DROP the stash entry -- no credit
+            return will ever fire for it. The child refusal-drain
+            (``on_child_stopped``) is preserved: the caller observes the False
+            return and drains the parent join.
+          - ON wire: stash the token by ``(x_correlation_id, turn_index)`` so the
+            credit return handler releases it exactly once
+            (``_pop_release_token``); the token's own ``released`` flag makes any
+            double pop/release harmless.
+
+        The bare ``finally`` runs on every exit path (return, raise, cancel,
+        GeneratorExit), and no ``await`` sits between the release and the return,
+        so the slot is freed synchronously on the terminal outcome.
+        """
+        if not self._inner_limit_enabled:
+            return await (
+                self.credit_issuer.dispatch_child_turn(turn)
+                if is_child
+                else self.credit_issuer.issue_credit(turn)
+            )
+        token = await self._limiter.acquire(root_corr)
+        if self._has_tree_registry:
+            self._session_tree_registry.note_queued(root_corr, +1)
+        on_wire = False
+        try:
+            on_wire = await (
+                self.credit_issuer.dispatch_child_turn(turn)
+                if is_child
+                else self.credit_issuer.issue_credit(turn)
+            )
+            return on_wire
+        finally:
+            if on_wire:
+                self._stash_release_token(turn.x_correlation_id, turn.turn_index, token)
+            else:
+                self._limiter.release(token)
+            if self._has_tree_registry:
+                self._session_tree_registry.note_queued(root_corr, -1)
+
+    def _stash_release_token(
+        self, x_correlation_id: str, turn_index: int, token: _Token | None
+    ) -> None:
+        """Park an on-wire request's release token for its credit return.
+
+        Keyed by ``(x_correlation_id, turn_index)`` -- the same pair the returning
+        ``Credit`` carries -- so the return handler releases exactly the slot this
+        send acquired. A None token (no limiter open for the tree) is still parked
+        so the pop is unconditional; releasing None is a no-op.
+        """
+        self._release_tokens[(x_correlation_id, turn_index)] = token
+
+    def _pop_release_token(
+        self, x_correlation_id: str, turn_index: int
+    ) -> _Token | None:
+        """Pop the release token for a returning ``(x_correlation_id, turn_index)``.
+
+        Returns None when nothing was parked (no on-wire send under gating, or a
+        duplicate return); ``release(None)`` and ``release(already-released)`` are
+        both no-ops, so a missing or double pop never over-releases the semaphore.
+        """
+        return self._release_tokens.pop((x_correlation_id, turn_index), None)
 
     async def _spawn_from_recycle_or_id(
         self,
@@ -735,6 +862,11 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
 
         # Prune so every early-return path leaves dicts clean.
         self._session_marker.pop(finished_correlation_id, None)
+        # Drop the finished root's inner-session semaphore (legacy non-registry
+        # recycle path; the registry path closes it in _on_tree_drained). The
+        # recycled root opens a fresh one keyed on its new correlation id.
+        if self._inner_limit_enabled:
+            self._limiter.close_tree(finished_correlation_id)
         lane = self._release_lane_for(finished_correlation_id, finished_trace_id)
         await self._dispatch_recycled_on_lane(lane)
 
@@ -765,8 +897,22 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
             session.effective_root_correlation_id, next_trace_id, lane
         )
 
+        # Open the recycled tree's inner-session limiter on its NEW root id. A
+        # recycled session replays the FULL conversation from turn 0 (no snapshot,
+        # no t* slice), so the cap must be the trace's full max-concurrency --
+        # root plus every branch child across all turns -- not 1. Capping at 1
+        # would force the entire recycled fan-out serial, under-parallelizing it
+        # far below the recording. ``full_trace_peak`` floors at 1 for a
+        # timestamp-less trace.
+        recycle_root_corr = session.effective_root_correlation_id
+        if self._inner_limit_enabled:
+            self._limiter.open_tree(
+                recycle_root_corr,
+                self.conversation_source.full_trace_peak(next_trace_id),
+            )
+
         turn = self._build_turn_for_session(session, 0)
-        await self.credit_issuer.issue_credit(turn)
+        await self._issue_gated(turn, recycle_root_corr, is_child=False)
 
     async def _on_rootless_child_done(self, lane: int) -> None:
         """Account a rootless lane's background child completing.
@@ -818,6 +964,16 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
                 state.root_correlation_id or state.x_correlation_id,
                 state.conversation_id,
                 lane,
+            )
+
+        # Open this tree's inner-session limiter sized to its post-t* peak. Every
+        # stream of the lane shares the snapshot's tree-root id, so one semaphore
+        # gates the whole tree's wire entry. Closed when the tree drains
+        # (_on_tree_drained) or is recycled (_dispatch_recycled_on_lane).
+        snapshot_root_corr = self._lane_root_corr(snapshot)
+        if self._inner_limit_enabled and snapshot_root_corr is not None:
+            self._limiter.open_tree(
+                snapshot_root_corr, self.conversation_source.peak_for(trajectory)
             )
 
         if self.branch_orchestrator is not None:
@@ -885,16 +1041,23 @@ class AgenticReplayStrategy(AIPerfLoggerMixin):
         for state in dispatchable:
             session = self.conversation_source.session_for_state(state)
             turn = self._build_turn_for_session(session, state.next_turn_index)
+            # Initial snapshot dispatch uses ``issue_credit`` for EVERY stream
+            # (root and subagent) -- this is the trajectory's first profiled
+            # request, not a continuation -- so route through the chokepoint with
+            # is_child=False to preserve the exact wire call (gating-off is then a
+            # byte-for-byte no-op). The inner limiter gates on the shared tree
+            # root; acquire happens inside the scheduled coro (at wire-send time),
+            # never holding a slot through the dispatch delay.
             delay_s = (
                 offset_by_corr[state.x_correlation_id] - t0_offset_ms
             ) / MILLIS_PER_SECOND
             if delay_s > 0:
                 self.scheduler.schedule_later(
                     delay_s,
-                    self.credit_issuer.issue_credit(turn),
+                    self._issue_gated(turn, snapshot_root_corr, is_child=False),
                 )
             else:
-                await self.credit_issuer.issue_credit(turn)
+                await self._issue_gated(turn, snapshot_root_corr, is_child=False)
 
     def _get_snapshot(self, trajectory: Trajectory) -> TrajectorySnapshot:
         """Return the persistent sampled snapshot for a trajectory lane.

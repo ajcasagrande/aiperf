@@ -287,7 +287,9 @@ class CreditCallbackHandler:
             # reset the flag so a later warmup return retries, and the runner's
             # teardown backstop can still surface the failure.
             self._warmup_abort_triggered = False
-            _logger.warning(lambda exc=exc: f"Failed to broadcast warmup abort: {exc!r}")
+            _logger.warning(
+                lambda exc=exc: f"Failed to broadcast warmup abort: {exc!r}"
+            )
 
     async def on_credit_return(
         self, worker_id: str, credit_return: CreditReturn

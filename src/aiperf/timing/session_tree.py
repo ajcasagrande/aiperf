@@ -61,13 +61,15 @@ class _TreeState:
     lane (no root credit will ever run -- it drains on descendants alone)."""
     outstanding: int = 0
     """Descendants currently live or registered-pending (any depth)."""
+    queued: int = 0
+    """Requests ready-but-queued on the inner semaphore; real outstanding work."""
     released: bool = False
     """Set once the slot has been released; guards against double release."""
 
     @property
     def drained(self) -> bool:
         """True when the root is done and no descendant work remains."""
-        return not self.root_pending and self.outstanding <= 0
+        return not self.root_pending and self.outstanding <= 0 and self.queued == 0
 
 
 class SessionTreeRegistry:
@@ -212,6 +214,21 @@ class SessionTreeRegistry:
         if state is None:
             return False
         state.root_pending = False
+        return self._maybe_release(root_corr, state)
+
+    def note_queued(self, root_corr: str, delta: int) -> bool:
+        """Adjust the count of requests ready-but-queued on the inner semaphore.
+
+        A request that has acquired its inner slot but not yet settled on the
+        wire is real outstanding work, so it must keep the tree from
+        draining/recycling. +1 once the slot is acquired (ready to send), -1 when
+        the send settles -- on-wire OR refusal OR cancel (the same chokepoint as
+        the inner-semaphore release). Releases the slot iff the tree is now
+        drained."""
+        state = self._trees.get(root_corr)
+        if state is None:
+            return False
+        state.queued += delta
         return self._maybe_release(root_corr, state)
 
     def _maybe_release(self, root_corr: str, state: _TreeState) -> bool:

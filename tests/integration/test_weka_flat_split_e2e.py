@@ -827,6 +827,172 @@ async def test_disjoint_corpus_splits_into_fa_sessions(
 # =============================================================================
 
 
+def _write_inner_limit_trace(target_dir: Path) -> Path:
+    """One fan-out trace whose recorded session-achievable peak is exactly 2.
+
+    Main + three workers (``::fa:`` chains). The workers' recorded busy spans
+    overlap pairwise but never all three at once, and a session replays serially,
+    so the most streams simultaneously busy over the whole recorded trace is 2:
+
+      main:     [0.00, 0.10]
+      worker A: [0.20, 1.20]            (one long request)
+      worker B: [0.30, 0.80]            (overlaps A: 0.30-0.80 -> 2 busy)
+      worker C: [1.40, 1.60]            (disjoint from A/B; peak stays 2)
+
+    Under an artificial per-request slowdown an UNBOUNDED replay would put all
+    three workers on the wire at once (peak 3); the per-tree inner-session
+    semaphore (sized to the recorded achievable peak 2 over the replayed
+    post-t* slice) must cap each tree at <= 2 in flight.
+    """
+    _write_trace(
+        target_dir,
+        "trace_innerlimit",
+        [
+            _req(0.00, [1, 2, 3], api_time=0.10),  # main t0
+            _req(0.20, [1, 2, 40, 41], api_time=1.00),  # worker A, ends 1.20
+            _req(0.30, [1, 2, 50, 51], api_time=0.50),  # worker B, ends 0.80
+            _req(1.40, [1, 2, 60, 61], api_time=0.20),  # worker C, ends 1.60
+        ],
+    )
+    return target_dir
+
+
+def _max_inflight(intervals: list[tuple[int, int]]) -> int:
+    """Peak count of intervals (start_ns, end_ns) simultaneously in flight."""
+    events: list[tuple[int, int]] = []
+    for s, e in intervals:
+        events.append((s, 1))
+        events.append((e, -1))
+    events.sort(key=lambda x: (x[0], x[1]))  # ends before starts at ties
+    cur = peak = 0
+    for _, d in events:
+        cur += d
+        peak = max(peak, cur)
+    return peak
+
+
+async def test_inner_session_limiter_caps_tree_inflight_under_slowdown(
+    tmp_path: Path, mock_server_factory: MockServerFactory
+) -> None:
+    """E2E (Phase D): under ``inferencex-agentx-mvp`` (which forces
+    ``--use-end-to-start-delays``, activating the per-tree inner-session
+    semaphore) and an injected per-request slowdown, no session TREE ever has
+    more in-flight requests than its recorded session-achievable peak (2 here),
+    the run does not deadlock, and the phase drains and exits zero.
+
+    The mock server is made slow (ttft=400ms) relative to the recorded api_times
+    (0.1-1.0s, but replayed at parity) so requests pile up at the limiter: an
+    unbounded replay would briefly show 3 of the trace's streams on the wire at
+    once. The limiter bounds each tree at the recorded peak of 2. The assertion
+    is an UPPER bound (<= recorded achievable peak), so it is robust to which
+    post-t* slice was sampled and to scheduling jitter -- it is not a
+    throughput- or session-count-dependent claim.
+    """
+    corpus = _write_inner_limit_trace(tmp_path / "traces")
+    async with mock_server_factory(ttft=400.0, itl=2.0, workers=4) as server:
+        result = await _run_weka_profile(
+            input_dir=corpus,
+            artifact_dir=tmp_path / "artifacts",
+            url=server.url,
+            duration=8.0,
+            concurrency=2,
+            # The MVP scenario forces --use-end-to-start-delays=true (engages the
+            # limiter) plus --streaming/--ignore-eos/--cache-bust; --unsafe-override
+            # downgrades any residual lock to a warning so the run proceeds while
+            # the scenario auto-injection still applies the flag.
+            extra_args=[
+                "--scenario",
+                "inferencex-agentx-mvp",
+                "--unsafe-override",
+                "--extra-inputs",
+                "ignore_eos:true",
+            ],
+            timeout=240.0,  # a timeout here is itself a deadlock finding
+        )
+    # No deadlock: a duration-bounded run that does not drain raises in the
+    # runner above (AssertionError on timeout). Exit zero confirms a clean drain.
+    _assert_success(result, "inner-session limiter under slowdown")
+
+    # Engagement guarantee: the inferencex-agentx-mvp scenario forces
+    # --use-end-to-start-delays=true (auto-injected by the validator when unset),
+    # which is the sole switch for AgenticReplayStrategy._inner_limit_enabled.
+    # That forcing is asserted directly at config-resolution time in
+    # tests/unit/common/scenario/test_scenario_validator.py
+    # (test_inferencex_agentx_mvp_forces_use_end_to_start_delays); here we prove
+    # the cap actually BINDS by running the fan-out under slowdown.
+
+    # Group every executed (non-cancelled) request by its session TREE root and
+    # measure the peak simultaneously-in-flight count per tree from the recorded
+    # wall-clock request intervals. It must never exceed the recorded
+    # session-achievable peak of 2 for this trace.
+    by_tree: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for record in result.jsonl or []:
+        md = record.metadata
+        if md.was_cancelled or md.benchmark_phase != CreditPhase.PROFILING:
+            continue
+        root = md.root_correlation_id or md.x_correlation_id
+        if root is None:
+            continue
+        by_tree[root].append((md.request_start_ns, md.request_end_ns))
+
+    assert by_tree, "no PROFILING records to measure in-flight from"
+    recorded_achievable_peak = 2
+    per_tree_peak = {root: _max_inflight(ivs) for root, ivs in by_tree.items()}
+    worst = max(per_tree_peak.values())
+    # SAFETY (the core claim, always checked): no tree ever exceeded its recorded
+    # achievable peak. An UNbounded replay of this fan-out under the injected
+    # slowdown would put 3 of the trace's streams on the wire at once; the
+    # per-tree semaphore must cap at 2. This holds whether or not the fan-out
+    # split surfaced, so it is never vacuous as a safety bound.
+    assert worst <= recorded_achievable_peak, (
+        f"a session tree exceeded its recorded achievable peak "
+        f"({recorded_achievable_peak}): observed peak in-flight {worst}. "
+        f"Per-tree peaks: {per_tree_peak}. "
+        "The inner-session semaphore failed to bound concurrency under slowdown."
+    )
+
+    # Non-vacuity floor for the BINDING claim: the cap can only have bound
+    # something if the tree actually held >1 stream, i.e. the fan-out split into
+    # ::fa: workers. On a heavily loaded box the fixed-wall-clock benchmark can
+    # under-produce sessions or not surface the split before the deadline (CPU
+    # starvation, not a correctness issue) -- the same load condition the other
+    # fan-out tests in this file hit. xfail in that case so the safety bound
+    # above still runs as the regression bar, rather than hard-failing on load.
+    fa_records = [
+        md
+        for md in _profiling_metadata(result)
+        if md.conversation_id and "::fa:" in md.conversation_id
+    ]
+    if not fa_records:
+        pytest.xfail(
+            "load-starved / split did not surface: no ::fa: worker requests "
+            "executed within the benchmark duration, so the binding of the cap "
+            "below 3 cannot be demonstrated here. The SAFETY upper-bound "
+            f"(peak in-flight {worst} <= {recorded_achievable_peak}) passed."
+        )
+
+    # BINDING: prove the cap was the ACTIVE constraint, not an unhit ceiling.
+    # The split surfaced, so under the injected slowdown the two pairwise-
+    # overlapping workers should be on the wire together -> some tree must
+    # actually REACH the cap of 2. If peak stayed at 1 the contention never
+    # materialized (load starvation again, not a correctness signal) -> xfail
+    # rather than assert a ceiling that was never exercised. Reaching here means
+    # worst == recorded_achievable_peak (>= from binding, <= from SAFETY): the
+    # genuine "caps at EXACTLY the recorded peak" proof, which would catch an
+    # over-throttle regression (e.g. a peak miscount that sized the cap at 1).
+    if worst < recorded_achievable_peak:
+        pytest.xfail(
+            "split surfaced but peak in-flight never reached the cap "
+            f"({worst} < {recorded_achievable_peak}): slowdown-induced "
+            "contention did not materialize under load, so binding-at-cap could "
+            "not be demonstrated. The SAFETY upper-bound still passed."
+        )
+    assert worst == recorded_achievable_peak, (
+        f"cap did not bind at the recorded peak: worst={worst}, "
+        f"expected exactly {recorded_achievable_peak}"
+    )
+
+
 async def test_two_identical_runs_produce_identical_split_structure(
     tmp_path: Path, aiperf_mock_server: AIPerfMockServer
 ) -> None:

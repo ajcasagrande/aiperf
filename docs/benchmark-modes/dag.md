@@ -235,6 +235,8 @@ If you are using `--concurrency` as a hard cap to protect a fragile server, size
 
 > **Session-slot timing.** This `dag_jsonl` mode releases the root's session slot when the root's own final turn returns (children inherit it while they run; the phase still waits for the whole DAG to drain before completing). **Agentic replay** instead holds one slot per whole session *tree* until every descendant has drained, then recycles the lane — see [Session-tree concurrency](../architecture.md#session-tree-concurrency-agentic-replay). Both tag records with `root_correlation_id` so `aiperf analyze swim-lane` can group a tree under one lane.
 
+> **`--concurrency` bounds trees, not requests.** In every tree mode, `--concurrency N` caps the number of concurrent session **trees** (trajectory lanes), not the number of concurrent **requests** — a single tree can hold several requests in flight at once (the fanout above), so `--concurrency` is not a request-level server guard. Under **agentic replay with `--use-end-to-start-delays`** (forced on by the `inferencex-agentx-mvp` scenario) AIPerf adds a per-tree inner-session semaphore sized to the trajectory's recorded **session-achievable peak** P — the most streams the trace had simultaneously busy over the replayed slice, counting each stream as serially busy across its own requests. Each tree's in-flight requests are then bounded to P, and total in-flight across the run is bounded by **Σ Pᵢ** over the live trees (each tree's recorded peak), reproducing the recording's concurrency rather than fabricating it. With the flag off (the default), no inner bound is applied.
+
 ## Reference: runtime walkthrough
 
 Using the example file above, here is what happens on the wire:

@@ -170,6 +170,73 @@ def test_require_streaming_against_real_endpoint_config() -> None:
     )
 
 
+def test_inferencex_agentx_mvp_forces_use_end_to_start_delays() -> None:
+    """The MVP scenario's ``require_use_end_to_start_delays`` must auto-inject
+    ``--use-end-to-start-delays=true`` when the flag was left unset, because the
+    per-tree inner-session limiter only engages while that flag is on (see
+    ``AgenticReplayStrategy._inner_limit_enabled``). Uses a real ``InputConfig``
+    (not a MagicMock) so the validator's ``model_fields_set`` membership check is
+    exercised against the production model -- a MagicMock would auto-create that
+    path and silently pass even if the field name drifted."""
+    from aiperf.common.config.input_config import InputConfig
+
+    cfg = _user_config(extra_inputs={"ignore_eos": True})
+    # Real InputConfig with the flag left at its default (unset): not in
+    # model_fields_set, so the validator must force it True for the scenario.
+    real_input = InputConfig()
+    assert real_input.use_end_to_start_delays is False
+    assert "use_end_to_start_delays" not in real_input.model_fields_set
+    # Re-pin the loose attrs the MagicMock helper supplied, on the real config.
+    real_input.use_think_time_only = True
+    real_input.ignore_trace_delays = False
+    real_input.random_seed = 42
+    cfg.input = real_input
+    cfg.input.extra_inputs_parsed = {"ignore_eos": True}
+    cfg.input.detected_loader = "semianalysis_cc_traces_weka_with_subagents"
+    cfg.input.public_dataset = None
+    cfg.input.hf_weka_dataset = None
+    cfg.input._use_think_time_only_explicitly_set = False
+
+    outcome = validate_scenario(cfg)
+
+    assert outcome.violations == [], (
+        "scenario should auto-inject --use-end-to-start-delays, not flag it; "
+        f"got {[v.flag for v in outcome.violations]}"
+    )
+    assert cfg.input.use_end_to_start_delays is True, (
+        "validator did not force use_end_to_start_delays=True for "
+        "inferencex-agentx-mvp -- the inner-session limiter would stay disabled; "
+        "check validator.py require_use_end_to_start_delays branch and "
+        "InputConfig.use_end_to_start_delays"
+    )
+
+
+def test_inferencex_agentx_mvp_explicit_no_end_to_start_delays_raises() -> None:
+    """Explicitly setting ``--use-end-to-start-delays=false`` under the MVP
+    scenario is a hard violation (the flag is required), not a silent override."""
+    from aiperf.common.config.input_config import InputConfig
+
+    cfg = _user_config(extra_inputs={"ignore_eos": True})
+    real_input = InputConfig(use_end_to_start_delays=False)
+    assert "use_end_to_start_delays" in real_input.model_fields_set
+    real_input.use_think_time_only = True
+    real_input.ignore_trace_delays = False
+    real_input.random_seed = 42
+    cfg.input = real_input
+    cfg.input.extra_inputs_parsed = {"ignore_eos": True}
+    cfg.input.detected_loader = "semianalysis_cc_traces_weka_with_subagents"
+    cfg.input.public_dataset = None
+    cfg.input.hf_weka_dataset = None
+    cfg.input._use_think_time_only_explicitly_set = False
+
+    with pytest.raises(ScenarioLockError) as exc_info:
+        validate_scenario(cfg)
+    assert "--use-end-to-start-delays" in str(exc_info.value), (
+        "explicit --no-use-end-to-start-delays under inferencex-agentx-mvp must "
+        f"surface a hard violation; got {exc_info.value}"
+    )
+
+
 def test_use_think_time_only_false_explicit_does_not_raise() -> None:
     """AgentX MVP no longer locks --use-think-time-only; trace_idle_gap_cap_seconds
     supersedes think-time-based delays in the weka loader."""

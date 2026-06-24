@@ -36,11 +36,17 @@ class SampledSession:
         metadata: Conversation metadata (turns, prompts, etc.) from the template.
         x_correlation_id: Unique session ID (UUID). Enables sticky routing so all
             turns in this session route to the same worker.
-        cache_bust_marker: Optional per-session cache-bust marker. Set on SPAWN
-            children so each subagent context gets its own unique server-side
-            prefix and can't share cached prefix with siblings or unrelated
-            subagents. Parent sessions populate this through the strategy
-            (e.g. AgenticReplayStrategy._build_turn_for_session) instead.
+        cache_bust_marker: Optional per-session cache-bust marker, whatever the
+            caller assigned. Every spawned descendant inherits the tree-ROOT's
+            marker so the whole tree is one server-side prefix-cache domain:
+            per-turn children via BranchOrchestrator._marker_for_root (always the
+            owning root instance's marker), and turn-0 pre-session background
+            children (whose root session does not exist yet) via
+            _pre_session_tree_marker, which binds to the root's canonical
+            primary instance (lane 0, pass 0) -- the deterministic choice, since
+            a pre-session child is dispatched once per template. Root/parent
+            sessions populate this through the strategy
+            (e.g. AgenticReplayStrategy._build_turn_for_session).
         cache_bust_target: Where to inject the marker. Mirrors the CLI knob;
             NONE when the feature is disabled.
     """

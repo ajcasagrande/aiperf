@@ -383,16 +383,25 @@ class BranchOrchestrator:
             return None
         return self._marker_ledger.session_marker.get(root_correlation_id)
 
-    def _mint_child_marker(self, child_conversation_id: str) -> str | None:
-        """Mint a marker for a DAG-authored pre-session (turn-0 background) child.
+    def _pre_session_tree_marker(self, root_conversation_id: str) -> str | None:
+        """Tree-root marker for a turn-0 pre-session (background) SPAWN child.
 
-        Used only by ``dispatch_pre_session_branches``, where the spawning root
-        session does not exist yet (``parent_correlation_id=None``), so the
-        root's marker cannot be resolved from the ledger. Per-turn spawned
-        descendants instead use ``_marker_for_root`` to share the tree marker.
+        A background child belongs to its root's trajectory TREE and must share
+        the root's marker so the whole tree is one server-side prefix-cache
+        domain -- the same invariant ``_marker_for_root`` enforces for per-turn
+        spawned descendants. At pre-dispatch the root session does not exist yet
+        (``parent_correlation_id=None``), so the value cannot be resolved from
+        the ledger by ``root_correlation_id``. But the marker is deterministic:
+        digest the root's base trace id at the tree's primary instance (lane 0,
+        pass 0) -- exactly the value the root's first lane mints via
+        ``resolve_tree_marker`` -- so the child lands in the root's prefix-cache
+        domain rather than a marker keyed on its own (child) conversation id.
         Returns None when cache-bust is disabled (target=NONE).
         """
-        from aiperf.timing.strategies.cache_bust import build_cache_bust_marker
+        from aiperf.timing.strategies.cache_bust import (
+            base_trace_id,
+            build_cache_bust_marker,
+        )
 
         if self._cache_bust_target == CacheBustTarget.NONE:
             return None
@@ -400,7 +409,7 @@ class BranchOrchestrator:
             self._benchmark_id,
             0,
             0,
-            child_conversation_id,
+            base_trace_id(root_conversation_id),
             target=self._cache_bust_target,
         )
 
@@ -440,7 +449,9 @@ class BranchOrchestrator:
                     try:
                         child_session = self._cs.start_pre_session_child(
                             child_cid,
-                            cache_bust_marker=self._mint_child_marker(child_cid),
+                            cache_bust_marker=self._pre_session_tree_marker(
+                                conv.conversation_id
+                            ),
                             cache_bust_target=self._cache_bust_target,
                         )
                     except Exception:

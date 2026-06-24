@@ -137,7 +137,12 @@ def _content_of(payload: dict, role: str) -> str | None:
 
 def _carrier_text(payload: dict, target: CacheBustTarget) -> str | None:
     if target in (CacheBustTarget.SYSTEM_PREFIX, CacheBustTarget.SYSTEM_SUFFIX):
-        return _content_of(payload, "system")
+        # Weka replay emits user-only wire messages (the system/tool prefix is
+        # accounted for in ISL but never sent as a system-role message), so the
+        # worker's SYSTEM_* injection falls back to the first user message --
+        # see worker._apply_system_target_cache_bust path 3. Prefer the system
+        # carrier when one exists; otherwise the user fallback is the carrier.
+        return _content_of(payload, "system") or _content_of(payload, "user")
     return _content_of(payload, "user")
 
 
@@ -260,14 +265,22 @@ async def test_none_target_has_no_markers_real_subprocess(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_spawn_subagent_children_busted_with_own_marker_real_subprocess(
+async def test_spawn_subagent_children_share_root_marker_real_subprocess(
     cli: AIPerfCLI,
     aiperf_mock_server: AIPerfMockServer,
     tmp_path: Path,
 ):
-    """SPAWN subagent children get their OWN cache-bust marker (busted), distinct
-    from the parent root's marker -- the reachable production fan-out path. This
-    exercises the non-FORK branch of the worker's cache-bust guard end-to-end.
+    """SPAWN subagent children inherit the tree-ROOT's cache-bust marker, not a
+    per-child one -- the reachable production fan-out path.
+
+    The cache-bust marker is a property of the trajectory TREE: every spawned
+    descendant reuses the root's minted marker so the whole tree is one
+    prefix-cache domain -- a per-child marker would force the server to
+    re-prefill any prefix the agents share. Per-turn children resolve it via
+    ``BranchOrchestrator._marker_for_root``; turn-0 pre-session background
+    children (whose root session does not exist yet) reconstruct the root's
+    primary-instance marker via ``_pre_session_tree_marker``. This fixture
+    exercises the per-turn spawn path.
     """
     weka_dir = _write_subagent_fixture(tmp_path / "sa", num_traces=5)
     result = await cli.run(
@@ -302,8 +315,11 @@ async def test_spawn_subagent_children_busted_with_own_marker_real_subprocess(
         assert child_rid is not None, (
             f"SPAWN child {conv} carries no cache-bust marker (not busted)"
         )
-        # The child's marker must be its OWN, not inherited from the parent root.
-        assert child_rid not in root_rids_by_base.get(base, set()), (
-            f"SPAWN child {conv} reused a parent-root marker {child_rid} "
-            f"(should be independently busted): root rids={root_rids_by_base.get(base)}"
+        # The child must inherit the tree-ROOT's marker so the whole tree shares
+        # one prefix-cache domain (BranchOrchestrator._marker_for_root).
+        root_rids = root_rids_by_base.get(base, set())
+        assert child_rid in root_rids, (
+            f"SPAWN child {conv} carries marker {child_rid}, which is not the "
+            f"parent root's minted marker (descendants must share the tree-root "
+            f"marker): root rids={root_rids}"
         )

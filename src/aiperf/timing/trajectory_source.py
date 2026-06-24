@@ -33,6 +33,7 @@ from aiperf.common.models import DatasetMetadata
 from aiperf.common.scenario.base import EmptyTracePoolError
 from aiperf.dataset.protocols import DatasetSamplingStrategyProtocol
 from aiperf.timing.conversation_source import ConversationSource, SampledSession
+from aiperf.timing.session_peak import session_achievable_peak
 
 _logger = logging.getLogger(__name__)
 
@@ -732,6 +733,64 @@ class TrajectorySource(ConversationSource):
                 )
             )
         return runtimes
+
+    def peak_for(self, trajectory: Trajectory) -> int:
+        """Session-achievable peak concurrency for this trajectory's post-t* slice.
+
+        Per live stream, the turns it actually replays are ``[next_turn_index ..]``;
+        each turn's interval is ``[timestamp_ms, timestamp_ms + api_time_ms]`` from
+        the dataset metadata. Falls back to 1 for timestamp-less trajectories.
+        """
+        snapshot = trajectory.snapshot
+        if snapshot is None:
+            return 1
+        streams: list[list[tuple[float, float]]] = []
+        for state in snapshot.states:
+            meta = self._metadata_lookup.get(state.conversation_id)
+            if meta is None:
+                continue
+            ivs: list[tuple[float, float]] = []
+            for turn in meta.turns[state.next_turn_index :]:
+                t = _as_timestamp_ms(getattr(turn, "timestamp_ms", None))
+                api = _as_timestamp_ms(getattr(turn, "api_time_ms", None))
+                if t is None:
+                    continue
+                ivs.append((t, t + (api or 0.0)))
+            if ivs:
+                streams.append(ivs)
+        return session_achievable_peak(streams)
+
+    def full_trace_peak(self, root_id: str) -> int:
+        """Session-achievable peak over the ENTIRE trace (all turns, all streams).
+
+        Sizes the inner-session limiter for a RECYCLED trajectory, which replays
+        the full conversation from turn 0 (no snapshot, no t* slice). The cap
+        must be the trace's full max-concurrency -- the root plus every branch
+        child across all their turns -- otherwise the recycled fan-out is forced
+        fully serial. Each turn's interval is ``[timestamp_ms, timestamp_ms +
+        api_time_ms]``. Falls back to 1 for a timestamp-less trace.
+        """
+        root_meta = self._metadata_lookup.get(root_id)
+        if root_meta is None:
+            return 1
+        metas = [root_meta]
+        for runtime in self._branch_runtimes(root_meta):
+            for child_cid in runtime.child_conversation_ids:
+                child_meta = self._metadata_lookup.get(child_cid)
+                if child_meta is not None:
+                    metas.append(child_meta)
+        streams: list[list[tuple[float, float]]] = []
+        for meta in metas:
+            ivs: list[tuple[float, float]] = []
+            for turn in meta.turns:
+                t = _as_timestamp_ms(getattr(turn, "timestamp_ms", None))
+                api = _as_timestamp_ms(getattr(turn, "api_time_ms", None))
+                if t is None:
+                    continue
+                ivs.append((t, t + (api or 0.0)))
+            if ivs:
+                streams.append(ivs)
+        return session_achievable_peak(streams)
 
     def session_for(
         self,
