@@ -83,7 +83,7 @@ class FixedScheduleStrategy(AIPerfLoggerMixin):
 
         # Validate and build schedule
         for conv in self._conversation_source.dataset_metadata.conversations:
-            if conv.is_root is False:
+            if not conv.is_root:
                 continue
             if not conv.turns:
                 continue
