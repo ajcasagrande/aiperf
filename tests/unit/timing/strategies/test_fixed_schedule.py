@@ -149,6 +149,15 @@ class TestFixedScheduleSetup:
         timestamps = [ts for ts, _ in strategy._absolute_schedule]
         assert timestamps == sorted(timestamps)
 
+    async def test_skips_children_dispatched_by_branch_orchestrator(self) -> None:
+        strategy, _, _ = make_strategy([(0, "root"), (100, "child")])
+        strategy._conversation_source.dataset_metadata.conversations[1].is_root = False
+
+        await strategy.setup_phase()
+        assert [
+            entry.turn.conversation_id for entry in strategy._absolute_schedule
+        ] == ["root"]
+
 
 @pytest.mark.asyncio
 class TestFixedScheduleExecutePhase:

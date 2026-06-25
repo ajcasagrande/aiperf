@@ -9,6 +9,7 @@ from pytest import param
 from aiperf.common.environment import (
     _APIServerSettings,
     _CompressionSettings,
+    _DynamoSettings,
     _Environment,
     _ServiceSettings,
 )
@@ -230,3 +231,18 @@ class TestCompressionSettings:
         env = _Environment()
         assert hasattr(env, "COMPRESSION")
         assert isinstance(env.COMPRESSION, _CompressionSettings)
+
+
+class TestDynamoSettings:
+    def test_session_transport_defaults_to_nvext(self, monkeypatch) -> None:
+        monkeypatch.delenv("AIPERF_DYNAMO_SESSION_TRANSPORT", raising=False)
+        assert _DynamoSettings().SESSION_TRANSPORT == "nvext"
+
+    def test_session_transport_accepts_headers(self, monkeypatch) -> None:
+        monkeypatch.setenv("AIPERF_DYNAMO_SESSION_TRANSPORT", "headers")
+        assert _DynamoSettings().SESSION_TRANSPORT == "headers"
+
+    def test_session_transport_rejects_unknown_value(self, monkeypatch) -> None:
+        monkeypatch.setenv("AIPERF_DYNAMO_SESSION_TRANSPORT", "unknown")
+        with pytest.raises(ValueError):
+            _DynamoSettings()

@@ -15,6 +15,7 @@ runs a single root conversation through the DAG loader, and validates:
    interleaved between turns.
 4. ``branch_stats`` lands in ``profile_export_aiperf.json`` with the expected
    children-spawned/completed/errored counts.
+5. Both Dynamo session transports reach the wire with the expected shape.
 
 The shared ``aiperf_mock_server`` fixture in ``tests/integration/conftest.py``
 drives all I/O; no orchestrator or credit-issuer mocking happens here.
@@ -94,13 +95,17 @@ def _classify(record) -> str:
 class TestDagFullTopologyEndToEnd:
     """End-to-end DAG benchmark through the real aiperf subprocess."""
 
+    @pytest.mark.parametrize("session_transport", ["nvext", "headers"])
     async def test_full_dag_payload_merge_and_stats(
         self,
         cli: AIPerfCLI,
         aiperf_mock_server: AIPerfMockServer,
+        monkeypatch: pytest.MonkeyPatch,
+        session_transport: str,
     ):
         """Run the two-branch DAG topology and validate merges + stats."""
         assert FIXTURE.exists(), f"fixture missing: {FIXTURE}"
+        monkeypatch.setenv("AIPERF_DYNAMO_SESSION_TRANSPORT", session_transport)
 
         result = await cli.run(
             f"""
@@ -113,6 +118,7 @@ class TestDagFullTopologyEndToEnd:
                 --num-conversations 1 \
                 --concurrency 1 \
                 --workers-max 2 \
+                --use-dynamo-conv-aware-routing \
                 --export-level raw \
                 --ui simple
             """,
@@ -169,7 +175,36 @@ class TestDagFullTopologyEndToEnd:
             assert rec.metadata.agent_depth == 1
 
         # -------------------------------------------------------------------
-        # B. Ordering (fork after root)
+        # B. Selected Dynamo session transport reaches the wire
+        # -------------------------------------------------------------------
+        records = (
+            (root_rec, root_corr, None),
+            (a0, branch_a_corr, root_corr),
+            (a1, branch_a_corr, root_corr),
+            (b0, branch_b_corr, root_corr),
+            (b1, branch_b_corr, root_corr),
+        )
+        if session_transport == "headers":
+            for rec, correlation_id, parent_id in records:
+                assert rec.request_headers is not None
+                assert rec.request_headers["X-Dynamo-Session-ID"] == correlation_id
+                if parent_id is None:
+                    assert "X-Dynamo-Parent-Session-ID" not in rec.request_headers
+                else:
+                    assert (
+                        rec.request_headers["X-Dynamo-Parent-Session-ID"] == parent_id
+                    )
+                assert "nvext" not in rec.payload
+        else:
+            for rec, correlation_id, _ in records:
+                assert rec.request_headers is not None
+                assert "X-Dynamo-Session-ID" not in rec.request_headers
+                assert rec.payload["nvext"]["session_control"]["session_id"] == (
+                    correlation_id
+                )
+
+        # -------------------------------------------------------------------
+        # C. Ordering (fork after root)
         # -------------------------------------------------------------------
         assert root_rec.metadata.request_end_ns <= a0.metadata.request_start_ns
         assert root_rec.metadata.request_end_ns <= b0.metadata.request_start_ns
@@ -182,7 +217,7 @@ class TestDagFullTopologyEndToEnd:
         assert sibling_skew_ns < 2_000_000_000
 
         # -------------------------------------------------------------------
-        # C. Payload merge correctness — pure append, one system at root
+        # D. Payload merge correctness — pure append, one system at root
         # -------------------------------------------------------------------
         def _assert_messages(
             rec,
@@ -272,7 +307,7 @@ class TestDagFullTopologyEndToEnd:
         )
 
         # -------------------------------------------------------------------
-        # D. BranchStats in profile_export_aiperf.json
+        # E. BranchStats in profile_export_aiperf.json
         # -------------------------------------------------------------------
         assert result.json is not None, "profile_export_aiperf.json must exist"
         assert result.json.branch_stats is not None
@@ -281,7 +316,7 @@ class TestDagFullTopologyEndToEnd:
         assert result.json.branch_stats.children_errored == 0
 
         # -------------------------------------------------------------------
-        # E. Sticky routing: all 5 requests land on the same worker.
+        # F. Sticky routing: all 5 requests land on the same worker.
         # -------------------------------------------------------------------
         worker_ids = {rec.metadata.worker_id for rec in result.raw_records}
         assert len(worker_ids) == 1, (

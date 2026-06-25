@@ -268,17 +268,12 @@ Use server-reported token counts from API usage fields instead of client-side to
 
 #### `--use-dynamo-conv-aware-routing`, `--use-dynamo-session-control`
 
-Emit Dynamo nvext.session_control in OpenAI-compatible request bodies so Dynamo can bind all turns from the same replayed conversation lineage to the same backend worker. This is only intended for Dynamo frontends that implement session_control.
-<br/>_Flag (no value required)_
-
-#### `--use-legacy-dynamo-session-control`
-
-Emit the legacy Dynamo nvext.session_control lifecycle that released Dynamo (v1.2.x) understands: action 'open' on the first turn, session_id only on intermediate turns, and action 'close' on the final turn. Use this when the target Dynamo predates the 'bind' action (added in v1.3.0-dev); otherwise 'bind' is rejected with an HTTP 400. Requires --use-dynamo-conv-aware-routing, and the Dynamo deployment must expose a worker session_control endpoint for 'open' to take effect.
+Enable Dynamo conversation-aware routing. Both flag names are aliases. AIPERF_DYNAMO_SESSION_TRANSPORT selects the wire path: the temporary default 'nvext' injects deprecated nvext.session_control request-body metadata and will be removed soon; 'headers' emits session headers.
 <br/>_Flag (no value required)_
 
 #### `--dynamo-session-timeout-seconds` `<int>`
 
-Dynamo nvext.session_control timeout in seconds when --use-dynamo-conv-aware-routing is enabled.
+Timeout in seconds for the deprecated nvext.session_control path.
 <br/>_Constraints: ≥ 1_
 <br/>_Default: `300`_
 

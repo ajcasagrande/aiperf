@@ -8,6 +8,7 @@ so xdist-safe.
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -217,6 +218,7 @@ def _drive_parallel_inproc(
                 think_time_only=think_time_only,
                 model_map=loader._build_model_map(trace),
                 block_size=loader._block_size_for_trace(trace),
+                hash_id_scope=trace.hash_id_scope,
             )
             results.append(wpc._process_task(task))
         return results
@@ -258,6 +260,7 @@ def _build_plans(loader: WekaTraceLoader, data: dict) -> tuple:
         normals: list
         subagents: list
         block_size: int
+        hash_id_scope: str = "local"
 
     parent_plans: list = []
     child_plans: list = []
@@ -278,7 +281,9 @@ def _build_plans(loader: WekaTraceLoader, data: dict) -> tuple:
                 child_plans.extend(
                     _expand_subagent_to_child_plans(trace_id, sa_index, req, trace_bs)
                 )
-        parent_plans.append(_ParentPlan(trace_id, normals, subagents, trace_bs))
+        parent_plans.append(
+            _ParentPlan(trace_id, normals, subagents, trace_bs, trace.hash_id_scope)
+        )
 
     return parent_plans, child_plans, {}
 
@@ -580,6 +585,39 @@ def test_worker_scope_helpers_deterministic_per_trace_id(tmp_path):
         wpc._worker_state = saved_state
         shm.close()
         shm.unlink()
+
+
+def test_parallel_global_hash_scope_shared_across_traces(tmp_path):
+    traces_dir = tmp_path / "global"
+    traces_dir.mkdir()
+    for trace_id, timestamp in (("trace_a", 0.0), ("trace_b", 1.0)):
+        trace = {
+            "id": trace_id,
+            "models": ["m"],
+            "block_size": 16,
+            "hash_id_scope": "global",
+            "requests": [
+                {
+                    "t": timestamp,
+                    "type": "n",
+                    "model": "m",
+                    "in": 32,
+                    "out": 1,
+                    "hash_ids": [900, 901],
+                    "stop": "end_turn",
+                }
+            ],
+        }
+        (traces_dir / f"{trace_id}.json").write_text(json.dumps(trace))
+
+    loader = WekaTraceLoader(filename=str(traces_dir), user_config=_mk_user_config())
+    _stub_loader_real_rng(loader)
+    data = loader.load_dataset()
+    parent_plans, child_plans, _ = _build_plans(loader, data)
+
+    results = _drive_parallel_inproc(loader, parent_plans, child_plans, data)
+    prompts = [result["parent_turns"][0]["raw_messages"] for result in results]
+    assert prompts[0] == prompts[1]
 
 
 def test_directory_with_multiple_traces_parallel_path_byte_exact(tmp_path):

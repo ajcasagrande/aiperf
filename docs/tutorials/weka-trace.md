@@ -44,6 +44,47 @@ Whatever you pass to `--model` becomes the model the server actually sees. Trace
 
 The `--fixed-schedule` flag replays requests at their recorded timestamps; subagents run in parallel and the parent's next turn waits until they complete.
 
+### Replay a Dynamo Request Trace
+
+Convert a canonical `dynamo.request.trace.v1` JSONL capture into Weka traces:
+
+```bash
+aiperf synthesize dynamo-trace /path/to/dynamo-request-trace.jsonl \
+    --output /tmp/dynamo-weka
+```
+
+The converter writes one Weka file per root session and preserves request
+timing, token lengths, sequence hashes, and direct parent-child relationships.
+It infers the final turn from the last request in each session.
+The current Weka schema supports one subagent level; deeper trees are rejected.
+Non-request tool events are not replayed, but their elapsed time remains in the
+recorded gaps between requests.
+
+Replay the converted corpus through Dynamo:
+
+```bash
+AIPERF_DATASET_WEKA_SPLIT_FLATTENED_AGENTS=false \
+AIPERF_DYNAMO_SESSION_TRANSPORT=headers \
+aiperf profile \
+    --url localhost:8000 \
+    --model zai-org/GLM-4.7-Flash \
+    --endpoint-type chat \
+    --input-file /tmp/dynamo-weka \
+    --custom-dataset-type weka_trace \
+    --fixed-schedule \
+    --fixed-schedule-auto-offset \
+    --use-dynamo-conv-aware-routing
+```
+
+`--use-dynamo-conv-aware-routing` and `--use-dynamo-session-control` are aliases.
+`AIPERF_DYNAMO_SESSION_TRANSPORT` selects their wire format. The temporary
+default, `nvext`, injects `nvext.session_control` into request bodies for older
+Dynamo deployments. This path is deprecated and will be removed soon. Set the
+variable to `headers` to emit `X-Dynamo-Session-ID` and
+`X-Dynamo-Parent-Session-ID` without modifying request bodies; header affinity
+also requires `--router-session-affinity-ttl-secs` on the Dynamo frontend. Omit
+the AIPerf flag for an untagged baseline.
+
 ### Directory vs Single File
 
 Both work:
@@ -249,7 +290,7 @@ flowchart LR
 
 Details worth knowing:
 
-- **One hash namespace per trace file.** `hash_id_scope: "local"` is enforced for everything in a file — root, subagent children, and detected chains share one decode scope, so the same `hash_id` yields identical tokens everywhere and the server observes the genuine shared prefixes. The theoretical prefix-cache metric uses one shared per-trace seen-set in global time order for the same reason.
+- **Declared hash namespace.** Native Weka traces use `hash_id_scope: "local"`: root, subagent children, and detected chains in one file share a decode scope. Converters whose hashes identify content across files can use `hash_id_scope: "global"`; identical `(block_size, hash_id)` values then synthesize identical tokens across the dataset. The theoretical prefix-cache metric uses the same declared scope.
 - **Setup prefix ("keep the longer one").** The latest captures declare `tool_tokens: 0` / `system_tokens: 0`, so the system-segment boundary is derived empirically per namespace group (the LCP over member chains' first requests) and the longer of declared vs observed wins. Every turn 0 in a group places the system|user boundary at the same block offset, which keeps rendered prompts byte-shared across conversations.
 - **Same-model rule.** A chain is only ever continued by requests of the same model; cross-model attachment is always a spawn (a Haiku worker reading Opus context is a different agent).
 - **Escape hatch.** `AIPERF_DATASET_WEKA_SPLIT_FLATTENED_AGENTS=false` disables detection at **both** layers: all top-level requests serialize into one root conversation, and each subagent entry emits exactly one child with its inner requests in time order.

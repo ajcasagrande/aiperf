@@ -1242,6 +1242,32 @@ def test_convert_to_conversations_sibling_subagents_share_hash_id_scope(tmp_path
     assert sib_a.turns[0].raw_messages == sib_b.turns[0].raw_messages
 
 
+def test_convert_to_conversations_global_hash_scope_shared_across_traces(tmp_path):
+    bs = 16
+    shared = [900, 901]
+    for trace_id, t in (("trace_a", 0.0), ("trace_b", 1.0)):
+        trace = {
+            "id": trace_id,
+            "models": ["m"],
+            "block_size": bs,
+            "hash_id_scope": "global",
+            "requests": [_normal_req(t=t, in_tokens=bs * len(shared), hash_ids=shared)],
+        }
+        _write_trace(tmp_path, trace)
+
+    loader = WekaTraceLoader(filename=str(tmp_path), user_config=_mk_user_config())
+    _wire_real_scope_rng(loader, block_size=bs)
+
+    convs = {
+        c.session_id: c for c in loader.convert_to_conversations(loader.load_dataset())
+    }
+    assert (
+        convs["trace_a"].turns[0].raw_messages == convs["trace_b"].turns[0].raw_messages
+    )
+    assert convs["trace_a"].turns[0].theoretical_prefix_cache_hit_blocks == 0
+    assert convs["trace_b"].turns[0].theoretical_prefix_cache_hit_blocks == 2
+
+
 def test_subagent_child_shares_trace_decode_scope():
     """Same hash_id must decode to identical tokens in parent and child
     (hash_id_scope: 'local' = one namespace per trace FILE)."""

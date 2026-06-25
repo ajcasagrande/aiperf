@@ -15,7 +15,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import orjson
 from pydantic import ValidationError
@@ -30,6 +30,10 @@ from aiperf.dataset.generator.prompt import PromptGenerator
 from aiperf.dataset.loader._delay_cap import DelayCapTracker
 from aiperf.dataset.loader.base_loader import BaseFileLoader
 from aiperf.dataset.loader.hash_ids_synthesis import HashIdsPromptSynthesisMixin
+from aiperf.dataset.loader.weka_metric_prepass import (
+    MetricRecord,
+    compute_shared_prefix_cache_metrics,
+)
 from aiperf.dataset.loader.weka_trace_models import (
     WekaNormalRequest,
     WekaStreamingRequest,
@@ -42,6 +46,12 @@ _logger = AIPerfLogger(__name__)
 
 _NormalRequestT = WekaNormalRequest | WekaStreamingRequest
 _JOIN_EPSILON_SECONDS = 1e-6
+
+
+def _hash_scope_key(
+    trace_id: str, hash_id_scope: Literal["local", "global"], block_size: int
+) -> str:
+    return trace_id if hash_id_scope == "local" else f"__global__:{block_size}"
 
 
 def _subagent_request_absolute_t(
@@ -282,6 +292,7 @@ class _ParentPlan:
     normals: list[tuple[int, _NormalRequestT]]
     subagents: list[tuple[int, WekaSubagentEntry]]
     block_size: int
+    hash_id_scope: Literal["local", "global"] = "local"
 
 
 def _worker_suffix(
@@ -630,6 +641,52 @@ def _child_plans_for_active_subagents(
         for cp in child_plans
         if cp.parent_trace_id == plan.trace_id and cp.subagent_index not in dropped
     ]
+
+
+def _metric_records_for_plan(
+    plan: _ParentPlan,
+    child_plans: list[_ChildPlan],
+    flat_plans: list[_FlatChainPlan],
+) -> list[MetricRecord]:
+    records = [
+        MetricRecord(
+            sort_key=(req.t, outer_idx, 0, 0),
+            session_id=plan.trace_id,
+            k=k,
+            hash_ids=list(req.hash_ids),
+        )
+        for k, (outer_idx, req) in enumerate(plan.normals)
+    ]
+    records.extend(
+        MetricRecord(
+            sort_key=(req.t, outer_idx, 0, 0),
+            session_id=flat.session_id,
+            k=k,
+            hash_ids=list(req.hash_ids),
+        )
+        for flat in flat_plans
+        for k, (outer_idx, req) in enumerate(flat.requests)
+    )
+    subagent_outer_indices = {
+        subagent_index: outer_idx
+        for subagent_index, (outer_idx, _) in enumerate(plan.subagents)
+    }
+    records.extend(
+        MetricRecord(
+            sort_key=(
+                request.t,
+                subagent_outer_indices[child.subagent_index],
+                child.chain_index,
+                k,
+            ),
+            session_id=child.session_id,
+            k=k,
+            hash_ids=list(request.hash_ids),
+        )
+        for child in _child_plans_for_active_subagents(plan, child_plans)
+        for k, request in enumerate(child.requests)
+    )
+    return records
 
 
 def _chain_init_tokens(
@@ -1155,7 +1212,13 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
                     flat_plans=flat_plans,
                     split_stats=split_stats,
                 )
-            plan = _ParentPlan(trace_id, normals, subagents, block_size=trace_bs)
+            plan = _ParentPlan(
+                trace_id,
+                normals,
+                subagents,
+                block_size=trace_bs,
+                hash_id_scope=trace.hash_id_scope,
+            )
             self._reject_duplicate_retained_agent_ids(plan)
             parent_plans.append(plan)
         return _ReconstructionPlans(
@@ -1310,12 +1373,14 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
         # True-DAG fork edges live only in this log in v1 (the orchestrator
         # cannot replay nested spawns, so all chains attach to the root).
         _logger.debug(
-            lambda: f"Trace {trace_id} fork detail: "
-            + "; ".join(
-                f"fa:{n:03d} parent_chain={detection.chains[ci].fork.parent_chain} "
-                f"depth={detection.chains[ci].fork.depth}"
-                for n, ci in enumerate(detection.worker_indices)
-                if detection.chains[ci].fork is not None
+            lambda: (
+                f"Trace {trace_id} fork detail: "
+                + "; ".join(
+                    f"fa:{n:03d} parent_chain={detection.chains[ci].fork.parent_chain} "
+                    f"depth={detection.chains[ci].fork.depth}"
+                    for n, ci in enumerate(detection.worker_indices)
+                    if detection.chains[ci].fork is not None
+                )
             )
         )
         main_normals = list(detection.chains[detection.main_index].requests)
@@ -1334,62 +1399,39 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
         """Per-trace ``{(session_id, k): (hits, total)}`` from ONE shared
         seen-set consumed in global (t, outer_idx, stream_idx, k) order.
 
-        ``hash_id_scope: "local"`` means one namespace per trace file, so a
-        block first sent by the parent is a cache hit when a subagent child
-        or a detected flat chain re-sends it (and vice versa). Dropped
-        subagents are excluded to match emission.
+        Local scope shares within one trace file. Global scope shares across
+        every trace with the same block size. Dropped subagents are excluded
+        to match emission.
         """
-        from aiperf.dataset.loader.weka_metric_prepass import (
-            MetricRecord,
-            compute_shared_prefix_cache_metrics,
-        )
-
         flat_by_trace: dict[str, list[_FlatChainPlan]] = defaultdict(list)
         for fp in flat_plans or []:
             flat_by_trace[fp.parent_trace_id].append(fp)
 
         out: dict[str, dict[tuple[str, int], tuple[int, int]]] = {}
+        records_by_trace: dict[str, list[MetricRecord]] = {}
+        sessions_by_trace: dict[str, set[str]] = {}
         for plan in parent_plans:
-            records: list[MetricRecord] = []
-            for k, (outer_idx, req) in enumerate(plan.normals):
-                records.append(
-                    MetricRecord(
-                        sort_key=(req.t, outer_idx, 0, 0),
-                        session_id=plan.trace_id,
-                        k=k,
-                        hash_ids=list(req.hash_ids),
-                    )
-                )
-            for fp in flat_by_trace.get(plan.trace_id, []):
-                for k, (outer_idx, req) in enumerate(fp.requests):
-                    records.append(
-                        MetricRecord(
-                            sort_key=(req.t, outer_idx, 0, 0),
-                            session_id=fp.session_id,
-                            k=k,
-                            hash_ids=list(req.hash_ids),
-                        )
-                    )
-            sa_outer_by_index = {
-                sa_index: outer_idx
-                for sa_index, (outer_idx, _) in enumerate(plan.subagents)
-            }
-            for cp in _child_plans_for_active_subagents(plan, child_plans):
-                for k, creq in enumerate(cp.requests):
-                    records.append(
-                        MetricRecord(
-                            sort_key=(
-                                creq.t,
-                                sa_outer_by_index[cp.subagent_index],
-                                cp.chain_index,
-                                k,
-                            ),
-                            session_id=cp.session_id,
-                            k=k,
-                            hash_ids=list(creq.hash_ids),
-                        )
-                    )
-            out[plan.trace_id] = compute_shared_prefix_cache_metrics(records)
+            records = _metric_records_for_plan(
+                plan, child_plans, flat_by_trace.get(plan.trace_id, [])
+            )
+            records_by_trace[plan.trace_id] = records
+            sessions_by_trace[plan.trace_id] = {record.session_id for record in records}
+            if getattr(plan, "hash_id_scope", "local") == "local":
+                out[plan.trace_id] = compute_shared_prefix_cache_metrics(records)
+
+        global_plans_by_block_size: dict[int, list[_ParentPlan]] = defaultdict(list)
+        for plan in parent_plans:
+            if getattr(plan, "hash_id_scope", "local") == "global":
+                global_plans_by_block_size[plan.block_size].append(plan)
+        for plans in global_plans_by_block_size.values():
+            shared = compute_shared_prefix_cache_metrics(
+                [record for plan in plans for record in records_by_trace[plan.trace_id]]
+            )
+            for plan in plans:
+                session_ids = sessions_by_trace[plan.trace_id]
+                out[plan.trace_id] = {
+                    key: value for key, value in shared.items() if key[0] in session_ids
+                }
         return out
 
     def _build_trace_idle_timing_by_trace(
@@ -1459,15 +1501,13 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
     def _decode_block_tokens(self, hash_ids: list[int]) -> list[int]:
         """Concatenate per-hash-id Qwen token blocks into a single token list.
 
-        The caller MUST clear ``self.prompt_generator._cache`` and call
-        ``self.prompt_generator._hash_id_corpus_rng.set_trace_id(scope)``
-        before any sequence of calls within a single conversation scope.
+        The caller clears ``self.prompt_generator._cache`` and sets the RNG
+        scope before each trace. Global scopes remain byte-identical across
+        clears and worker processes because synthesis is deterministic.
 
         Within that scope the int-keyed cache is valid: every
-        ``(current_trace_id, hash_id) -> tokens`` mapping is deterministic
-        via ``reseed_for_hash_id``. The ``hash_id_scope: "local"`` contract
-        means we never need two scopes' cache content alive simultaneously,
-        so int keys + per-scope clear is sufficient and bounds memory.
+        ``(scope, hash_id) -> tokens`` mapping is deterministic via
+        ``reseed_for_hash_id``. Per-trace clears keep memory bounded.
         """
         pg = self.prompt_generator
         rng = pg._hash_id_corpus_rng
@@ -1663,16 +1703,23 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
         for fp in flat_plans or []:
             flat_plans_by_trace[fp.parent_trace_id].append(fp)
 
+        scope_by_trace = {
+            plan.trace_id: _hash_scope_key(
+                plan.trace_id,
+                getattr(plan, "hash_id_scope", "local"),
+                plan.block_size,
+            )
+            for plan in parent_plans
+        }
+
         conversations: list[Conversation] = []
         n_plans = len(parent_plans)
         log_every_plan = max(1, n_plans // 10)
 
         for _plan_idx, plan in enumerate(parent_plans, 1):
-            # ``hash_id_scope: "local"`` requires per-trace cache + RNG reset to
-            # prevent cross-trace hash_id aliasing inflating KV-cache hit rates.
             pg = self.prompt_generator
             pg._cache.clear()
-            pg._hash_id_corpus_rng.set_trace_id(plan.trace_id)
+            pg._hash_id_corpus_rng.set_trace_id(scope_by_trace[plan.trace_id])
 
             # Sync the instance attribute so the ``_decode_block_tokens``
             # closure (which reads ``self._block_size``) sees the per-trace
@@ -2005,19 +2052,16 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
                             cp.parent_trace_id
                         ),
                         metric_values=metric_values_by_trace[cp.parent_trace_id],
+                        hash_scope=scope_by_trace[cp.parent_trace_id],
                     )
                 )
                 continue
             if cp.subagent_index in dropped_per_trace.get(cp.parent_trace_id, set()):
                 continue
             child_model_map = model_map_per_trace.get(cp.parent_trace_id, {})
-            # ``hash_id_scope: "local"`` is one namespace per trace FILE: a
-            # subagent shares its parent trace's scope so a hash_id reused
-            # across parent and subagent (or across siblings) decodes to the
-            # same tokens, reproducing the real cross-agent shared prefix.
             pg = self.prompt_generator
             pg._cache.clear()
-            pg._hash_id_corpus_rng.set_trace_id(cp.parent_trace_id)
+            pg._hash_id_corpus_rng.set_trace_id(scope_by_trace[cp.parent_trace_id])
             # Sync for ``_decode_block_tokens``; see parent loop above.
             self._block_size = cp.block_size
 
@@ -2117,18 +2161,18 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
         model_map: dict[str, str],
         trace_idle_timing: _TraceIdleTiming | None,
         metric_values: dict[tuple[str, int], tuple[int, int]],
+        hash_scope: str,
     ) -> Conversation:
         """Reconstruct one detected flat chain as a child Conversation.
 
-        Mirrors the subagent-child emission with three differences: the
-        decode scope is the parent trace (shared namespace), turn 0's system
+        Mirrors subagent-child emission: the decode scope is shared, turn 0's system
         segment comes from the chain's effective namespace-group prefix, and
         ``max_tokens`` honors ``--max-osl`` like the top-level requests these
         rows used to be.
         """
         pg = self.prompt_generator
         pg._cache.clear()
-        pg._hash_id_corpus_rng.set_trace_id(fp.parent_trace_id)
+        pg._hash_id_corpus_rng.set_trace_id(hash_scope)
         self._block_size = fp.block_size
 
         recon = self._new_reconstructor(fp.block_size)
@@ -2360,6 +2404,7 @@ class WekaTraceLoader(HashIdsPromptSynthesisMixin, BaseFileLoader):
                     emit_assistant_segments=not self._use_live_assistant,
                     tool_shaped_messages=self._tool_shaped_messages,
                     block_size=plan.block_size,
+                    hash_id_scope=getattr(plan, "hash_id_scope", "local"),
                 )
             )
         return tasks

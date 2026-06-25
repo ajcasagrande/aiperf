@@ -260,17 +260,10 @@ def test_weka_trace_missing_required_block_size_rejected():
         WekaTrace.model_validate(bad)
 
 
-def test_weka_trace_hash_id_scope_global_rejected_by_schema():
-    """'global' hash_id_scope is rejected at schema level: v1 loader only
-    implements local-scope synthesis (hashes scoped per-trace). Accepting
-    'global' at the schema would let misconfigured traces load and silently
-    misbehave — global-scope support is a future feature, and until it is
-    implemented, the schema rejects.
-    """
+def test_weka_trace_hash_id_scope_global_accepted_by_schema():
     d = dict(_VALID)
     d["hash_id_scope"] = "global"
-    with pytest.raises(ValidationError):
-        WekaTrace.model_validate(d)
+    assert WekaTrace.model_validate(d).hash_id_scope == "global"
 
 
 def test_weka_subagent_missing_required_agent_id_rejected():

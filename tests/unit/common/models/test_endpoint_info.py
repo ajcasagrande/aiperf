@@ -20,10 +20,6 @@ class TestEndpointInfoMultiURL:
             info.use_dynamo_conv_aware_routing
             == EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING
         )
-        assert (
-            info.dynamo_session_timeout_seconds
-            == EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS
-        )
 
     def test_single_url_custom(self):
         """Custom single URL should work."""
@@ -43,8 +39,8 @@ class TestEndpointInfoMultiURL:
         with pytest.raises(ValueError):
             EndpointInfo(base_urls=[])
 
-    def test_dynamo_session_control_from_user_config(self):
-        """Dynamo session-control fields should flow into runtime endpoint info."""
+    def test_dynamo_session_headers_from_user_config(self):
+        """Dynamo session-header opt-in should flow into endpoint info."""
         user_config = UserConfig(
             endpoint=EndpointConfig(
                 model_names=["test-model"],

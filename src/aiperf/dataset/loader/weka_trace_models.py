@@ -145,12 +145,10 @@ class WekaTrace(AIPerfBaseModel):
     id: str = Field(description="Trace identifier (session ID).")
     models: list[str] = Field(description="Models used in the trace.")
     block_size: int = Field(description="Cache block size in tokens.")
-    hash_id_scope: Literal["local"] = Field(
+    hash_id_scope: Literal["local", "global"] = Field(
         description=(
-            "Hash ID namespace scope. v1 loader only supports 'local' scope "
-            "(hashes scoped per-trace); 'global' scope (cross-trace KV-cache "
-            "sharing) would require synthesis-time coordination across files "
-            "and is rejected at schema level until implemented."
+            "Hash ID namespace scope. 'local' scopes hashes per trace file; "
+            "'global' preserves identical hash content across trace files."
         )
     )
     tool_tokens: int = Field(default=0, description="Tools prefix token count.")
