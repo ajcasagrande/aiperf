@@ -16,6 +16,7 @@ def _record(
     hashes: list[int],
     *,
     parent_id: str | None = None,
+    input_length: int | None = None,
 ) -> dict:
     context = {"session_id": session_id}
     if parent_id is not None:
@@ -26,13 +27,17 @@ def _record(
             "agent_context": context,
             "request": {
                 "model": "test-model",
-                "input_tokens": len(hashes) * 16,
+                "input_tokens": input_length
+                if input_length is not None
+                else len(hashes) * 16,
                 "output_tokens": 8,
                 "request_received_ms": received_ms,
                 "total_time_ms": 100,
                 "replay": {
                     "trace_block_size": 16,
-                    "input_length": len(hashes) * 16,
+                    "input_length": input_length
+                    if input_length is not None
+                    else len(hashes) * 16,
                     "input_sequence_hashes": hashes,
                 },
             },
@@ -50,7 +55,7 @@ def test_dynamo_trace_writes_all_lineages_with_agent_topology(tmp_path: Path) ->
     _write_trace(
         input_file,
         [
-            _record("root-a", 1_000, [10, 20]),
+            _record("root-a", 1_000, [10, 20, 99], input_length=33),
             _record("root-b", 1_500, [10, 50]),
             _record("child-a", 2_000, [10, 20, 30], parent_id="root-a"),
             _record("child-a", 3_000, [10, 20, 30, 31], parent_id="root-a"),

@@ -221,7 +221,7 @@ def _weka_request(
         "model": row["model"],
         "in": row["input_length"],
         "out": row["output_length"],
-        "hash_ids": row["hashes"],
+        "hash_ids": row["hashes"][: row["input_length"] // row["block_size"]],
         "stop": "end_turn" if final else "tool_use",
     }
     if row["total_time_ms"] is not None:
