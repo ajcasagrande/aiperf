@@ -70,6 +70,22 @@ class TestChatEndpoint:
         }
         assert payload == expected_payload
 
+    def test_final_assistant_is_converted_to_user(self, model_endpoint):
+        raw_messages = [
+            {"role": "user", "content": "Question"},
+            {"role": "assistant", "content": "Reconstructed suffix"},
+        ]
+        turn = Turn(raw_messages=raw_messages)
+        request_info = create_request_info(model_endpoint=model_endpoint, turns=[turn])
+
+        payload = ChatEndpoint(model_endpoint).format_payload(request_info)
+
+        assert payload["messages"] == [
+            {"role": "user", "content": "Question"},
+            {"role": "user", "content": "Reconstructed suffix"},
+        ]
+        assert raw_messages[-1]["role"] == "assistant"
+
     def test_format_payload_with_max_tokens_and_streaming(
         self, model_endpoint, sample_conversations
     ):

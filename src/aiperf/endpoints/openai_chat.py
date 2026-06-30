@@ -84,8 +84,41 @@ class ChatEndpoint(BaseEndpoint):
             ):
                 payload["stream_options"]["include_usage"] = True
 
+        if turns[-1].raw_messages is not None:
+            self._convert_final_assistant_to_user(payload)
+
         self.trace(lambda: f"Formatted payload: {payload}")
         return payload
+
+    def _convert_final_assistant_to_user(self, payload: dict[str, Any]) -> None:
+        """Make replay requests end with a user generation turn."""
+        if payload.get("continue_final_message", False):
+            return
+
+        messages = payload.get("messages")
+        if (
+            not isinstance(messages, list)
+            or not messages
+            or not isinstance(messages[-1], dict)
+            or messages[-1].get("role") != "assistant"
+            or not messages[-1].get("content")
+        ):
+            return
+
+        final_message = messages[-1]
+        content = final_message.get("content")
+        if (
+            final_message.get("tool_calls")
+            or final_message.get("function_call")
+            or not isinstance(content, str)
+        ):
+            self.warning(
+                "Skipping terminal assistant role conversion for a message with "
+                "tool calls or non-text content."
+            )
+            return
+
+        messages[-1] = {**final_message, "role": "user"}
 
     def parse_response(
         self, response: InferenceServerResponse
