@@ -95,8 +95,15 @@ def test_unknown_tree_is_conservative_false():
 
 
 def test_finality_flows_credit_to_request_info():
-    """REAL structs end-to-end: a Credit stamped with finality must surface
-    on the RequestInfo the worker builds. Catches a missed plumb touch."""
+    """Schema guard: the three lineage-finality fields exist on BOTH the Credit
+    struct and the RequestInfo model, so the worker has fields to copy between.
+
+    This asserts field-NAME presence only -- it does NOT verify a value is
+    actually copied (deleting the plumb kwargs in ``worker._create_request_info``
+    keeps this green). The value-level plumb guard is
+    ``test_worker.py::test_create_request_info_plumbs_finality_from_credit``,
+    which stamps a REAL Credit and asserts the values surface on the RequestInfo.
+    """
     from aiperf.common.models.record_models import RequestInfo
     from aiperf.credit.structs import Credit
 
