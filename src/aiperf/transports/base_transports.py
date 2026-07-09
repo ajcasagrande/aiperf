@@ -8,7 +8,6 @@ from collections.abc import Awaitable, Callable
 from typing import Protocol, runtime_checkable
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from aiperf.common.environment import Environment
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.models import (
     RequestInfo,
@@ -103,7 +102,8 @@ class BaseTransport(AIPerfLifecycleMixin, ABC):
         Merges headers in priority order:
         1. Universal headers (User-Agent, correlation IDs)
         2. Endpoint-specific headers (auth, custom)
-        3. Transport-specific headers (Content-Type, Accept)
+        3. Dataset-authored dispatch-turn headers (extra_headers)
+        4. Transport-specific headers (Content-Type, Accept)
 
         Args:
             request_info: Request context with endpoint headers
@@ -117,12 +117,10 @@ class BaseTransport(AIPerfLifecycleMixin, ABC):
             headers["X-Request-ID"] = request_info.x_request_id
         if request_info.x_correlation_id:
             headers["X-Correlation-ID"] = request_info.x_correlation_id
-            if Environment.HTTP.X_SESSION_ID_FROM_CORRELATION_ID:
-                headers["X-Session-ID"] = request_info.x_correlation_id
-            if Environment.HTTP.X_SMG_ROUTING_KEY_FROM_CORRELATION_ID:
-                headers["X-SMG-Routing-Key"] = request_info.x_correlation_id
 
         headers.update(request_info.endpoint_headers)
+        if request_info.turns and request_info.turns[-1].extra_headers:
+            headers.update(request_info.turns[-1].extra_headers)
         headers.update(self.get_transport_headers(request_info))
 
         return headers

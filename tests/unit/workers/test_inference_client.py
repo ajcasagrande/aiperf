@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,8 +19,30 @@ from aiperf.common.models.model_endpoint_info import (
 )
 from aiperf.common.models.record_models import RequestInfo, RequestRecord
 from aiperf.common.redact import REDACTED_VALUE
+from aiperf.plugin import plugins
 from aiperf.plugin.enums import EndpointType, TransportType
+from aiperf.plugin.schema.schemas import TransportMetadata
+from aiperf.transports.base_transports import BaseTransport
 from aiperf.workers.inference_client import InferenceClient, detect_transport_from_url
+from aiperf.workers.session_routing import PlanEntry
+
+
+class _WireTransport(BaseTransport):
+    """Concrete BaseTransport exercising the real build_headers merge order."""
+
+    @classmethod
+    def metadata(cls) -> TransportMetadata:
+        return TransportMetadata(
+            transport_type=TransportType.HTTP, url_schemes=["http", "https"]
+        )
+
+    def get_url(self, request_info: RequestInfo) -> str:
+        return request_info.model_endpoint.endpoint.base_url or ""
+
+    async def send_request(
+        self, request_info: RequestInfo, payload: dict
+    ) -> RequestRecord:
+        return RequestRecord()
 
 
 @pytest.fixture
@@ -494,16 +517,23 @@ class TestInferenceClient:
         assert enriched.request_info.payload_bytes == request_info.payload_bytes
 
 
-class TestInferenceClientDynamoSessionControl:
-    """Chokepoint injection of nvext.session_control for Dynamo routing.
+class TestInferenceClientSessionRouting:
+    """Session-routing plans wired through the InferenceClient chokepoint.
 
-    The verbatim PAYLOAD_BYTES path is refused against this feature at dataset
-    load, so injection only ever runs on the structured (format_payload) body.
+    The endpoint/transport plugins are mocked as before; the session_routing
+    presets resolve through the REAL plugin registry so the chokepoint
+    exercises genuine header/body emission and the notify_session_end
+    pass-through.
     """
 
-    @pytest.fixture
-    def model_endpoint(self):
-        return ModelEndpointInfo(
+    def _build_client(
+        self,
+        mock_http_transport_entry,
+        *,
+        session_routing: str | None,
+        session_routing_opts: dict | None = None,
+    ) -> InferenceClient:
+        model_endpoint = ModelEndpointInfo(
             models=ModelListInfo(
                 models=[ModelInfo(name="test-model")],
                 model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
@@ -511,28 +541,38 @@ class TestInferenceClientDynamoSessionControl:
             endpoint=EndpointInfo(
                 type=EndpointType.CHAT,
                 base_url="http://localhost:8000/v1/test",
-                use_dynamo_conv_aware_routing=True,
-                dynamo_session_timeout_seconds=123,
+                session_routing_plan=(
+                    [
+                        PlanEntry(
+                            preset=session_routing,
+                            opts=session_routing_opts or {},
+                        )
+                    ]
+                    if session_routing is not None
+                    else []
+                ),
             ),
         )
-
-    @pytest.fixture
-    def inference_client(self, model_endpoint, mock_http_transport_entry):
         mock_transport = MagicMock()
         mock_endpoint = MagicMock()
         mock_endpoint.get_endpoint_headers.return_value = {}
         mock_endpoint.get_endpoint_params.return_value = {}
         mock_endpoint.format_payload.return_value = {
-            "messages": [{"role": "user", "content": "hi"}],
             "model": "test-model",
+            "messages": [{"role": "user", "content": "hello"}],
         }
+
+        # Patching plugins.get_class patches the shared module attribute, so
+        # the plan resolver's registry lookup is also intercepted; delegate
+        # non-mocked protocols (session_routing) to the real registry.
+        real_get_class = plugins.get_class
 
         def mock_get_class(protocol, name):
             if protocol == "endpoint":
                 return lambda **kwargs: mock_endpoint
             if protocol == "transport":
                 return lambda **kwargs: mock_transport
-            raise ValueError(f"Unknown protocol: {protocol}")
+            return real_get_class(protocol, name)
 
         with (
             patch(
@@ -544,204 +584,495 @@ class TestInferenceClientDynamoSessionControl:
                 return_value=[mock_http_transport_entry],
             ),
         ):
-            return InferenceClient(
+            client = InferenceClient(
                 model_endpoint=model_endpoint, service_id="test-service-id"
             )
+        client.transport.send_request = AsyncMock(return_value=RequestRecord())
+        return client
 
     def _request_info(
-        self, inference_client, *, is_final_turn, x_correlation_id="corr-1"
-    ):
+        self,
+        client: InferenceClient,
+        *,
+        x_correlation_id: str = "corr-1",
+        parent_correlation_id: str | None = None,
+        is_final_turn: bool = False,
+    ) -> RequestInfo:
         return RequestInfo(
-            model_endpoint=inference_client.model_endpoint,
-            turns=[Turn(role="user", texts=[Text(contents=["hi"])])],
+            model_endpoint=client.model_endpoint,
+            turns=[Turn(role="user", texts=[Text(contents=["hello"])])],
             turn_index=0,
-            credit_num=1,
+            credit_num=0,
             credit_phase=CreditPhase.PROFILING,
-            x_request_id="rid",
+            x_request_id="req-1",
             x_correlation_id=x_correlation_id,
-            conversation_id="conv",
+            parent_correlation_id=parent_correlation_id,
+            # Mirrors the worker, which always passes
+            # credit.effective_root_correlation_id (own ID for roots).
+            root_correlation_id=x_correlation_id,
+            conversation_id="conv-template",
             is_final_turn=is_final_turn,
         )
 
-    async def _sent_payload(self, inference_client, request_info):
-        inference_client.transport.send_request = AsyncMock(
-            return_value=RequestRecord(request_info=request_info)
-        )
-        await inference_client.send_request(request_info)
-        return orjson.loads(
-            inference_client.transport.send_request.call_args.kwargs["payload"]
-        )
+    def _sent_payload(self, client: InferenceClient):
+        payload = client.transport.send_request.call_args.kwargs["payload"]
+        if isinstance(payload, bytes):
+            return orjson.loads(payload)
+        return payload
 
     @pytest.mark.asyncio
-    async def test_non_final_turn_binds_with_x_correlation_id_and_timeout(
-        self, inference_client
+    @pytest.mark.parametrize(
+        "preset, opts, request_kwargs, expected_headers",
+        [
+            param(
+                "dynamo_headers",
+                None,
+                {"parent_correlation_id": "parent-corr", "is_final_turn": False},
+                {
+                    "X-Dynamo-Session-ID": "corr-1",
+                    "X-Dynamo-Parent-Session-ID": "parent-corr",
+                },
+                id="dynamo_headers",
+            ),
+            param(
+                "session_id_header",
+                None,
+                {},
+                {"X-Session-ID": "corr-1"},
+                id="session_id_header",
+            ),
+            param(
+                "custom",
+                {"headers": {"X-Affinity": "session", "X-Tree-ID": "root"}},
+                {},
+                {"X-Affinity": "corr-1", "X-Tree-ID": "corr-1"},
+                id="custom_header_assignments",
+            ),
+            param(
+                "url_index_header",
+                None,
+                {},
+                {"X-URL-Index": "0"},
+                id="url_index_header_defaults_to_slot_zero",
+            ),
+        ],
+    )  # fmt: skip
+    async def test_header_presets_emit_headers_and_leave_body(
+        self, mock_http_transport_entry, preset, opts, request_kwargs, expected_headers
     ):
-        payload = await self._sent_payload(
-            inference_client,
-            self._request_info(inference_client, is_final_turn=False),
+        """Header-emitting presets set the expected endpoint headers and leave
+        the wire body untouched (RequestInfo.url_index=None normalizes to slot
+        0 in DispatchFacts)."""
+        client = self._build_client(
+            mock_http_transport_entry,
+            session_routing=preset,
+            session_routing_opts=opts,
         )
-        assert payload["nvext"]["session_control"] == {
+        request_info = self._request_info(client, **request_kwargs)
+        assert request_info.url_index is None
+
+        await client._send_request_to_transport(request_info)
+
+        for name, value in expected_headers.items():
+            assert request_info.endpoint_headers[name] == value
+        assert "nvext" not in self._sent_payload(client)
+
+    @pytest.mark.asyncio
+    async def test_dynamo_nvext_mode_binds_then_closes(self, mock_http_transport_entry):
+        client = self._build_client(
+            mock_http_transport_entry,
+            session_routing="dynamo_nvext",
+            session_routing_opts={"timeout_seconds": "123"},
+        )
+
+        non_final = self._request_info(client, is_final_turn=False)
+        await client._send_request_to_transport(non_final)
+        assert self._sent_payload(client)["nvext"]["session_control"] == {
             "session_id": "corr-1",
             "action": "bind",
             "timeout": 123,
         }
-        # Endpoint-built fields are preserved.
-        assert payload["messages"] == [{"role": "user", "content": "hi"}]
 
-    @pytest.mark.asyncio
-    async def test_final_turn_closes_session(self, inference_client):
-        payload = await self._sent_payload(
-            inference_client,
-            self._request_info(inference_client, is_final_turn=True),
-        )
-        assert payload["nvext"]["session_control"] == {
+        final = self._request_info(client, is_final_turn=True)
+        await client._send_request_to_transport(final)
+        assert self._sent_payload(client)["nvext"]["session_control"] == {
             "session_id": "corr-1",
             "action": "close",
         }
 
     @pytest.mark.asyncio
-    async def test_disabled_leaves_payload_untouched(self, inference_client):
-        inference_client.model_endpoint.endpoint.use_dynamo_conv_aware_routing = False
-        payload = await self._sent_payload(
-            inference_client,
-            self._request_info(inference_client, is_final_turn=False),
+    async def test_dataset_header_wins_over_plan_header_single_wire_variant(
+        self, mock_http_transport_entry
+    ):
+        """When the dataset authors the same header the plan would emit (any
+        casing), the plan header is dropped at the chokepoint so exactly ONE
+        variant reaches the wire: the dataset's, under the dataset's casing."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
         )
+        request_info = self._request_info(client)
+        request_info.turns = [
+            Turn(
+                role="user",
+                texts=[Text(contents=["hello"])],
+                extra_headers={"x-dynamo-session-id": "rec-1"},
+            )
+        ]
+
+        await client._send_request_to_transport(request_info)
+
+        # The plan-emitted X-Dynamo-Session-ID is dropped (case-insensitive):
+        # no variant of it survives on endpoint_headers.
+        assert not any(
+            k.lower() == "x-dynamo-session-id" for k in request_info.endpoint_headers
+        )
+        # The unrelated plan header (parent) is a root session -> not emitted;
+        # nothing else dynamo-shaped leaked.
+        assert "X-Dynamo-Parent-Session-ID" not in request_info.endpoint_headers
+
+        # End-to-end: the real transport merge carries exactly one variant,
+        # the dataset's, with the dataset's value.
+        wire = _WireTransport(model_endpoint=client.model_endpoint).build_headers(
+            request_info
+        )
+        session_variants = [k for k in wire if k.lower() == "x-dynamo-session-id"]
+        assert session_variants == ["x-dynamo-session-id"]
+        assert wire["x-dynamo-session-id"] == "rec-1"
+
+    @pytest.mark.asyncio
+    async def test_routing_unset_no_headers_no_body_change(
+        self, mock_http_transport_entry
+    ):
+        client = self._build_client(mock_http_transport_entry, session_routing=None)
+        assert client._routing_plan is None
+        request_info = self._request_info(client, parent_correlation_id="parent-corr")
+
+        await client._send_request_to_transport(request_info)
+
+        payload = self._sent_payload(client)
         assert "nvext" not in payload
+        assert "X-Dynamo-Session-ID" not in request_info.endpoint_headers
+        assert "X-Dynamo-Parent-Session-ID" not in request_info.endpoint_headers
 
-
-class TestInferenceClientLegacySessionControl:
-    """Legacy (v1.2.x) open/close lifecycle, with the agentic-replay edge case.
-
-    The critical property: 'open' fires on the FIRST request the worker sends
-    for a session, tracked per-worker -- NOT on turn_index 0. Agentic replay
-    warms at k_i and profiles from k_i+1, so the first request a worker sees for
-    a session carries a NON-ZERO turn_index; a turn_index==0 gate would never
-    emit 'open' for those sessions.
-    """
-
-    @pytest.fixture
-    def model_endpoint(self):
-        return ModelEndpointInfo(
-            models=ModelListInfo(
-                models=[ModelInfo(name="test-model")],
-                model_selection_strategy=ModelSelectionStrategy.ROUND_ROBIN,
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "preset, opts, extra_substrings",
+        [
+            param("dynamo_nvext", None, [], id="body_mutating_plugin"),
+            param(
+                "custom",
+                {"headers": {"X-Routed": "header:x-src-id"}},
+                ["custom"],
+                id="turn_header_source_plan",
             ),
-            endpoint=EndpointInfo(
-                type=EndpointType.CHAT,
-                base_url="http://localhost:8000/v1/test",
-                use_dynamo_conv_aware_routing=True,
-                use_legacy_dynamo_session_control=True,
-                dynamo_session_timeout_seconds=123,
-            ),
+        ],
+    )  # fmt: skip
+    async def test_payload_bytes_with_incompatible_plan_yields_error_record(
+        self, mock_http_transport_entry, preset, opts, extra_substrings
+    ):
+        """Runtime parity gate: PAYLOAD_BYTES turns are verbatim (no body
+        mutation possible) and synthetic (author no extra_headers), so both a
+        body-mutating plan and a plan sourcing from header:<name> are refused
+        with a plan-attributed error record."""
+        client = self._build_client(
+            mock_http_transport_entry,
+            session_routing=preset,
+            session_routing_opts=opts,
+        )
+        request_info = self._request_info(client)
+        request_info.payload_bytes = b'{"a":1}'
+
+        record = await client.send_request(request_info)
+
+        assert record.error is not None
+        assert "PAYLOAD_BYTES" in record.error.message
+        for substring in extra_substrings:
+            assert substring in record.error.message
+        client.transport.send_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_payload_bytes_with_header_plugin_gets_headers(
+        self, mock_http_transport_entry
+    ):
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+        request_info = self._request_info(client, parent_correlation_id="parent-corr")
+        request_info.payload_bytes = b'{"a":1}'
+
+        await client._send_request_to_transport(request_info)
+
+        assert request_info.endpoint_headers["X-Dynamo-Session-ID"] == "corr-1"
+        assert (
+            request_info.endpoint_headers["X-Dynamo-Parent-Session-ID"] == "parent-corr"
+        )
+        # The verbatim bytes are forwarded to the transport untouched.
+        assert client.transport.send_request.call_args.kwargs["payload"] == b'{"a":1}'
+
+    @pytest.mark.asyncio
+    async def test_notify_session_end_reaches_plan(self, mock_http_transport_entry):
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+        client._routing_plan.notify_session_end = MagicMock(return_value=[])
+
+        # Pass-through must not dedupe: idempotency is the preset's job.
+        client.notify_session_end("corr-1")
+        client.notify_session_end("corr-1")
+
+        assert client._routing_plan.notify_session_end.call_count == 2
+        client._routing_plan.notify_session_end.assert_called_with("corr-1")
+
+    def test_notify_session_end_noop_when_routing_unset(
+        self, mock_http_transport_entry
+    ):
+        client = self._build_client(mock_http_transport_entry, session_routing=None)
+        # No routing plan: the hook is a safe no-op (never raises).
+        client.notify_session_end("corr-1")
+
+    def test_notify_session_end_swallows_plan_error_and_warns(
+        self, mock_http_transport_entry
+    ):
+        """A raising on_session_end must NOT propagate (core eviction must
+        proceed); the failure is logged with the plan + session named."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+        client._routing_plan.notify_session_end = MagicMock(
+            side_effect=RuntimeError("boom")
         )
 
-    @pytest.fixture
-    def inference_client(self, model_endpoint, mock_http_transport_entry):
-        mock_transport = MagicMock()
-        mock_endpoint = MagicMock()
-        mock_endpoint.get_endpoint_headers.return_value = {}
-        mock_endpoint.get_endpoint_params.return_value = {}
-        mock_endpoint.format_payload.return_value = {
-            "messages": [{"role": "user", "content": "hi"}],
+        with patch.object(client, "warning") as warn:
+            # Must not raise.
+            client.notify_session_end("corr-err")
+
+        client._routing_plan.notify_session_end.assert_called_once_with("corr-err")
+        warn.assert_called_once()
+        msg = warn.call_args.args[0]
+        assert "dynamo_headers" in msg and "corr-err" in msg
+
+    @pytest.mark.asyncio
+    async def test_notify_session_end_schedules_async_hooks(
+        self, mock_http_transport_entry
+    ):
+        """Labeled awaitables returned by async on_session_end hooks are
+        scheduled fire-and-forget via the lifecycle task manager."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+        ran = asyncio.Event()
+
+        async def _async_hook() -> None:
+            ran.set()
+
+        client._routing_plan.notify_session_end = MagicMock(
+            return_value=[("entry[0] (dynamo_headers)", _async_hook())]
+        )
+
+        client.notify_session_end("corr-1")
+
+        await asyncio.wait_for(ran.wait(), timeout=1.0)
+
+    @pytest.mark.asyncio
+    async def test_async_session_end_exception_warns_entry_and_session(
+        self, mock_http_transport_entry
+    ):
+        """An async on_session_end hook that raises is swallowed by the
+        scheduled guard, logging a warning that names the preset entry and
+        the session (no unretrieved-task noise)."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+
+        async def _boom() -> None:
+            raise RuntimeError("cleanup exploded")
+
+        client._routing_plan.notify_session_end = MagicMock(
+            return_value=[("entry[0] (dynamo_headers)", _boom())]
+        )
+
+        with patch.object(client, "warning") as warn:
+            client.notify_session_end("corr-9")
+            # Awaiting the guard task directly: it must complete WITHOUT
+            # re-raising (the exception is attributed and swallowed).
+            await asyncio.gather(*client.tasks)
+
+        warn.assert_called_once()
+        msg = warn.call_args.args[0]
+        assert "entry[0] (dynamo_headers)" in msg
+        assert "corr-9" in msg
+        assert "cleanup exploded" in msg
+
+    @pytest.mark.asyncio
+    async def test_async_session_end_timeout_warns_entry_and_session(
+        self, mock_http_transport_entry, monkeypatch
+    ):
+        """A hung async hook is abandoned after AIPERF_ROUTING_SESSION_END_TIMEOUT_S
+        with a warning naming the preset entry and session."""
+        from aiperf.common.environment import Environment
+
+        monkeypatch.setattr(Environment.ROUTING, "SESSION_END_TIMEOUT_S", 0.01)
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_headers"
+        )
+
+        async def _hang() -> None:
+            await asyncio.Event().wait()
+
+        client._routing_plan.notify_session_end = MagicMock(
+            return_value=[("entry[0] (dynamo_headers)", _hang())]
+        )
+
+        with patch.object(client, "warning") as warn:
+            client.notify_session_end("corr-slow")
+            await asyncio.gather(*client.tasks)
+
+        warn.assert_called_once()
+        msg = warn.call_args.args[0]
+        assert "entry[0] (dynamo_headers)" in msg
+        assert "corr-slow" in msg
+        assert "timed out" in msg
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "preset, method",
+        [
+            param("dynamo_headers", "headers", id="headers"),
+            param("dynamo_nvext", "transform_body", id="transform_body"),
+        ],
+    )  # fmt: skip
+    async def test_raising_plan_method_produces_plan_attributed_error_record(
+        self, mock_http_transport_entry, preset, method
+    ):
+        """A plan exception in headers()/transform_body() surfaces as an error
+        record whose message names the routing plan and the failing phase, not
+        the inference server."""
+        client = self._build_client(mock_http_transport_entry, session_routing=preset)
+        setattr(
+            client._routing_plan, method, MagicMock(side_effect=RuntimeError("boom"))
+        )
+        request_info = self._request_info(client)
+
+        record = await client._send_request_internal(request_info)
+
+        assert record.error is not None
+        assert preset in record.error.message
+        assert f"{method}()" in record.error.message
+        # The transport was never reached (the fault is pre-send).
+        client.transport.send_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_emitter_error_record_names_entry_without_double_wrap(
+        self, mock_http_transport_entry
+    ):
+        """A REAL emitter failure (missing dispatch-turn header, missing=error)
+        surfaces as an error record naming entry[<idx>] (<preset>) and the
+        phase exactly once (the plan-level attribution is not re-wrapped)."""
+        client = self._build_client(
+            mock_http_transport_entry,
+            session_routing="custom",
+            session_routing_opts={"headers": {"X-Routed": "header:x-src-id"}},
+        )
+        request_info = self._request_info(client)
+
+        record = await client._send_request_internal(request_info)
+
+        assert record.error is not None
+        assert "entry[0] (custom)" in record.error.message
+        assert record.error.message.count("headers()") == 1
+        client.transport.send_request.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "dataset_nvext, marker",
+        [
+            param(
+                {"session_control": {"session_id": "dataset-authored"}},
+                "overwrote",
+                id="dataset_value_overwrite",
+            ),
+            param(
+                "dataset-authored-opaque",
+                "non-dict",
+                id="non_dict_intermediate_replacement",
+            ),
+        ],
+    )  # fmt: skip
+    async def test_body_merge_diagnostics_warn_once_per_worker(
+        self, mock_http_transport_entry, dataset_nvext, marker
+    ):
+        """Spec 5.4: the FIRST dataset-value overwrite / non-dict-intermediate
+        replacement by a body emitter warns (naming the entry label and the
+        body path); later occurrences in the same worker stay silent."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_nvext"
+        )
+        client.endpoint.format_payload.return_value = {
             "model": "test-model",
+            "nvext": dataset_nvext,
         }
+        client.warning = MagicMock()
 
-        def mock_get_class(protocol, name):
-            if protocol == "endpoint":
-                return lambda **kwargs: mock_endpoint
-            if protocol == "transport":
-                return lambda **kwargs: mock_transport
-            raise ValueError(f"Unknown protocol: {protocol}")
+        await client._send_request_to_transport(self._request_info(client))
+        await client._send_request_to_transport(self._request_info(client))
 
-        with (
-            patch(
-                "aiperf.workers.inference_client.plugins.get_class",
-                side_effect=mock_get_class,
-            ),
-            patch(
-                "aiperf.workers.inference_client.plugins.list_entries",
-                return_value=[mock_http_transport_entry],
-            ),
-        ):
-            return InferenceClient(
-                model_endpoint=model_endpoint, service_id="test-service-id"
-            )
+        warnings = [
+            str(c.args[0])
+            for c in client.warning.call_args_list
+            if marker in str(c.args[0])
+        ]
+        assert len(warnings) == 1
+        assert "entry[0] (dynamo_nvext)" in warnings[0]
+        assert "nvext.session_control" in warnings[0]
 
-    async def _sent_sc(
-        self, inference_client, *, turn_index, is_final_turn, x_correlation_id="corr-1"
+    @pytest.mark.asyncio
+    async def test_fresh_body_writes_produce_no_warning(
+        self, mock_http_transport_entry
     ):
-        request_info = RequestInfo(
-            model_endpoint=inference_client.model_endpoint,
-            turns=[Turn(role="user", texts=[Text(contents=["hi"])])],
-            turn_index=turn_index,
-            credit_num=1,
-            credit_phase=CreditPhase.PROFILING,
-            x_request_id="rid",
-            x_correlation_id=x_correlation_id,
-            conversation_id="conv",
-            is_final_turn=is_final_turn,
+        """Writing keys the dataset never authored emits no diagnostics."""
+        client = self._build_client(
+            mock_http_transport_entry, session_routing="dynamo_nvext"
         )
-        inference_client.transport.send_request = AsyncMock(
-            return_value=RequestRecord(request_info=request_info)
-        )
-        await inference_client.send_request(request_info)
-        payload = orjson.loads(
-            inference_client.transport.send_request.call_args.kwargs["payload"]
-        )
-        return payload["nvext"]["session_control"]
+        client.warning = MagicMock()
 
-    @pytest.mark.asyncio
-    async def test_open_fires_on_first_request_with_nonzero_turn_index(
-        self, inference_client
+        await client._send_request_to_transport(self._request_info(client))
+        await client._send_request_to_transport(self._request_info(client))
+
+        client.warning.assert_not_called()
+
+
+class TestRoutingPlanFlags:
+    """The resolved plan's derived flags gate the PAYLOAD_BYTES fast path."""
+
+    @pytest.mark.parametrize(
+        "mode, opts, mutates_body",
+        [
+            param("dynamo_headers", None, False, id="dynamo_headers"),
+            param("dynamo_nvext", None, True, id="dynamo_nvext"),
+            param("smg_routing_key", None, False, id="smg_routing_key"),
+            param("session_id_header", None, False, id="session_id_header"),
+            param("sglang_session", None, True, id="sglang_session"),
+            param("url_index_header", None, False, id="url_index_header"),
+            param("claude_code_headers", None, False, id="claude_code_headers"),
+            param("custom", {"headers": {"X-A": "session"}}, False, id="custom_headers_only"),
+            param("custom", {"body": {"session_id": "session"}}, True, id="custom_with_body"),
+        ],
+    )  # fmt: skip
+    def test_mutates_body_per_builtin(
+        self, mock_http_transport_entry, mode, opts, mutates_body
     ):
-        """Agentx fix: the worker's first request for a session is the warmup
-        turn at k_i (non-zero turn_index), and it must still emit 'open'."""
-        sc = await self._sent_sc(inference_client, turn_index=5, is_final_turn=False)
-        assert sc == {"session_id": "corr-1", "action": "open", "timeout": 123}
-
-    @pytest.mark.asyncio
-    async def test_open_once_then_session_id_only_then_close(self, inference_client):
-        """Full lifecycle across the warmup->profiling boundary on one worker."""
-        # warmup turn k_i: first request -> open
-        warm = await self._sent_sc(inference_client, turn_index=5, is_final_turn=False)
-        assert warm["action"] == "open"
-        # profiling resume k_i+1: already opened -> session_id only, NO action
-        mid = await self._sent_sc(inference_client, turn_index=6, is_final_turn=False)
-        assert mid == {"session_id": "corr-1"}
-        # another profiling turn: still session_id only
-        mid2 = await self._sent_sc(inference_client, turn_index=7, is_final_turn=False)
-        assert mid2 == {"session_id": "corr-1"}
-        # final turn -> close
-        final = await self._sent_sc(inference_client, turn_index=8, is_final_turn=True)
-        assert final == {"session_id": "corr-1", "action": "close"}
-        # 'open' emitted exactly once for the session.
-
-    @pytest.mark.asyncio
-    async def test_close_clears_tracking_state(self, inference_client):
-        """The opened-sessions set is bounded: close drops the entry."""
-        await self._sent_sc(inference_client, turn_index=5, is_final_turn=False)
-        assert "corr-1" in inference_client._dynamo_opened_sessions
-        await self._sent_sc(inference_client, turn_index=6, is_final_turn=True)
-        assert "corr-1" not in inference_client._dynamo_opened_sessions
-
-    @pytest.mark.asyncio
-    async def test_each_session_opens_independently(self, inference_client):
-        """Distinct sessions each get their own 'open'."""
-        a = await self._sent_sc(
-            inference_client, turn_index=2, is_final_turn=False, x_correlation_id="a"
+        client = TestInferenceClientSessionRouting()._build_client(
+            mock_http_transport_entry, session_routing=mode, session_routing_opts=opts
         )
-        b = await self._sent_sc(
-            inference_client, turn_index=9, is_final_turn=False, x_correlation_id="b"
-        )
-        assert a["action"] == "open"
-        assert b["action"] == "open"
-        assert {"a", "b"} <= inference_client._dynamo_opened_sessions
+        assert client._routing_plan.mutates_body is mutates_body
 
-    @pytest.mark.asyncio
-    async def test_never_emits_bind(self, inference_client):
-        """Legacy mode must never put 'bind' on the wire (v1.2.x rejects it)."""
-        for ti in range(4):
-            sc = await self._sent_sc(
-                inference_client, turn_index=ti, is_final_turn=False
+    def test_invalid_opts_rejected_at_client_init(self, mock_http_transport_entry):
+        """Plan resolution at worker init fails fast on bad preset options."""
+        from aiperf.workers.session_routing import SessionRoutingConfigError
+
+        with pytest.raises(SessionRoutingConfigError, match="invalid options"):
+            TestInferenceClientSessionRouting()._build_client(
+                mock_http_transport_entry,
+                session_routing="dynamo_nvext",
+                session_routing_opts={"timeout_seconds": 0},
             )
-            assert sc.get("action") != "bind"

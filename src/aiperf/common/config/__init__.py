@@ -53,6 +53,7 @@ from aiperf.common.config.rankings_config import (
     RankingsPassagesConfig,
     RankingsQueryConfig,
 )
+from aiperf.common.config.routing_plan import PlanEntry, SessionRoutingConfigError
 from aiperf.common.config.service_config import ServiceConfig
 from aiperf.common.config.synthesis_config import SynthesisConfig
 from aiperf.common.config.tokenizer_config import TokenizerConfig
@@ -103,6 +104,7 @@ __all__ = [
     "OutputDefaults",
     "OutputTokensConfig",
     "OutputTokensDefaults",
+    "PlanEntry",
     "PrefixPromptConfig",
     "PrefixPromptDefaults",
     "PromptConfig",
@@ -114,6 +116,7 @@ __all__ = [
     "ServerMetricsDefaults",
     "ServiceConfig",
     "ServiceDefaults",
+    "SessionRoutingConfigError",
     "SynthesisConfig",
     "TokenizerConfig",
     "TokenizerDefaults",

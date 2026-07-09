@@ -286,6 +286,37 @@ class UserConfig(BaseConfig):
         return self
 
     @model_validator(mode="after")
+    def validate_session_routing_header_collision(self) -> Self:
+        """Reject a session-routing plan writing a header that is also set via
+        --header, compared case-insensitively.
+
+        The downstream header merge chain is case-sensitive, so both
+        case-variants would go on the wire with different values and the
+        gateway would pick one nondeterministically, silently defeating the
+        routing preset. The plan lives on EndpointConfig while --header lives
+        on InputConfig, so this cross-config check belongs here.
+        """
+        if not self.endpoint.session_routing_plan or not self.input.headers:
+            return self
+
+        # Lazy import to avoid circular dependency (mirrors EndpointConfig's
+        # plan resolution).
+        from aiperf.common.config.routing_plan import SessionRoutingConfigError
+        from aiperf.workers.session_routing.plan import resolve_plan
+
+        plan = resolve_plan(list(self.endpoint.session_routing_plan))
+        for name, _value in self.input.headers:
+            owner = plan.header_owner(name)
+            if owner is not None:
+                raise SessionRoutingConfigError(
+                    f"session-routing {owner} writes header {name!r}, which is "
+                    f"also configured via --header: both case-variants would go "
+                    f"on the wire with different values. Remove the --header "
+                    f"entry or pick a preset/option writing a different header."
+                )
+        return self
+
+    @model_validator(mode="after")
     def validate_unused_options(self) -> Self:
         """Validate that options are not set without their required companion options.
 

@@ -389,6 +389,13 @@ class Turn(AIPerfBaseModel):
         ),
     )
 
+    extra_headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Per-turn HTTP headers authored by the dataset; merged onto "
+        "the request headers after endpoint headers (dataset wins on exact-name "
+        "collision).",
+    )
+
     def metadata(self) -> TurnMetadata:
         """Get the metadata of the turn."""
         return TurnMetadata(

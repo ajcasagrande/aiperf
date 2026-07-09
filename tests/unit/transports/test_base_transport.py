@@ -7,7 +7,7 @@ import importlib.metadata as importlib_metadata
 import pytest
 
 from aiperf.common.enums import CreditPhase, ModelSelectionStrategy
-from aiperf.common.environment import Environment
+from aiperf.common.models.dataset_models import Turn
 from aiperf.common.models.model_endpoint_info import (
     EndpointInfo,
     ModelEndpointInfo,
@@ -154,28 +154,6 @@ class TestBaseTransport:
         assert headers["Custom-Header"] == "custom-value"
         assert headers["User-Agent"] == AIPERF_USER_AGENT
 
-    def test_build_headers_can_alias_correlation_id_as_session_id(
-        self, transport, request_info, monkeypatch
-    ):
-        """Test opt-in session affinity header for external routers."""
-        monkeypatch.setattr(Environment.HTTP, "X_SESSION_ID_FROM_CORRELATION_ID", True)
-
-        headers = transport.build_headers(request_info)
-
-        assert headers["X-Session-ID"] == "test-correlation-id"
-
-    def test_build_headers_can_alias_correlation_id_as_smg_routing_key(
-        self, transport, request_info, monkeypatch
-    ):
-        """Test opt-in SGLang Model Gateway affinity header."""
-        monkeypatch.setattr(
-            Environment.HTTP, "X_SMG_ROUTING_KEY_FROM_CORRELATION_ID", True
-        )
-
-        headers = transport.build_headers(request_info)
-
-        assert headers["X-SMG-Routing-Key"] == "test-correlation-id"
-
     def test_build_headers_transport_headers_override(self, request_info):
         """Test that transport headers can override endpoint headers."""
 
@@ -216,6 +194,49 @@ class TestBaseTransport:
         assert headers["Authorization"] == "Bearer token"  # Endpoint
         assert headers["X-Priority"] == "transport"  # Transport wins
         assert headers["Content-Type"] == "application/json"  # Transport
+
+    def test_build_headers_turn_extra_headers_override_endpoint(
+        self, transport, request_info
+    ):
+        """A dataset-authored turn header of the same exact name wins over the
+        endpoint header (dataset authored the request, so dataset wins)."""
+        request_info.endpoint_headers = {"X-Route": "endpoint"}
+        request_info.turns = [
+            Turn(role="user", extra_headers={"X-Route": "dataset"}),
+        ]
+        headers = transport.build_headers(request_info)
+        assert headers["X-Route"] == "dataset"
+
+    def test_build_headers_turn_extra_headers_differing_names_both_present(
+        self, transport, request_info
+    ):
+        """Differing header names coexist: endpoint header and turn header
+        are both present on the final request."""
+        request_info.endpoint_headers = {"X-Endpoint": "e-val"}
+        request_info.turns = [
+            Turn(role="user", extra_headers={"X-Turn": "t-val"}),
+        ]
+        headers = transport.build_headers(request_info)
+        assert headers["X-Endpoint"] == "e-val"
+        assert headers["X-Turn"] == "t-val"
+
+    def test_build_headers_no_turns_unchanged(self, transport, request_info):
+        """No turns: behavior is unchanged (endpoint headers pass through)."""
+        request_info.endpoint_headers = {"X-Endpoint": "e-val"}
+        request_info.turns = []
+        headers = transport.build_headers(request_info)
+        assert headers["X-Endpoint"] == "e-val"
+        assert headers["User-Agent"] == AIPERF_USER_AGENT
+
+    def test_build_headers_turn_without_extra_headers_unchanged(
+        self, transport, request_info
+    ):
+        """A dispatch turn with the default empty extra_headers changes nothing."""
+        request_info.endpoint_headers = {"X-Endpoint": "e-val"}
+        request_info.turns = [Turn(role="user")]
+        headers = transport.build_headers(request_info)
+        assert headers["X-Endpoint"] == "e-val"
+        assert headers["User-Agent"] == AIPERF_USER_AGENT
 
     def test_build_url_simple(self, transport, request_info):
         """Test build_url with no query parameters."""

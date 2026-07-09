@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import Field
 
-from aiperf.common.config import EndpointDefaults, UserConfig
+from aiperf.common.config import EndpointDefaults, PlanEntry, UserConfig
 from aiperf.common.enums import (
     ConnectionReuseStrategy,
     ModelSelectionStrategy,
@@ -114,19 +114,11 @@ class EndpointInfo(AIPerfBaseModel):
         default=EndpointDefaults.USE_SERVER_TOKEN_COUNT,
         description="Use server-reported token counts from API usage fields instead of client-side tokenization.",
     )
-    use_dynamo_conv_aware_routing: bool = Field(
-        default=EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING,
-        description="Emit Dynamo nvext.session_control for conversation-aware routing.",
-    )
-    use_legacy_dynamo_session_control: bool = Field(
-        default=EndpointDefaults.USE_LEGACY_DYNAMO_SESSION_CONTROL,
-        description="Emit the v1.2.x-compatible open/close session_control lifecycle "
-        "instead of the 'bind' action (which only exists in Dynamo >= v1.3.0-dev).",
-    )
-    dynamo_session_timeout_seconds: int = Field(
-        default=EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS,
-        ge=1,
-        description="Timeout in seconds for Dynamo nvext.session_control sessions.",
+    session_routing_plan: list[PlanEntry] = Field(
+        default_factory=list,
+        description="Canonical session-routing plan: ordered preset entries "
+        "with opts coerced to each preset's Options model types (empty = "
+        "routing off).",
     )
     connection_reuse_strategy: ConnectionReuseStrategy = Field(
         default=EndpointDefaults.CONNECTION_REUSE_STRATEGY,
@@ -178,15 +170,7 @@ class EndpointInfo(AIPerfBaseModel):
             api_key=user_config.endpoint.api_key,
             use_legacy_max_tokens=user_config.endpoint.use_legacy_max_tokens,
             use_server_token_count=user_config.endpoint.use_server_token_count,
-            use_dynamo_conv_aware_routing=(
-                user_config.endpoint.use_dynamo_conv_aware_routing
-            ),
-            use_legacy_dynamo_session_control=(
-                user_config.endpoint.use_legacy_dynamo_session_control
-            ),
-            dynamo_session_timeout_seconds=(
-                user_config.endpoint.dynamo_session_timeout_seconds
-            ),
+            session_routing_plan=list(user_config.endpoint.session_routing_plan),
             connection_reuse_strategy=user_config.endpoint.connection_reuse_strategy,
             download_video_content=user_config.endpoint.download_video_content,
             request_content_type=user_config.endpoint.request_content_type,

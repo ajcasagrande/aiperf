@@ -135,8 +135,6 @@ HTTP client socket and connection configuration. Controls low-level socket optio
 | `AIPERF_HTTP_REQUEST_CANCELLATION_SEND_TIMEOUT` | `300.0` | ≥ 10.0, ≤ 3600.0 | Safety net timeout in seconds for waiting for HTTP request to be fully sent when request cancellation is enabled. Used as fallback when no explicit timeout is configured to prevent hanging indefinitely while waiting for the request to be written to the socket. |
 | `AIPERF_HTTP_IP_VERSION` | `'4'` | — | IP version for HTTP socket connections. Options: '4' (AF_INET, default), '6' (AF_INET6), or 'auto' (AF_UNSPEC, system chooses). |
 | `AIPERF_HTTP_TRUST_ENV` | `False` | — | Trust environment variables for HTTP client configuration. When enabled, aiohttp will read proxy settings from HTTP_PROXY, HTTPS_PROXY, and NO_PROXY environment variables. |
-| `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID` | `False` | — | Also send X-Session-ID with the stable X-Correlation-ID value. Use this when an external router requires a session-affinity header. |
-| `AIPERF_HTTP_X_SMG_ROUTING_KEY_FROM_CORRELATION_ID` | `False` | — | Also send X-SMG-Routing-Key with the stable X-Correlation-ID value. Use this with the SGLang Model Gateway manual routing policy. |
 | `AIPERF_HTTP_VIDEO_POLL_INTERVAL` | `0.1` | ≥ 0.001, ≤ 10.0 | Interval in seconds between status polls for async video generation jobs. Lower values provide faster completion detection but increase server load. Applies to the aiohttp transport. |
 
 ## LOGGING
@@ -173,6 +171,14 @@ Record processing and export configuration. Controls batch sizes, processor scal
 | `AIPERF_RECORD_PROGRESS_REPORT_INTERVAL` | `2.0` | ≥ 0.1, ≤ 600.0 | Interval in seconds between records progress report messages |
 | `AIPERF_RECORD_PROCESS_RECORDS_TIMEOUT` | `300.0` | ≥ 1.0, ≤ 100000.0 | Timeout in seconds for processing record results |
 | `AIPERF_RECORD_STRIP_PAYLOAD_BYTES` | `None` | — | Tri-state control for omitting canonical request payload bytes from RecordContext after a request is sent, which substantially reduces record-pipeline memory for very large prompts. None (default) auto-detects: bytes are stripped only when no downstream record consumer needs them (client-side input tokenization disabled, no synthetic image/audio/video inputs, and raw payload export off). True forces stripping even when a consumer wants the bytes, disabling client-side input tokenization, media counting from request bodies, and raw request payload export. False always retains them. Auto-detection does not see media embedded in custom dataset payloads under server-token-count mode; set False explicitly for that case. |
+
+## ROUTING
+
+Session-routing plan execution configuration. Controls dispatch-time behavior of --session-routing plans in workers.
+
+| Environment Variable | Default | Constraints | Description |
+|----------------------|---------|-------------|-------------|
+| `AIPERF_ROUTING_SESSION_END_TIMEOUT_S` | `30.0` | > 0.0, ≤ 3600.0 | Timeout in seconds for a single async session-routing on_session_end hook scheduled by the worker at session eviction. A hook exceeding it is abandoned with a warning naming the preset entry and session |
 
 ## SERVERMETRICS
 

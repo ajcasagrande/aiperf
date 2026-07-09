@@ -4,8 +4,9 @@
 
 import pytest
 
-from aiperf.common.config import EndpointConfig, EndpointDefaults, UserConfig
+from aiperf.common.config import EndpointConfig, EndpointDefaults, PlanEntry, UserConfig
 from aiperf.common.models.model_endpoint_info import EndpointInfo, ModelEndpointInfo
+from aiperf.workers.session_routing import resolve_plan_from_endpoint
 
 
 class TestEndpointInfoMultiURL:
@@ -16,14 +17,7 @@ class TestEndpointInfoMultiURL:
         info = EndpointInfo()
         assert info.base_urls == [EndpointDefaults.URL]
         assert info.base_url == EndpointDefaults.URL
-        assert (
-            info.use_dynamo_conv_aware_routing
-            == EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING
-        )
-        assert (
-            info.dynamo_session_timeout_seconds
-            == EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS
-        )
+        assert info.session_routing_plan == []
 
     def test_single_url_custom(self):
         """Custom single URL should work."""
@@ -43,18 +37,40 @@ class TestEndpointInfoMultiURL:
         with pytest.raises(ValueError):
             EndpointInfo(base_urls=[])
 
-    def test_dynamo_session_control_from_user_config(self):
-        """Dynamo session-control fields should flow into runtime endpoint info."""
+    def test_session_routing_from_user_config(self):
+        """The canonical session-routing plan should flow into runtime endpoint
+        info, with opts canonicalized to the preset's Options model types."""
         user_config = UserConfig(
             endpoint=EndpointConfig(
                 model_names=["test-model"],
-                use_dynamo_conv_aware_routing=True,
-                dynamo_session_timeout_seconds=123,
+                session_routing="dynamo_nvext",
+                session_routing_opt=["timeout_seconds=123"],
             )
         )
         info = ModelEndpointInfo.from_user_config(user_config).endpoint
-        assert info.use_dynamo_conv_aware_routing is True
-        assert info.dynamo_session_timeout_seconds == 123
+        assert info.session_routing_plan == [
+            PlanEntry(preset="dynamo_nvext", opts={"timeout_seconds": 123})
+        ]
+
+    def test_session_routing_plan_round_trip(self):
+        """model_dump -> reconstruct must preserve the plan and resolve
+        identically (the carrier crosses process boundaries)."""
+        info = EndpointInfo(
+            session_routing_plan=[
+                PlanEntry(preset="dynamo_headers"),
+                PlanEntry(preset="dynamo_nvext", opts={"timeout_seconds": 60}),
+            ]
+        )
+        rebuilt = EndpointInfo(**info.model_dump())
+        assert rebuilt.session_routing_plan == info.session_routing_plan
+
+        plan = resolve_plan_from_endpoint(rebuilt)
+        assert plan is not None
+        assert plan.entries == info.session_routing_plan
+        assert plan.mutates_body is True
+
+    def test_empty_plan_resolves_to_none(self):
+        assert resolve_plan_from_endpoint(EndpointInfo()) is None
 
 
 class TestEndpointInfoGetUrl:

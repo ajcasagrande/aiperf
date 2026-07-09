@@ -19,6 +19,7 @@ Structure:
     Environment.LOGGING.*        - Logging configuration
     Environment.METRICS.*        - Metrics collection and storage
     Environment.RECORD.*         - Record processing
+    Environment.ROUTING.*        - Session-routing plan execution
     Environment.SERVER_METRICS.* - Server metrics collection
     Environment.SERVICE.*        - Service lifecycle and communication
     Environment.STEADY_STATE.*   - Steady-state detection
@@ -675,16 +676,6 @@ class _HTTPSettings(BaseSettings):
         "When enabled, aiohttp will read proxy settings from HTTP_PROXY, HTTPS_PROXY, "
         "and NO_PROXY environment variables.",
     )
-    X_SESSION_ID_FROM_CORRELATION_ID: bool = Field(
-        default=False,
-        description="Also send X-Session-ID with the stable X-Correlation-ID value. "
-        "Use this when an external router requires a session-affinity header.",
-    )
-    X_SMG_ROUTING_KEY_FROM_CORRELATION_ID: bool = Field(
-        default=False,
-        description="Also send X-SMG-Routing-Key with the stable X-Correlation-ID value. "
-        "Use this with the SGLang Model Gateway manual routing policy.",
-    )
     VIDEO_POLL_INTERVAL: float = Field(
         ge=0.001,
         le=10.0,
@@ -818,6 +809,26 @@ class _RecordSettings(BaseSettings):
         "payload export. False always retains them. Auto-detection does not see "
         "media embedded in custom dataset payloads under server-token-count mode; "
         "set False explicitly for that case.",
+    )
+
+
+class _RoutingSettings(BaseSettings):
+    """Session-routing plan execution configuration.
+
+    Controls dispatch-time behavior of --session-routing plans in workers.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="AIPERF_ROUTING_",
+    )
+
+    SESSION_END_TIMEOUT_S: float = Field(
+        gt=0.0,
+        le=3600.0,
+        default=30.0,
+        description="Timeout in seconds for a single async session-routing on_session_end "
+        "hook scheduled by the worker at session eviction. A hook exceeding it is abandoned "
+        "with a warning naming the preset entry and session",
     )
 
 
@@ -1370,6 +1381,10 @@ class _Environment(BaseSettings):
     RECORD: _RecordSettings = Field(
         default_factory=_RecordSettings,
         description="Record processing and export settings",
+    )
+    ROUTING: _RoutingSettings = Field(
+        default_factory=_RoutingSettings,
+        description="Session-routing plan execution settings",
     )
     SERVER_METRICS: _ServerMetricsSettings = Field(
         default_factory=_ServerMetricsSettings,

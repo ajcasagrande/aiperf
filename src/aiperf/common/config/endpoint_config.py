@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     BeforeValidator,
@@ -14,10 +14,16 @@ from typing_extensions import Self
 
 from aiperf.common.aiperf_logger import AIPerfLogger
 from aiperf.common.config.base_config import BaseConfig
-from aiperf.common.config.cli_parameter import CLIParameter
+from aiperf.common.config.cli_parameter import CLIParameter, DisableCLI
 from aiperf.common.config.config_defaults import EndpointDefaults
 from aiperf.common.config.config_validators import parse_str_or_list
 from aiperf.common.config.groups import Groups
+from aiperf.common.config.routing_plan import (
+    PlanEntry,
+    SessionRoutingConfigError,
+    build_plan_entries,
+    normalize_session_routing_entries,
+)
 from aiperf.common.enums import (
     ConnectionReuseStrategy,
     ModelSelectionStrategy,
@@ -31,6 +37,40 @@ from aiperf.plugin.enums import (
 )
 
 _logger = AIPerfLogger(__name__)
+
+
+def _one_opt_or_list(value: Any) -> Any:
+    """Wrap a bare string opt into a single-item list WITHOUT comma-splitting.
+
+    Unlike ``parse_str_or_list``, commas are preserved: they are legal inside
+    opt VALUES (e.g. ``session=X-Session-ID,X-SMG-Routing-Key``) and are
+    interpreted by the selected plugin's Options model, not the CLI layer.
+    Repeat the flag to pass multiple opts.
+    """
+    if isinstance(value, str):
+        return [value]
+    return value
+
+
+def _parse_session_routing_opts(values: list[str]) -> dict[str, str]:
+    """Parse repeatable ``key=value`` pairs into a dict, rejecting malformed
+    or duplicate entries with an actionable error.
+
+    Splits on the FIRST ``=`` only: colons and further ``=`` inside the value
+    are inert and passed through to the preset's Options model.
+    """
+    opts: dict[str, str] = {}
+    for item in values:
+        key, separator, value = item.partition("=")
+        key, value = key.strip(), value.strip()
+        if not separator or not key or not value:
+            raise ValueError(
+                f"Invalid --session-routing-opt {item!r}; expected non-empty key=value"
+            )
+        if key in opts:
+            raise ValueError(f"Duplicate --session-routing-opt key {key!r}")
+        opts[key] = value
+    return opts
 
 
 class EndpointConfig(BaseConfig):
@@ -85,19 +125,81 @@ class EndpointConfig(BaseConfig):
         return self
 
     @model_validator(mode="after")
-    def validate_dynamo_session_control_coherent(self) -> Self:
-        """Reject --use-legacy-dynamo-session-control unless conversation-aware
-        routing is enabled, since the legacy flag only selects the wire contract
-        for the session_control that --use-dynamo-conv-aware-routing emits.
+    def validate_session_routing(self) -> Self:
+        """Normalize the session-routing config surface into a canonical plan.
+
+        Canonicalizes every accepted ``--session-routing`` form (bare string,
+        list of names, single-key ``{preset: opts}`` mappings) plus the three
+        opt channels (inline entry opts, the flat ``session_routing_opts``
+        dict, repeatable ``--session-routing-opt key=value`` pairs) into
+        ``session_routing_plan``, with opts coerced to each preset's Options
+        model types so downstream consumers (including the pickled UserConfig
+        that reaches workers) re-validate without re-parsing. Resolves the
+        full plan here so EVERY plan invariant (unknown presets, bad opts,
+        header/body-path conflicts) fails at config load, then applies the
+        endpoint-context checks that need urls/content-type.
         """
+        entries = normalize_session_routing_entries(self.session_routing or [])
+        cli_opts = _parse_session_routing_opts(self.session_routing_opt)
+        if not entries:
+            if self.session_routing_opts or cli_opts:
+                raise ValueError(
+                    "--session-routing-opt requires --session-routing to select a mode."
+                )
+            self.session_routing_plan = []
+            return self
+
+        plan_entries, has_inline_opts = build_plan_entries(
+            entries, self.session_routing_opts, cli_opts
+        )
+
+        # Lazy imports to avoid circular dependency
+        from aiperf.plugin import plugins
+        from aiperf.plugin.enums import PluginType
+        from aiperf.plugin.types import TypeNotFoundError
+        from aiperf.workers.session_routing.plan import resolve_plan
+
+        try:
+            plan = resolve_plan(plan_entries)
+        except TypeNotFoundError as e:
+            raise SessionRoutingConfigError(str(e)) from e
+
+        # Canonicalize opts to the Options model types (already validated by
+        # resolve_plan, so this cannot fail).
+        self.session_routing_plan = [
+            PlanEntry(
+                preset=entry.preset,
+                opts=plugins.get_class(PluginType.SESSION_ROUTING, entry.preset)
+                .Options.model_validate(entry.opts)
+                .model_dump(mode="json", exclude_unset=True),
+            )
+            for entry in plan_entries
+        ]
+
+        # Legacy mirror: with a sole preset and no inline entry opts, stamp the
+        # canonical opts onto the flat dict (the pre-plan single-mode contract).
+        # Skipped when inline opts exist -- stamping would collide with them on
+        # re-validation of the serialized config.
+        if len(plan_entries) == 1 and not has_inline_opts:
+            self.session_routing_opts = dict(self.session_routing_plan[0].opts)
+
+        if plan.uses_url_index and len(self.urls) == 1:
+            raise SessionRoutingConfigError(
+                "session-routing plan reads the 'url_index' source, but only "
+                "one --url is configured, so every request would carry index 0. "
+                "If each rank shares one frontend URL, repeat the URL once per "
+                "rank: --url U --url U ..."
+            )
         if (
-            self.use_legacy_dynamo_session_control
-            and not self.use_dynamo_conv_aware_routing
+            plan.mutates_body
+            and self.request_content_type == RequestContentType.MULTIPART_FORM_DATA
         ):
-            raise ValueError(
-                "--use-legacy-dynamo-session-control has no effect unless "
-                "--use-dynamo-conv-aware-routing is enabled. Enable conversation-"
-                "aware routing, or drop the legacy flag."
+            raise SessionRoutingConfigError(
+                f"session-routing plan mutates request bodies "
+                f"({', '.join(entry.preset for entry in plan_entries)}), which "
+                f"is unsupported with --request-content-type multipart/form-data "
+                f"(the body is encoded as form fields, not JSON); use a "
+                f"headers-only preset."
             )
         return self
 
@@ -339,59 +441,84 @@ class EndpointConfig(BaseConfig):
         ),
     ] = EndpointDefaults.USE_SERVER_TOKEN_COUNT
 
-    use_dynamo_conv_aware_routing: Annotated[
-        bool,
+    session_routing: Annotated[
+        list[str | dict[str, Any]] | None,
         Field(
             description=(
-                "Emit Dynamo nvext.session_control in OpenAI-compatible request "
-                "bodies so Dynamo can bind all turns from the same replayed "
-                "conversation lineage to the same backend worker. This is only "
-                "intended for Dynamo frontends that implement session_control."
+                "Session-aware routing preset(s): stamps per-session identity "
+                "on every request for router affinity. Repeat the flag to "
+                "stack presets (each preset must write disjoint headers/body "
+                "paths). In a config file, accepts a bare preset name, a list "
+                "of names, or single-key `{preset: opts}` mappings. Header "
+                "presets: dynamo_headers (X-Dynamo-Session-ID + parent "
+                "header), smg_routing_key (X-SMG-Routing-Key for the SGLang "
+                "Model Gateway manual and consistent-hashing policies), "
+                "session_id_header (additive "
+                "X-Session-ID), url_index_header (assigned URL slot index), "
+                "claude_code_headers (Claude Code agent-tree identity). "
+                "Body presets: dynamo_nvext (nvext.session_control bind/close "
+                "metadata; --session-routing-opt timeout_seconds=N), "
+                "sglang_session (session key in a top-level body field). "
+                "Generic: custom (any header/body assignment from any source "
+                "via --session-routing-opt headers.<name>=<source> / "
+                "body.<path>=<source> or JSON headers=... / body=...)."
             ),
         ),
+        BeforeValidator(_one_opt_or_list),
         CLIParameter(
-            name=(
-                "--use-dynamo-conv-aware-routing",
-                "--use-dynamo-session-control",
-            ),
+            name=("--session-routing",),
+            consume_multiple=True,
             group=Groups.ENDPOINT,
         ),
-    ] = EndpointDefaults.USE_DYNAMO_CONV_AWARE_ROUTING
+    ] = None
 
-    use_legacy_dynamo_session_control: Annotated[
-        bool,
+    session_routing_opt: Annotated[
+        list[str],
         Field(
             description=(
-                "Emit the legacy Dynamo nvext.session_control lifecycle that "
-                "released Dynamo (v1.2.x) understands: action 'open' on the first "
-                "turn, session_id only on intermediate turns, and action 'close' "
-                "on the final turn. Use this when the target Dynamo predates the "
-                "'bind' action (added in v1.3.0-dev); otherwise 'bind' is rejected "
-                "with an HTTP 400. Requires --use-dynamo-conv-aware-routing, and "
-                "the Dynamo deployment must expose a worker session_control "
-                "endpoint for 'open' to take effect."
+                "Repeatable key=value option for the configured "
+                "--session-routing preset(s), validated against each preset's "
+                "Options model. A bare key (timeout_seconds=600) binds to the "
+                "sole configured preset; with stacked presets namespace it as "
+                "<preset>.<key> (dynamo_nvext.timeout_seconds=600). Keys "
+                "starting with headers.<name> or body.<dotted.path> are "
+                "per-assignment forms for the custom preset. Commas inside "
+                "the value are passed through to the preset (repeat the flag "
+                "for multiple opts)."
             ),
         ),
+        BeforeValidator(_one_opt_or_list),
         CLIParameter(
-            name=("--use-legacy-dynamo-session-control",),
+            name=("--session-routing-opt",),
+            consume_multiple=True,
             group=Groups.ENDPOINT,
         ),
-    ] = EndpointDefaults.USE_LEGACY_DYNAMO_SESSION_CONTROL
+    ] = []
 
-    dynamo_session_timeout_seconds: Annotated[
-        int,
+    session_routing_opts: Annotated[
+        dict[str, Any],
         Field(
-            description=(
-                "Dynamo nvext.session_control timeout in seconds when "
-                "--use-dynamo-conv-aware-routing is enabled."
-            ),
-            ge=1,
+            description="Runtime-canonicalized options dict for a SINGLE "
+            "--session-routing preset, parsed from --session-routing-opt "
+            "key=value pairs and coerced to the preset's Options model types. "
+            "Rejected when more than one preset is configured. Not "
+            "user-settable on the CLI.",
+            json_schema_extra={"add_to_template": False},
         ),
-        CLIParameter(
-            name=("--dynamo-session-timeout-seconds",),
-            group=Groups.ENDPOINT,
+        DisableCLI(reason="Runtime-stamped from --session-routing-opt"),
+    ] = {}
+
+    session_routing_plan: Annotated[
+        list[PlanEntry],
+        Field(
+            description="Runtime-canonicalized session-routing plan: ordered "
+            "preset entries with opts coerced to each preset's Options model "
+            "types. Derived from --session-routing / --session-routing-opt; "
+            "not user-settable on the CLI.",
+            json_schema_extra={"add_to_template": False},
         ),
-    ] = EndpointDefaults.DYNAMO_SESSION_TIMEOUT_SECONDS
+        DisableCLI(reason="Runtime-canonicalized from --session-routing"),
+    ] = []
 
     connection_reuse_strategy: Annotated[
         ConnectionReuseStrategy,

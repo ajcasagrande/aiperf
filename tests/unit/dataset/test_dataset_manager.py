@@ -1,17 +1,29 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
+from pytest import param
 
-from aiperf.common.config import EndpointConfig, InputConfig, ServiceConfig, UserConfig
+from aiperf.common.config import (
+    EndpointConfig,
+    InputConfig,
+    PlanEntry,
+    ServiceConfig,
+    UserConfig,
+)
 from aiperf.common.config.config_defaults import InputDefaults
 from aiperf.common.config.conversation_config import ConversationConfig, TurnConfig
 from aiperf.common.config.tokenizer_config import TokenizerConfig
-from aiperf.common.enums import ConversationContextMode
+from aiperf.common.enums import (
+    CacheBustTarget,
+    ConversationContextMode,
+    MemoryMapFormat,
+)
 from aiperf.common.exceptions import ServiceError
 from aiperf.common.messages import (
     ConversationRequestMessage,
@@ -20,6 +32,7 @@ from aiperf.common.messages import (
 )
 from aiperf.common.messages.command_messages import ProfileConfigureCommand
 from aiperf.common.models import Conversation, Image, Text, Turn
+from aiperf.dataset import mmap_cache
 from aiperf.dataset.dataset_manager import DatasetManager
 from aiperf.plugin.enums import (
     CustomDatasetType,
@@ -28,6 +41,7 @@ from aiperf.plugin.enums import (
     ServiceRunType,
     TimingMode,
 )
+from aiperf.workers.session_routing import SessionRoutingConfigError
 
 # ============================================================================
 # Shared Fixtures
@@ -1219,6 +1233,57 @@ class TestAccuracyModeSamplingGuards:
         assert conversations[0].turns[0].raw_payload is None
         assert conversations[1].turns[0].raw_payload is None
 
+    def test_preformat_skipped_when_mutating_routing_enabled(
+        self, initialized_dataset_manager
+    ):
+        """A body-mutating session-routing mode must keep structured datasets on
+        the structured-turns path. Without this bail, the preformatter promotes
+        the default synthetic/single-turn dataset to PAYLOAD_BYTES and
+        _select_mmap_format then hard-fails a perfectly valid run."""
+        initialized_dataset_manager.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
+
+        conversations = [
+            Conversation(
+                session_id="s1",
+                turns=[Turn(role="user", texts=[Text(contents=["hi"])])],
+            ),
+        ]
+
+        with patch(
+            "aiperf.dataset.dataset_manager.format_conversation_payloads"
+        ) as mock_fmt:
+            initialized_dataset_manager._preformat_payloads(conversations)
+            mock_fmt.assert_not_called()
+
+        assert conversations[0].turns[0].raw_payload is None
+        # And the resulting structured dataset selects CONVERSATION cleanly.
+        assert (
+            initialized_dataset_manager._select_mmap_format(conversations)
+            == MemoryMapFormat.CONVERSATION
+        )
+
+    def test_preformat_proceeds_with_header_routing(self, initialized_dataset_manager):
+        """Headers-only routing modes leave the body untouched, so the
+        PAYLOAD_BYTES fast path stays available (no bail)."""
+        initialized_dataset_manager.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_headers")
+        ]
+
+        conversations = [
+            Conversation(
+                session_id="s1",
+                turns=[Turn(role="user", texts=[Text(contents=["hi"])])],
+            ),
+        ]
+
+        with patch(
+            "aiperf.dataset.dataset_manager.format_conversation_payloads"
+        ) as mock_fmt:
+            initialized_dataset_manager._preformat_payloads(conversations)
+            mock_fmt.assert_called_once()
+
 
 class TestSelectMmapFormat:
     """Tests for DatasetManager._select_mmap_format format-selection guard."""
@@ -1301,7 +1366,7 @@ class TestSelectMmapFormat:
         ]
         with pytest.raises(
             ValueError,
-            match=r"--cache-bust is incompatible with the PAYLOAD_BYTES",
+            match=r"cache-bust must mutate request bodies and is incompatible",
         ):
             initialized_dataset_manager._select_mmap_format(conversations)
 
@@ -1325,16 +1390,18 @@ class TestSelectMmapFormat:
             == MemoryMapFormat.CONVERSATION
         )
 
-    def test_select_format_rejects_payload_bytes_when_dynamo_routing_enabled(
+    def test_select_format_rejects_payload_bytes_when_mutating_routing_enabled(
         self, initialized_dataset_manager
     ):
-        """Dynamo session-control + raw_payload-producing loader must raise.
+        """Body-mutating session routing + raw_payload-producing loader must raise.
 
         nvext.session_control mutates the request body, which the verbatim
         PAYLOAD_BYTES fast path streams pre-encoded and cannot carry -- the
         same conflict as cache-bust, refused early with an actionable error.
         """
-        initialized_dataset_manager.user_config.endpoint.use_dynamo_conv_aware_routing = True
+        initialized_dataset_manager.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
 
         conversations = [
             Conversation(
@@ -1342,19 +1409,18 @@ class TestSelectMmapFormat:
                 turns=[Turn(role="user", raw_payload={"a": 1})],
             ),
         ]
-        with pytest.raises(
-            ValueError,
-            match=r"--use-dynamo-conv-aware-routing is incompatible with the PAYLOAD_BYTES",
-        ):
+        with pytest.raises(ValueError, match=r"dynamo_nvext"):
             initialized_dataset_manager._select_mmap_format(conversations)
 
-    def test_select_format_allows_conversation_when_dynamo_routing_enabled(
+    def test_select_format_allows_conversation_when_mutating_routing_enabled(
         self, initialized_dataset_manager
     ):
-        """Dynamo routing with structured turns (no raw_payload) -> CONVERSATION."""
+        """Body-mutating routing with structured turns (no raw_payload) -> CONVERSATION."""
         from aiperf.common.enums import MemoryMapFormat
 
-        initialized_dataset_manager.user_config.endpoint.use_dynamo_conv_aware_routing = True
+        initialized_dataset_manager.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
         conversations = [
             Conversation(
                 session_id="s1",
@@ -1365,3 +1431,618 @@ class TestSelectMmapFormat:
             initialized_dataset_manager._select_mmap_format(conversations)
             == MemoryMapFormat.CONVERSATION
         )
+
+
+# ============================================================================
+# PAYLOAD_BYTES body-mutating feature gates (session-routing + cache-bust)
+# ============================================================================
+
+
+def _raw_payload_conversations() -> list[Conversation]:
+    """Conversations whose turns carry raw_payload (select PAYLOAD_BYTES)."""
+    return [
+        Conversation(session_id="s1", turns=[Turn(role="user", raw_payload={"a": 1})])
+    ]
+
+
+def _payload_bytes_cache_hit(
+    tmp_path: Path, *, source_loaded: bool = True
+) -> mmap_cache.CacheHit:
+    """Minimal CacheHit whose manifest reports PAYLOAD_BYTES.
+
+    ``source_loaded=True`` marks the entry's payload bytes as shipped by the
+    dataset itself (hard-fail material); ``False`` marks a preformat-promoted
+    entry (downgraded to a MISS under a body-mutator). The cache-hit gate is
+    the first statement of ``_configure_from_cache_hit`` and raises before any
+    file restore, so the on-disk paths need not exist.
+    """
+    manifest = mmap_cache.CacheManifest(
+        cache_key="test-key",
+        created_at=0.0,
+        num_conversations=1,
+        total_size_bytes=1,
+        mmap_format=str(MemoryMapFormat.PAYLOAD_BYTES),
+        dataset_metadata_json="{}",
+        all_turns_source_loaded_payloads=source_loaded,
+    )
+    return mmap_cache.CacheHit(
+        entry_dir=tmp_path,
+        data_path=tmp_path / "dataset.dat",
+        index_path=tmp_path / "index.dat",
+        manifest=manifest,
+    )
+
+
+class TestPayloadBytesBodyMutatingGates:
+    """PAYLOAD_BYTES is refused whenever a body-mutating feature is active.
+
+    Covers both gates that key off ``_body_mutating_feature``: build-path
+    format selection (``_select_mmap_format``) and cache-hit adoption
+    (``_configure_from_cache_hit`` /
+    ``_reject_body_mutators_for_payload_bytes``).
+    """
+
+    def test_select_format_rejects_payload_bytes_with_mutating_routing(
+        self, initialized_dataset_manager
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
+
+        with pytest.raises(ValueError, match="dynamo_nvext"):
+            dm._select_mmap_format(_raw_payload_conversations())
+
+    def test_select_format_allows_payload_bytes_with_header_routing(
+        self, initialized_dataset_manager
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_headers")
+        ]
+
+        assert (
+            dm._select_mmap_format(_raw_payload_conversations())
+            == MemoryMapFormat.PAYLOAD_BYTES
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "plan, cache_bust_target, match",
+        [
+            param(
+                [PlanEntry(preset="dynamo_nvext")],
+                CacheBustTarget.NONE,
+                "dynamo_nvext",
+                id="mutating_routing",
+            ),
+            param([], CacheBustTarget.SYSTEM_PREFIX, "cache-bust", id="cache_bust"),
+        ],
+    )  # fmt: skip
+    async def test_cache_hit_rejects_payload_bytes_with_body_mutator(
+        self, initialized_dataset_manager, tmp_path, plan, cache_bust_target, match
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = plan
+        dm.user_config.input.prompt.cache_bust.target = cache_bust_target
+
+        with pytest.raises(ValueError, match=match):
+            await dm._configure_from_cache_hit(_payload_bytes_cache_hit(tmp_path))
+
+    def test_cache_hit_allows_payload_bytes_when_clean(
+        self, initialized_dataset_manager
+    ) -> None:
+        dm = initialized_dataset_manager
+        # No routing, no cache-bust: the pre-check must pass (no raise).
+        assert dm.user_config.endpoint.session_routing_plan == []
+        assert dm.user_config.input.prompt.cache_bust.target == CacheBustTarget.NONE
+
+        dm._reject_body_mutators_for_payload_bytes(MemoryMapFormat.PAYLOAD_BYTES)
+
+    @pytest.mark.parametrize(
+        "plan, source_loaded, mmap_format, downgraded",
+        [
+            param(
+                [PlanEntry(preset="dynamo_nvext")],
+                False,
+                MemoryMapFormat.PAYLOAD_BYTES,
+                True,
+                id="promoted_hit_downgraded_to_miss_under_mutating_routing",
+            ),
+            param(
+                [PlanEntry(preset="dynamo_nvext")],
+                True,
+                MemoryMapFormat.PAYLOAD_BYTES,
+                False,
+                id="source_loaded_hit_not_downgraded_and_hard_fails",
+            ),
+            param(
+                [],
+                False,
+                MemoryMapFormat.PAYLOAD_BYTES,
+                False,
+                id="promoted_hit_kept_without_body_mutator",
+            ),
+            param(
+                [PlanEntry(preset="dynamo_nvext")],
+                False,
+                MemoryMapFormat.CONVERSATION,
+                False,
+                id="conversation_hit_never_downgraded",
+            ),
+        ],
+    )  # fmt: skip
+    def test_downgrade_body_mutator_cache_hit(
+        self,
+        initialized_dataset_manager,
+        tmp_path,
+        plan,
+        source_loaded,
+        mmap_format,
+        downgraded,
+    ) -> None:
+        """A preformat-promoted PAYLOAD_BYTES entry is rebuildable: with the
+        body-mutator active the preformatter bails, so the rebuild stays
+        structured and the lookup treats the hit as a MISS instead of
+        hard-failing the run. Payload bytes shipped by the dataset itself
+        cannot be rebuilt as structured turns: the hit survives lookup and the
+        restore-path gate raises the actionable hard-fail. Without a
+        body-mutating feature promoted entries stay valid hits, and
+        CONVERSATION-format entries carry structured turns and are always
+        compatible with body mutators."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = plan
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=source_loaded)
+        hit.manifest.mmap_format = str(mmap_format)
+
+        expected = None if downgraded else hit
+        assert dm._downgrade_body_mutator_cache_hit(hit) is expected
+
+    def test_try_cache_lookup_wires_the_downgrade(
+        self, initialized_dataset_manager, tmp_path
+    ) -> None:
+        """The downgrade must be applied AT the lookup site, not only exist as
+        a helper: a promoted PAYLOAD_BYTES hit under a mutating mode comes back
+        as a MISS from _try_cache_lookup itself."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+
+        with (
+            patch(
+                "aiperf.dataset.dataset_manager.mmap_cache.cache_enabled",
+                return_value=True,
+            ),
+            patch(
+                "aiperf.dataset.dataset_manager.mmap_cache.compute_cache_key_from_user_config",
+                return_value="key-1",
+            ),
+            patch("aiperf.dataset.dataset_manager.mmap_cache.lookup", return_value=hit),
+        ):
+            assert dm._try_cache_lookup() is None
+
+    def test_lookup_under_lock_wires_the_downgrade(
+        self, initialized_dataset_manager, tmp_path
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
+        dm._cache_key_for_run = "key-1"
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+
+        with patch(
+            "aiperf.dataset.dataset_manager.mmap_cache.lookup", return_value=hit
+        ):
+            assert dm._lookup_under_lock() is None
+
+    def test_populate_after_run_skipped_under_body_mutator(
+        self, initialized_dataset_manager, tmp_path
+    ) -> None:
+        """A body-mutator run must not write its CONVERSATION build under the
+        shared cache key (which excludes routing settings) -- that would demote
+        every later feature-free run of the same dataset off the PAYLOAD_BYTES
+        fast path."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = [
+            PlanEntry(preset="dynamo_nvext")
+        ]
+        dm._cache_hit_used = False
+        dm._cache_key_for_run = "key-1"
+        dm._backing_store = MagicMock()
+        dm.dataset_metadata = MagicMock()
+
+        with patch.object(dm, "_run_mmap_paths") as run_paths:
+            dm._populate_cache_after_run()
+            run_paths.assert_not_called()
+
+
+# ============================================================================
+# PAYLOAD_BYTES turn-header-reading gates + dataset-load fail-fast
+# ============================================================================
+
+
+def _header_reading_plan(missing: str | None = None) -> list[PlanEntry]:
+    """Headers-only plan with a header:<name> source (reads_turn_headers=True)."""
+    opts: dict = {"source": "header:x-route-key"}
+    if missing is not None:
+        opts["missing"] = missing
+    return [PlanEntry(preset="smg_routing_key", opts=opts)]
+
+
+def _turn(contents: list[str], extra_headers: dict[str, str] | None = None) -> Turn:
+    return Turn(
+        role="user",
+        texts=[Text(contents=contents)],
+        extra_headers=extra_headers or {},
+    )
+
+
+class TestTurnHeaderReadingGates:
+    """PAYLOAD_BYTES is refused whenever the plan reads dispatch-turn headers.
+
+    Mirrors ``TestPayloadBytesBodyMutatingGates`` for the sibling
+    ``_turn_header_reading_feature``: payload-bytes turns carry no
+    ``extra_headers``, so a ``header:<name>`` source can never be satisfied.
+    """
+
+    def test_select_format_rejects_payload_bytes_with_turn_header_routing(
+        self, initialized_dataset_manager
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        with pytest.raises(ValueError, match=r"smg_routing_key.*reads turn headers"):
+            dm._select_mmap_format(_raw_payload_conversations())
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_rejects_payload_bytes_with_turn_header_routing(
+        self, initialized_dataset_manager, tmp_path
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        with pytest.raises(ValueError, match=r"smg_routing_key.*reads turn headers"):
+            await dm._configure_from_cache_hit(_payload_bytes_cache_hit(tmp_path))
+
+    def test_preformat_suppressed_for_turn_header_routing(
+        self, initialized_dataset_manager
+    ) -> None:
+        """A turn-header-reading plan suppresses preformatting (like the
+        cache-bust skip) so the dataset stays on the structured-turns path and
+        _select_mmap_format passes cleanly -- no downstream blame."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        conversations = [
+            Conversation(
+                session_id="s1",
+                turns=[_turn(["hi"], {"x-route-key": "a"})],
+            ),
+        ]
+
+        with patch(
+            "aiperf.dataset.dataset_manager.format_conversation_payloads"
+        ) as mock_fmt:
+            dm._preformat_payloads(conversations)
+            mock_fmt.assert_not_called()
+
+        assert conversations[0].turns[0].raw_payload is None
+        assert dm._select_mmap_format(conversations) == MemoryMapFormat.CONVERSATION
+
+    def test_promoted_cache_hit_downgraded_under_turn_header_routing(
+        self, initialized_dataset_manager, tmp_path
+    ) -> None:
+        """A preformat-promoted PAYLOAD_BYTES entry is rebuildable: with the
+        turn-header plan active the preformatter bails, so the rebuild stays
+        structured (with extra_headers) -- treat the hit as a MISS."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+
+        assert dm._downgrade_body_mutator_cache_hit(hit) is None
+
+    def test_populate_after_run_skipped_under_turn_header_routing(
+        self, initialized_dataset_manager
+    ) -> None:
+        """A turn-header run built CONVERSATION only because the preformatter
+        bailed; caching that under the shared key would demote later
+        feature-free runs off the PAYLOAD_BYTES fast path."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+        dm._cache_hit_used = False
+        dm._cache_key_for_run = "key-1"
+        dm._backing_store = MagicMock()
+        dm.dataset_metadata = MagicMock()
+
+        with patch.object(dm, "_run_mmap_paths") as run_paths:
+            dm._populate_cache_after_run()
+            run_paths.assert_not_called()
+
+
+class TestRequiredTurnHeaderFailFast:
+    """Dataset-load fail-fast for header:<name> sources with missing=error."""
+
+    def test_missing_header_on_turn_raises_with_loc(
+        self, initialized_dataset_manager
+    ) -> None:
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        conversations = [
+            Conversation(
+                session_id="abc",
+                turns=[
+                    _turn(["t0"], {"x-route-key": "a"}),
+                    _turn(["t1"], {"x-route-key": "b"}),
+                    _turn(["t2"]),  # turn 2 lacks the header
+                ],
+            ),
+        ]
+
+        with pytest.raises(
+            SessionRoutingConfigError,
+            match=(
+                r"conversation 'abc' turn 2: session-routing "
+                r"entry\[0\] \(smg_routing_key\) requires turn header "
+                r"'x-route-key' \(missing=error\)"
+            ),
+        ):
+            dm._validate_required_turn_headers(conversations)
+
+    @pytest.mark.parametrize(
+        "plan, turn_headers",
+        [
+            param(
+                _header_reading_plan(),
+                [{"X-Route-Key": "a"}, {"X-ROUTE-KEY": "b"}],
+                id="all_turns_carry_header_passes_case_insensitive",
+            ),
+            param(
+                _header_reading_plan(missing="skip"),
+                [None],
+                id="missing_skip_plan_does_not_trigger_scan",
+            ),
+            param(
+                [PlanEntry(preset="dynamo_headers")],
+                [None],
+                id="plan_without_header_sources_skips_scan",
+            ),
+            param([], [None], id="no_plan_skips_scan"),
+        ],
+    )  # fmt: skip
+    def test_scan_passes_or_is_skipped(
+        self, initialized_dataset_manager, plan, turn_headers
+    ) -> None:
+        """The scan passes when every turn carries the required header (any
+        casing). Plans with missing=skip, plans without header:<name> sources,
+        and runs with no plan at all early-return before any turn is read
+        (dataset turns author no extra_headers and still pass)."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = plan
+
+        conversations = [
+            Conversation(
+                session_id="abc",
+                turns=[
+                    _turn([f"t{i}"], headers) for i, headers in enumerate(turn_headers)
+                ],
+            ),
+        ]
+
+        dm._validate_required_turn_headers(conversations)
+
+    @pytest.mark.asyncio
+    async def test_profile_configure_fails_fast_on_missing_required_header(
+        self, mock_tokenizer
+    ) -> None:
+        """REAL config end-to-end: a synthetic dataset (turns author no
+        extra_headers) with a missing=error header plan must fail the whole
+        configure with SessionRoutingConfigError, before any mmap build."""
+        user_config = UserConfig(
+            endpoint=EndpointConfig(model_names=["test-model"]),
+            input=InputConfig(),
+        )
+        user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        dataset_manager = DatasetManager(ServiceConfig(), user_config)
+        await dataset_manager.initialize()
+        dataset_manager.publish = AsyncMock()
+
+        with pytest.raises(SessionRoutingConfigError, match=r"x-route-key"):
+            await dataset_manager._profile_configure_command(
+                ProfileConfigureCommand(config=user_config, service_id="test_service")
+            )
+
+    @pytest.mark.asyncio
+    async def test_profile_configure_passes_with_missing_skip(
+        self, mock_tokenizer
+    ) -> None:
+        """REAL config end-to-end: missing=skip makes header absence a
+        per-request skip, so the same synthetic dataset configures cleanly
+        (with preformatting suppressed, on the CONVERSATION path)."""
+        user_config = UserConfig(
+            endpoint=EndpointConfig(model_names=["test-model"]),
+            input=InputConfig(),
+        )
+        user_config.endpoint.session_routing_plan = _header_reading_plan(missing="skip")
+
+        dataset_manager = DatasetManager(ServiceConfig(), user_config)
+        await dataset_manager.initialize()
+        dataset_manager.publish = AsyncMock()
+
+        await dataset_manager._profile_configure_command(
+            ProfileConfigureCommand(config=user_config, service_id="test_service")
+        )
+
+        assert dataset_manager.dataset_configured.is_set()
+        assert (
+            dataset_manager._backing_store.get_client_metadata().format
+            == MemoryMapFormat.CONVERSATION
+        )
+
+
+class TestRequiredTurnHeaderCacheHitBypass:
+    """A cache HIT must not bypass the rule-5 fail-fast scan.
+
+    ``_validate_required_turn_headers`` only runs on the rebuild path
+    (``_configure_dataset``), which materializes conversations; the cache-hit
+    path adopts mmap files without ever materializing them. When the plan
+    hard-requires dataset-authored turn headers (``header:<name>`` with
+    ``missing=error``), ANY hit is therefore treated as a MISS.
+    """
+
+    @pytest.mark.parametrize(
+        "plan, downgraded",
+        [
+            param(
+                _header_reading_plan(),
+                True,
+                id="downgraded_when_plan_requires_turn_headers",
+            ),
+            param(
+                _header_reading_plan(missing="skip"),
+                False,
+                id="kept_with_missing_skip_plan",
+            ),
+            param([], False, id="kept_without_plan"),
+        ],
+    )  # fmt: skip
+    def test_conversation_cache_hit_downgraded_only_when_headers_required(
+        self, initialized_dataset_manager, tmp_path, plan, downgraded
+    ) -> None:
+        """A missing=error header plan forces even CONVERSATION hits to a MISS
+        so the rebuild path runs the scan; missing=skip has no hard
+        requirement (the scan cannot fail) and plan-free runs keep the hit."""
+        dm = initialized_dataset_manager
+        dm.user_config.endpoint.session_routing_plan = plan
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+        hit.manifest.mmap_format = str(MemoryMapFormat.CONVERSATION)
+
+        expected = None if downgraded else hit
+        assert dm._downgrade_body_mutator_cache_hit(hit) is expected
+
+    @contextlib.contextmanager
+    def _cache_hit_env(self, hit: mmap_cache.CacheHit):
+        """Force the mmap cache machinery to report ``hit`` for the run."""
+        with (
+            patch(
+                "aiperf.dataset.dataset_manager.mmap_cache.cache_enabled",
+                return_value=True,
+            ),
+            patch(
+                "aiperf.dataset.dataset_manager.mmap_cache.compute_cache_key_from_user_config",
+                return_value="key-1",
+            ),
+            patch("aiperf.dataset.dataset_manager.mmap_cache.lookup", return_value=hit),
+            patch(
+                "aiperf.dataset.dataset_manager.mmap_cache.acquire_cache_lock",
+                return_value=contextlib.nullcontext(),
+            ),
+        ):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_forced_to_rebuild_and_scan_fails_fast(
+        self, mock_tokenizer, tmp_path
+    ) -> None:
+        """END-TO-END failing dataset: a CONVERSATION cache HIT + missing=error
+        header plan + a dataset lacking the header must rebuild (never adopt
+        the hit) and raise from the load-time scan."""
+        user_config = UserConfig(
+            endpoint=EndpointConfig(model_names=["test-model"]),
+            input=InputConfig(),
+        )
+        user_config.endpoint.session_routing_plan = _header_reading_plan()
+
+        dm = DatasetManager(ServiceConfig(), user_config)
+        await dm.initialize()
+        dm.publish = AsyncMock()
+
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+        hit.manifest.mmap_format = str(MemoryMapFormat.CONVERSATION)
+
+        with (
+            self._cache_hit_env(hit),
+            patch.object(dm, "_configure_from_cache_hit", new=AsyncMock()) as adopt,
+            pytest.raises(SessionRoutingConfigError, match=r"x-route-key"),
+        ):
+            await dm._profile_configure_command(
+                ProfileConfigureCommand(config=user_config, service_id="test_service")
+            )
+        adopt.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_forced_to_rebuild_and_scan_passes(
+        self, mock_tokenizer, tmp_path
+    ) -> None:
+        """END-TO-END passing dataset: same forced HIT, but every turn carries
+        the required header -- the rebuild runs the scan and configures."""
+        user_config = UserConfig(
+            endpoint=EndpointConfig(model_names=["test-model"]),
+            input=InputConfig(),
+        )
+        user_config.endpoint.session_routing_plan = _header_reading_plan()
+        # Normally inferred by the composer, which is bypassed below.
+        user_config.input.dataset_sampling_strategy = DatasetSamplingStrategy.SEQUENTIAL
+
+        dm = DatasetManager(ServiceConfig(), user_config)
+        await dm.initialize()
+        dm.publish = AsyncMock()
+
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+        hit.manifest.mmap_format = str(MemoryMapFormat.CONVERSATION)
+
+        conversations = [
+            Conversation(
+                session_id="s1",
+                turns=[_turn(["hi"], {"x-route-key": "a"})],
+            ),
+        ]
+        scan_spy = MagicMock(wraps=dm._validate_required_turn_headers)
+
+        with (
+            self._cache_hit_env(hit),
+            patch.object(dm, "_configure_from_cache_hit", new=AsyncMock()) as adopt,
+            patch.object(dm, "_load_synthetic_dataset", return_value=conversations),
+            patch.object(dm, "_validate_required_turn_headers", new=scan_spy),
+        ):
+            await dm._profile_configure_command(
+                ProfileConfigureCommand(config=user_config, service_id="test_service")
+            )
+
+        adopt.assert_not_called()
+        scan_spy.assert_called_once()
+        assert dm.dataset_configured.is_set()
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_without_plan_still_adopted(
+        self, mock_tokenizer, tmp_path
+    ) -> None:
+        """No routing plan: the same forced HIT is adopted (hit path intact)."""
+        user_config = UserConfig(
+            endpoint=EndpointConfig(model_names=["test-model"]),
+            input=InputConfig(),
+        )
+
+        dm = DatasetManager(ServiceConfig(), user_config)
+        await dm.initialize()
+        dm.publish = AsyncMock()
+
+        hit = _payload_bytes_cache_hit(tmp_path, source_loaded=False)
+        hit.manifest.mmap_format = str(MemoryMapFormat.CONVERSATION)
+
+        with (
+            self._cache_hit_env(hit),
+            patch.object(dm, "_configure_from_cache_hit", new=AsyncMock()) as adopt,
+            patch.object(
+                dm, "_configure_dataset_client_and_free_memory", new=AsyncMock()
+            ),
+        ):
+            await dm._profile_configure_command(
+                ProfileConfigureCommand(config=user_config, service_id="test_service")
+            )
+
+        adopt.assert_called_once()

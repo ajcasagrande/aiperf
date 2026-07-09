@@ -427,6 +427,100 @@ transport:
       url_schemes: [http, https]
 
 # =============================================================================
+# Session Routing
+# =============================================================================
+# Session-routing presets stamp per-session identity onto outbound
+# requests so an external router can pin every turn to one worker.
+# Selected via --session-routing; resolved into a validated emitter plan.
+# =============================================================================
+session_routing:
+  dynamo_headers:
+    class: aiperf.workers.session_routing.presets:DynamoHeaders
+    description: |
+      Dynamo session affinity via X-Dynamo-Session-ID plus
+      X-Dynamo-Parent-Session-ID on subagent children. Pair with a Dynamo
+      frontend running --router-session-affinity-ttl-secs. No options.
+      Custom equivalent: headers={"X-Dynamo-Session-ID":"session",
+      "X-Dynamo-Parent-Session-ID":"parent"}.
+
+  dynamo_nvext:
+    class: aiperf.workers.session_routing.presets:DynamoNvext
+    description: |
+      Dynamo session affinity via nvext.session_control request-body
+      metadata: bind on every non-final turn, close on the final turn.
+      Only for Dynamo builds that implement session_control (current
+      upstream main does not; use dynamo_headers there). Mutates request
+      bodies, so it is incompatible with the PAYLOAD_BYTES mmap fast path.
+      Options: timeout_seconds (default 300); scope (default
+      conversation) -- scope=lineage binds every session in an agent
+      tree with the tree ROOT's correlation ID so the whole lineage
+      co-locates with the shared parent prefix (for deployments without
+      KV-event prefix indexing), closing the shared key only on a
+      request stamped provably-last for the whole tree.
+
+  smg_routing_key:
+    class: aiperf.workers.session_routing.presets:SmgRoutingKey
+    description: |
+      SGLang Model Gateway stickiness: emits X-SMG-Routing-Key for the
+      gateway's routing-key policies (--policy manual or
+      consistent_hashing). Options: source (default session; any source
+      spec, e.g. header:x-src to replay a dataset-recorded key) and
+      missing (error|skip; header: sources only). Custom equivalent:
+      headers={"X-SMG-Routing-Key":"session"}.
+
+  session_id_header:
+    class: aiperf.workers.session_routing.presets:SessionIdHeader
+    description: |
+      Additive session-ID header carrying the session's correlation ID.
+      Options: header_name (default X-Session-ID). Custom equivalent:
+      headers={"X-Session-ID":"session"}.
+
+  sglang_session:
+    class: aiperf.workers.session_routing.presets:SglangSession
+    description: |
+      Writes the session key into a top-level request-body field for
+      body-keyed affinity (SGLang-style). Options: field (default
+      session_id; a literal key, dots are NOT nesting), source (default
+      session), missing (error|skip; header: sources only). Mutates
+      request bodies, so it is incompatible with the PAYLOAD_BYTES mmap
+      fast path. Custom equivalent: body={"session_id":"session"}.
+
+  url_index_header:
+    class: aiperf.workers.session_routing.presets:UrlIndexHeader
+    description: |
+      Emits the request's assigned round-robin URL slot index
+      (post-fallback) as a header. Options: header_name (default
+      X-URL-Index). Custom equivalent: headers={"X-URL-Index":"url_index"}.
+
+  claude_code_headers:
+    class: aiperf.workers.session_routing.presets:ClaudeCodeHeaders
+    description: |
+      Claude Code agent-tree identity headers. The session header always
+      carries the tree ROOT's correlation ID; the agent header is added
+      for subagent sessions (depth >= 1) with the session's own ID; the
+      parent-agent header is added at depth >= 2 with the immediate
+      parent's ID (omitted at depth 1, where the parent is the root).
+      Options: session_header_name (default x-claude-code-session-id),
+      agent_header_name (default x-claude-code-agent-id),
+      parent_header_name (default x-claude-code-parent-agent-id).
+      Custom equivalent: headers={"x-claude-code-session-id":"root",
+      "x-claude-code-agent-id":"agent",
+      "x-claude-code-parent-agent-id":"agent_parent"}.
+
+  custom:
+    class: aiperf.workers.session_routing.presets:Custom
+    description: |
+      Fully generic emitter map: any header or body path from any
+      source. Options: headers (header name -> source) and body (nested
+      map; a string leaf is a source, a nested mapping descends).
+      Sources: session, parent, root, url_index, agent, agent_parent,
+      header:<name>. At least one assignment is required; header:
+      sources are always missing=error. On the CLI pass JSON, e.g.
+      --session-routing-opt headers={"X-Affinity":"session"}. Mutates
+      request bodies (and forgoes the PAYLOAD_BYTES fast path) only when
+      a body assignment is set.
+
+# =============================================================================
 # Dataset Composers
 # =============================================================================
 # Dataset composers create conversation datasets from various sources.
