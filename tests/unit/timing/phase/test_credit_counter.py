@@ -209,6 +209,50 @@ class TestCreditCounter:
         c.increment_returned(is_final_turn=True, cancelled=False)
         assert c.check_all_returned_or_cancelled()
 
+    def test_post_freeze_send_extends_the_all_returned_target(self) -> None:
+        """A credit sent AFTER freeze_sent_counts (reactive DAG child or a
+        session continuation turn) must raise the completion target: its own
+        return must not be able to stand in for a pre-freeze credit that is
+        still in flight.
+
+        Regression: the predicate compared against the FROZEN snapshot, so
+        with 2 pre-freeze credits sent and 1 post-freeze credit sent, returns
+        of {pre-freeze #1, post-freeze} satisfied returned(2) >= frozen(2)
+        while pre-freeze #2 was still on the wire -- the phase completed
+        early and the in-flight root's branch children (registered only at
+        its return-intercept) were never dispatched.
+        """
+        c = CreditCounter(cfg())
+        c.increment_sent(turn(conv="root-a", idx=0, num=2, corr="xa"))
+        c.increment_sent(turn(conv="root-b", idx=0, num=1, corr="xb"))
+        c.freeze_sent_counts()
+
+        # Post-freeze reactive send (DAG child / continuation turn).
+        c.increment_sent(turn(conv="child", idx=0, num=1, corr="xc"))
+
+        # root-b and the post-freeze child return; root-a still in flight.
+        c.increment_returned(is_final_turn=True, cancelled=False)
+        c.increment_returned(is_final_turn=True, cancelled=False, is_child=True)
+        assert not c.check_all_returned_or_cancelled(), (
+            "post-freeze credit's return padded the frozen target: phase "
+            "would complete with a pre-freeze credit still in flight"
+        )
+
+        # Only once the in-flight credit returns is the phase complete.
+        c.increment_returned(is_final_turn=True, cancelled=False)
+        assert c.check_all_returned_or_cancelled()
+
+    def test_post_freeze_cancelled_send_also_extends_target(self) -> None:
+        """Cancelled returns retire post-freeze credits the same way."""
+        c = CreditCounter(cfg())
+        c.increment_sent(turn())
+        c.freeze_sent_counts()
+        c.increment_sent(turn(conv="child", corr="xc"))
+        c.increment_returned(is_final_turn=True, cancelled=False)
+        assert not c.check_all_returned_or_cancelled()
+        c.increment_returned(is_final_turn=True, cancelled=True, is_child=True)
+        assert c.check_all_returned_or_cancelled()
+
     def test_single_session_single_turn_is_final(self) -> None:
         c = CreditCounter(cfg(sessions=1))
         _, is_final = c.increment_sent(turn(idx=0, num=1))

@@ -315,12 +315,25 @@ class CreditCounter:
         return self.check_all_returned_or_cancelled()
 
     def check_all_returned_or_cancelled(self) -> bool:
-        """True if all sent credits have been returned or cancelled."""
+        """True if all sent credits have been returned or cancelled.
+
+        Compares against the LIVE ``_requests_sent``, not the frozen
+        ``_final_requests_sent`` snapshot: credits sent AFTER
+        ``freeze_sent_counts`` (reactive DAG children, session continuation
+        turns dispatched on a prior turn's return) are absent from the frozen
+        snapshot but their returns still bump the numerator, so comparing
+        against the snapshot lets a post-freeze credit's return satisfy the
+        predicate while a pre-freeze credit is still in flight -- the phase
+        completes early and the in-flight root's branch children (which only
+        register at its return-intercept) are never dispatched. The freeze
+        still gates the check (no completion while sending is open); the
+        frozen snapshot remains a reporting milestone only.
+        """
         if self._final_requests_sent is None:
             return False
         return (
             self._requests_completed + self._requests_cancelled
-        ) >= self._final_requests_sent
+        ) >= self._requests_sent
 
     def increment_prefill_released(self) -> None:
         """Increment prefill released count (on TTFT or return without TTFT)."""
