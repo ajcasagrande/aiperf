@@ -100,7 +100,7 @@ for entry, cls in plugins.iter_all(PluginType.ENDPOINT):
 
 ## Plugin Categories
 
-AIPerf supports 33 plugin categories organized by function, including `api_router` and `public_dataset_loader`:
+AIPerf supports 32 plugin categories organized by function, including `api_router` and `public_dataset_loader`:
 
 ### Timing Categories
 
@@ -133,11 +133,10 @@ AIPerf supports 33 plugin categories organized by function, including `api_route
 
 | Category | Enum | Description |
 |----------|------|-------------|
-| `record_processor` | `RecordProcessorType` | Per-record metric computation |
-| `results_processor` | `ResultsProcessorType` | Aggregated results computation |
-| `gpu_telemetry_processor` | `GPUTelemetryProcessorType` | Side-channel GPU telemetry aggregation/export within `GPUTelemetryManager` |
-| `server_metrics_processor` | `ServerMetricsProcessorType` | Side-channel Prometheus server metrics aggregation/export within `ServerMetricsManager` |
-| `data_exporter` | `DataExporterType` | File format exporters (CSV, JSON, Parquet) |
+| `record_processor` | `RecordProcessorType` | Streaming per-record processors for metric computation, accuracy grading, and raw/output capture |
+| `accumulator` | `AccumulatorType` | Record-type-routed aggregation and summary computation |
+| `stream_exporter` | `StreamExporterType` | Record-type-routed streaming sinks such as JSONL and OpenTelemetry |
+| `data_exporter` | `DataExporterType` | Post-run exporters and aggregators for metrics, server metrics, accuracy, raw records, outputs, and external sinks such as CSV/JSON/Parquet, MLflow, and W&B |
 | `console_exporter` | `ConsoleExporterType` | Terminal output exporters |
 
 ### Accuracy Categories
@@ -166,7 +165,7 @@ AIPerf supports 33 plugin categories organized by function, including `api_route
 | Category | Enum | Description |
 |----------|------|-------------|
 | `plot` | `PlotType` | Chart types (scatter, histogram, timeline, etc.) |
-| `gpu_telemetry_collector` | `GPUTelemetryCollectorType` | GPU metric collection (DCGM, pynvml) |
+| `gpu_telemetry_collector` | `GPUTelemetryCollectorType` | GPU metric collection (DCGM, PyNVML, AMDSMI) |
 
 ### Infrastructure Categories (Internal)
 
@@ -315,6 +314,7 @@ Category-specific metadata is validated against Pydantic models in `aiperf.plugi
 | `PlotMetadata` | `display_name`, `category` |
 | `ServiceMetadata` | `required`, `auto_start`, `disable_gc`, `replicable` |
 | `GPUTelemetryCollectorMetadata` | `is_local` |
+| `RecordRoutingMetadata` | `record_types` for accumulator and stream-exporter routing |
 
 ## CLI Commands
 
@@ -392,6 +392,7 @@ pkg = plugins.get_package_metadata("aiperf")  # PackageInfo(version, author, ...
 | `image_retrieval` | `ImageRetrievalEndpoint` | Image retrieval API |
 | `nim_embeddings` | `NIMEmbeddingsEndpoint` | NVIDIA NIM Embeddings |
 | `nim_rankings` | `NIMRankingsEndpoint` | NVIDIA NIM Rankings |
+| `raw` | `RawEndpoint` | Fallback/raw passthrough endpoint for non-standard APIs |
 | `responses` | `ResponsesEndpoint` | OpenAI Responses API |
 | `solido_rag` | `SolidoEndpoint` | Solido RAG Pipeline |
 | `template` | `TemplateEndpoint` | Template for custom endpoints |
@@ -403,6 +404,7 @@ pkg = plugins.get_package_metadata("aiperf")  # PackageInfo(version, author, ...
 |------|-------|-------------|
 | `fixed_schedule` | `FixedScheduleStrategy` | Send requests at exact timestamps |
 | `request_rate` | `RequestRateStrategy` | Send requests at specified rate |
+| `adaptive_scale` | `AdaptiveScaleStrategy` | Single-run adaptive scale controller that discovers and sustains an SLA boundary |
 | `user_centric_rate` | `UserCentricStrategy` | Each session acts as separate user |
 
 ### Arrival Patterns
@@ -420,6 +422,7 @@ pkg = plugins.get_package_metadata("aiperf")  # PackageInfo(version, author, ...
 |------|-------|-------------|
 | `synthetic` | `SyntheticDatasetComposer` | Generate synthetic conversations |
 | `custom` | `CustomDatasetComposer` | Load from JSONL files |
+| `public` | `PublicDatasetComposer` | Load public benchmark datasets via registered public dataset loaders |
 | `synthetic_rankings` | `SyntheticRankingsDatasetComposer` | Generate ranking tasks |
 
 ### UI Types
@@ -441,6 +444,7 @@ pkg = plugins.get_package_metadata("aiperf")  # PackageInfo(version, author, ...
 | `hellaswag` | `HellaSwagBenchmark` | HellaSwag commonsense reasoning |
 | `bigbench` | `BigBenchBenchmark` | BIG-Bench benchmark tasks |
 | `math_500` | `Math500Benchmark` | MATH-500 problem set |
+| `gsm8k` | `GSM8KBenchmark` | Grade School Math 8K benchmark |
 | `gpqa_diamond` | `GPQADiamondBenchmark` | GPQA Diamond graduate-level science |
 | `lcb_codegeneration` | `LCBCodeGenerationBenchmark` | LiveCodeBench code generation |
 
@@ -452,6 +456,10 @@ pkg = plugins.get_package_metadata("aiperf")  # PackageInfo(version, author, ...
 | `math` | `MathGrader` | Mathematical expression evaluation |
 | `multiple_choice` | `MultipleChoiceGrader` | Multiple choice answer extraction |
 | `code_execution` | `CodeExecutionGrader` | Code execution and output comparison |
+| `lighteval_expr` | `LightevalExprGrader` | Lighteval expression-match grader |
+| `lighteval_latex` | `LightevalLatexGrader` | Lighteval LaTeX-match grader |
+| `lighteval_gpqa` | `LightevalGPQAGrader` | Lighteval GPQA multiple-choice grader |
+| `lighteval_gsm8k` | `LightevalGSM8KGrader` | GSM8K numeric-answer grader |
 
 ## Troubleshooting
 

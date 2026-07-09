@@ -195,6 +195,25 @@ endpoint:
       metrics_title: LLM Metrics
 ```
 
+Accumulator and stream-exporter plugins declare the record types they consume with `metadata.record_types`. `RecordsManager` builds its `record_type -> handlers` routing table from that metadata. Use `accumulator` for stateful summary producers and `stream_exporter` for per-record external sinks. Both implement `process_record(record)`; stream exporters also implement `finalize()` and are flushed after all records are processed.
+
+```yaml
+# plugins.yaml
+accumulator:
+  metrics:
+    class: aiperf.metrics.accumulator:MetricsAccumulator
+    description: Metric summary accumulator.
+    metadata:
+      record_types: [metric_records]
+
+stream_exporter:
+  otel_metrics_streamer:
+    class: aiperf.post_processors.otel_metrics_streamer:OTelMetricsStreamer
+    description: Streams per-record metrics and timing snapshots.
+    metadata:
+      record_types: [metric_records, credit_phase_stats]
+```
+
 Local GPU telemetry collectors declare themselves via `is_local`. Each collector class implements `validate_environment()` to surface missing native bindings before the benchmark starts; DCGM is a passthrough no-op.
 
 ```yaml
@@ -450,7 +469,7 @@ class TotalGpuEnergyMetric(BaseDerivedMetric[float]):
     Invariant: externally injected by
     `GPUTelemetryAccumulator.compute_efficiency_metrics` from
     energy_consumption counter deltas. `_derive_value` is intentionally
-    non-functional; `MetricResultsProcessor.update_derived_metrics` is
+    non-functional; `MetricsAccumulator._resolve_derived_metrics` is
     expected to catch NoMetricValue and skip the tag during its
     derivation walk.
     """
@@ -472,7 +491,7 @@ def _derive_value(self, metric_results: MetricResultsDict) -> NoReturn:
         "is externally injected by "
         "GPUTelemetryAccumulator.compute_efficiency_metrics. If this exception "
         "surfaces, the derivation walk is missing its NoMetricValue handler "
-        "(see MetricResultsProcessor.update_derived_metrics)."
+        "(see MetricsAccumulator._resolve_derived_metrics)."
     )
 ```
 
@@ -486,7 +505,7 @@ is enforced. The recommended shape is:
 - *Injection site*: which method is the source of truth
   (`GPUTelemetryAccumulator.compute_efficiency_metrics`).
 - *Catching path*: where the exception is expected to be absorbed
-  (`MetricResultsProcessor.update_derived_metrics`). If this fires in
+  (`MetricsAccumulator._resolve_derived_metrics`). If this fires in
   production, the catching path has a bug.
 
 ### Why not just skip the class entirely?
@@ -499,19 +518,19 @@ external injection.
 
 ### Where the injection happens
 
-`RecordsManager._apply_gpu_efficiency_metrics` calls
-`GPUTelemetryAccumulator.compute_efficiency_metrics`, which constructs
-`MetricResult` objects directly with the relevant tags and appends them
-to the records list before `ProcessRecordsResult` is built. The standard
-`update_derived_metrics` walk sees these tags too, raises `NoMetricValue`
-via `_derive_value`, catches it, and skips — so the externally-injected
-values are not overwritten.
+`MetricsAccumulator._resolve_derived_metrics` still iterates the
+registry entries for these `DERIVED` tags during `MetricsAccumulator.export_results`.
+Their `_derive_value` methods raise `NoMetricValue`, which the accumulator
+catches and skips, so no regular derived value is emitted. After the metric
+accumulator summarizes, `RecordsManager._apply_gpu_efficiency_metrics` calls
+`GPUTelemetryAccumulator.compute_efficiency_metrics` and appends the externally
+injected `MetricResult`s before `ProcessRecordsResult` is built.
 
 ### Test contract
 
 The error-message invariants are pinned by
 [`tests/unit/metrics/test_power_efficiency_metrics.py`](https://github.com/ai-dynamo/aiperf/blob/main/tests/unit/metrics/test_power_efficiency_metrics.py)
-(parametrized over the three classes): every `_derive_value` call must
+(parametrized over the four power-efficiency classes): every `_derive_value` call must
 raise `NoMetricValue` with a message that names the tag, the operation
 source (`MetricResultsDict`), and the injection site
 (`compute_efficiency_metrics`). A future weakening of any message fails
@@ -761,7 +780,7 @@ Coverage:
 
 ## Strategy Protocol Pattern
 
-The OTel results processor uses a strategy protocol to dispatch incoming data
+The OTel metrics stream exporter uses a strategy protocol to dispatch incoming data
 to specialised handlers. Each strategy declares what data it supports and
 processes matching records independently:
 
@@ -798,8 +817,8 @@ class OTelResultsStrategyProtocol(Protocol):
 
         Instrument access goes through the context's ``get_or_create_*``
         factories, which enqueue fanout events rather than touching the OTel
-        SDK inline. Raising is permitted; the processor is best-effort, so
-        the records manager logs and swallows the failure.
+        SDK inline. Raising is permitted; the stream exporter is best-effort, so
+        the records manager logs and continues after the handler failure.
         """
         ...
 ```
@@ -808,6 +827,8 @@ Concrete strategies accept a context object at construction time and implement
 the two-method interface:
 
 ```python
+from aiperf.common.messages.inference_messages import MetricRecordsData
+from aiperf.common.models import CreditPhaseStats
 from aiperf.post_processors.strategies.core import (
     OTelResultData,
     OTelResultsStrategyProtocol,
@@ -830,7 +851,7 @@ class MetricResultsStrategy(OTelResultsStrategyProtocol):
 
 
 class TimingResultsStrategy(OTelResultsStrategyProtocol):
-    """Streams phase-level timing snapshots using counters and gauges."""
+    """Streams phase-level timing snapshots using counters and gauge-like up-down-counter deltas."""
 
     def __init__(self, context: OTelStrategyContextProtocol) -> None:
         self._context = context
@@ -839,16 +860,17 @@ class TimingResultsStrategy(OTelResultsStrategyProtocol):
         return isinstance(record_data, CreditPhaseStats)
 
     async def process(self, record_data: OTelResultData) -> None:
-        # Emit counter deltas and gauge snapshots for timing data.
+        # Emit counter deltas and gauge-like up-down-counter deltas for timing data.
         ...
 ```
 
 The processor iterates registered strategies on each incoming record:
 
 ```python
-for strategy in self._strategies:
+for strategy in self._result_strategies:
     if strategy.supports(record_data):
         await strategy.process(record_data)
+        return
 ```
 
 **Conventions:**
@@ -858,7 +880,7 @@ for strategy in self._strategies:
 
 ## Drop-Oldest Fanout Queue
 
-`OTelMetricsResultsProcessor` fans out metric events to a dedicated child
+`OTelMetricsStreamer` fans out metric events to a dedicated child
 process via a bounded `multiprocessing.Queue`. The queue uses drop-oldest
 semantics so the hot path (the main benchmark loop) is never blocked by a slow
 downstream consumer.
@@ -876,7 +898,8 @@ flowchart LR
 import multiprocessing as mp
 from aiperf.common.environment import Environment
 
-event_queue = mp.Queue(maxsize=Environment.OTEL.MAX_BUFFERED_RECORDS)  # default 10 000
+context = mp.get_context()
+event_queue = context.Queue(maxsize=Environment.OTEL.MAX_BUFFERED_RECORDS)  # default 10 000
 ```
 
 **Backpressure algorithm:**

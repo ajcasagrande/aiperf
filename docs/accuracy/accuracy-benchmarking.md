@@ -136,7 +136,7 @@ without reading the source.
 | `--accuracy-benchmark` | Benchmark name (`mmlu`, `aime`, `hellaswag`, ...) | — |
 | `--accuracy-tasks` | Specific subtasks (e.g., MMLU subjects). Accepts comma-separated values (`abstract_algebra,anatomy`) or repeated flags. Omit for all. | all |
 | `--accuracy-n-shots` | Few-shot example count (0–32). `None` uses the benchmark default (e.g. MMLU=5). | benchmark default |
-| `--accuracy-enable-cot` | Enable chain-of-thought prompting | false |
+| `--accuracy-enable-cot` | Enable chain-of-thought prompting. `None` uses benchmark metadata (`default_enable_cot`; e.g. AIME/BigBench default to on), otherwise false. | benchmark default |
 | `--accuracy-grader` | Override default grader (`multiple_choice`, `exact_match`, ...) | auto |
 | `--accuracy-system-prompt` | Custom system prompt | — |
 | `--accuracy-verbose` | Show per-problem grading details | false |
@@ -208,8 +208,8 @@ aiperf profile my-model --url http://localhost:8000 \
 |---|---|---|
 | `multiple_choice` | A/B/C/D match against gold letter (lighteval `ExactMatches`). | MMLU |
 | `math` | Extract last `\boxed{...}`, fall back to "answer is X" / last number. Apply trt-llm `strip_string` normalization, then compare via `math_equal` (lowercase string → numeric `isclose` → symbolic equivalence via sympy + latex2sympy2-extended). | AIME |
-| `exact_match` | Stub. | (unused) |
-| `code_execution` | Stub. | (unused) |
+| `exact_match` | Strict `pred.strip() == gold.strip()` comparison. | HellaSwag, BigBench |
+| `code_execution` | Lighteval-backed LiveCodeBench pass@1 execution grader. | LCB CodeGeneration |
 
 The `math` grader pipeline (aligned with `trt-llm-benchmark-recipe/src/accuracy/aime/`):
 
@@ -236,13 +236,13 @@ Accuracy results are displayed in the console and exported to CSV:
 
 ```text
                   Accuracy Benchmark Results
-┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
-┃ Task                    ┃ Correct ┃ Total ┃ Accuracy ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
-│ abstract_algebra        │      35 │   100 │   35.00% │
-│ ...                     │     ... │   ... │      ... │
-│ OVERALL                 │    8368 │ 14042 │   59.59% │
-└─────────────────────────┴─────────┴───────┴──────────┘
+┏━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Task                    ┃ Correct ┃ Total ┃ Unparsed ┃ Accuracy ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩
+│ abstract_algebra        │      35 │   100 │        2 │   35.00% │
+│ ...                     │     ... │   ... │      ... │      ... │
+│ OVERALL                 │    8368 │ 14042 │       12 │   59.59% │
+└─────────────────────────┴─────────┴───────┴──────────┴──────────┘
 ```
 
 CSV file: `<artifact_dir>/accuracy_results.csv`
@@ -252,7 +252,7 @@ CSV file: `<artifact_dir>/accuracy_results.csv`
 ```text
 AccuracyDatasetLoader          → Conversation/Turn objects (dataset pipeline)
 AccuracyRecordProcessor        → grades each response (record pipeline)
-AccuracyResultsProcessor       → aggregates per-task accuracy (results pipeline)
+AccuracyAccumulator            → aggregates per-task accuracy (accumulator pipeline)
 AccuracyConsoleExporter         → Rich table output
 AccuracyDataExporter            → CSV export
 ```

@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 -->
 
-# Accuracy Benchmarking: Stub Implementation Guide
+# Accuracy Benchmarking Implementation Reference
 
-This document catalogs every stubbed method in the accuracy benchmarking scaffolding. The scaffolding is fully integrated into the plugin system, CLI, and config pipeline — the performance benchmarking path is unaffected.
+This document catalogs the implemented accuracy benchmarking components and the contracts they expose. Accuracy benchmarking is fully integrated into the plugin system, CLI, and config pipeline — the performance benchmarking path is unaffected.
 
 **Status summary:** All accuracy scaffolding is now implemented end-to-end. The eight graders (`MultipleChoiceGrader`, `MathGrader`, `CodeExecutionGrader`, `LightevalExprGrader`, `LightevalLatexGrader`, `LightevalGPQAGrader`, `LightevalGSM8KGrader`, `ExactMatchGrader`) and ten benchmark loaders (`MMLUBenchmark`, `AIMEBenchmark`, `HellaSwagBenchmark`, `BigBenchBenchmark`, `AIME24Benchmark`, `AIME25Benchmark`, `Math500Benchmark`, `GPQADiamondBenchmark`, `LCBCodeGenerationBenchmark`, `GSM8KBenchmark`) are all wired into the plugin system, CLI, config pipeline, and processor/exporter chain. There are no remaining stubs.
 
@@ -28,11 +28,11 @@ This document catalogs every stubbed method in the accuracy benchmarking scaffol
 
 ```mermaid
 graph TD
-    A[AccuracyConfig<br/>7 CLI flags --accuracy-*<br/>enabled property] --> B[AccuracyBenchmark<br/>9 benchmarks<br/>load_problems]
-    A --> C[AccuracyGrader<br/>4 graders<br/>grade + extract]
+    A[AccuracyConfig<br/>7 CLI flags --accuracy-*<br/>enabled property] --> B[AccuracyBenchmark<br/>10 benchmarks<br/>load_problems]
+    A --> C[AccuracyGrader<br/>8 graders<br/>grade + extract]
     B --> D[AccuracyRecordProcessor<br/>process_record]
     C --> D
-    D --> E[AccuracyResultsProcessor<br/>process_result<br/>summarize]
+    D --> E[AccuracyAccumulator<br/>process_record<br/>summarize]
     E --> F[AccuracyConsoleExporter<br/>AccuracyDataExporter]
 ```
 
@@ -109,7 +109,7 @@ All 7 flags appear under the `Accuracy` group in `aiperf profile --help`.
 | `--accuracy-benchmark` | `benchmark` | `str \| None` | `None` | Benchmark to run (e.g., `mmlu`, `aime`). **Enables accuracy mode when set.** |
 | `--accuracy-tasks` | `tasks` | `list[str] \| None` | `None` | Subtasks to evaluate (e.g., MMLU subjects) |
 | `--accuracy-n-shots` | `n_shots` | `int | None` (0-32 when set) | `None` | Number of few-shot examples; `None` uses the benchmark default |
-| `--accuracy-enable-cot` | `enable_cot` | `bool` | `False` | Enable chain-of-thought prompting |
+| `--accuracy-enable-cot` | `enable_cot` | `bool | None` | `None` | Enable chain-of-thought prompting; `None` uses benchmark `default_enable_cot` metadata |
 | `--accuracy-grader` | `grader` | `str \| None` | `None` | Override benchmark's default grader |
 | `--accuracy-system-prompt` | `system_prompt` | `str \| None` | `None` | Custom system prompt override |
 | `--accuracy-verbose` | `verbose` | `bool` | `False` | Show per-problem grading details |
@@ -141,18 +141,18 @@ class BaseGrader(AIPerfLoggerMixin):
 |---|-------|------|------------|-------------|
 | 1 | `MultipleChoiceGrader` | `graders/multiple_choice.py` | `multiple_choice` | **IMPLEMENTED in PR #815** — canonical reference for new graders. Matches choice labels (A/B/C/D) by regex extraction then exact comparison. |
 | 2 | `MathGrader` | `graders/math.py` | `math` | **IMPLEMENTED with the AIME loader.** Extracts the last `\boxed{...}` (balanced braces), falls back to "the answer is X" / last-number heuristics. Comparison uses a sympy + latex2sympy2-extended symbolic parsing path when the `[accuracy]` extras are installed (ported from the trt-llm benchmark recipe's `math_equal`/`strip_string`); when those packages are missing, the grader transparently falls back to a stdlib `Fraction` parsing + normalized string equality comparison and emits a one-time warning. |
-| 3 | `CodeExecutionGrader` | `graders/code_execution.py` | `code_execution` | **IMPLEMENTED with the AIME loader.** Wraps lighteval's `codegen_metrics` to grade LCB-style code-generation responses by sandboxed execution: extracts the response's code block via lighteval's `extract_code`, runs it against the bundled public + private test cases in a `ProcessPoolExecutor` with `num_process_evaluate=8`, and reports pass@1. Requires the `[accuracy]` extras (lighteval); raises `RuntimeError` at construction if missing. Used by AIP-881 (LCB CodeGen). |
-| 4 | `LightevalExprGrader` | `graders/lighteval_grader.py` | `lighteval_expr` | **IMPLEMENTED with the AIME loader.** Wraps lighteval's `MultilingualExtractiveMatchMetric` configured with `ExprExtractionConfig` for gold and `(ExprExtractionConfig, LatexExtractionConfig(boxed_match_priority=0))` for predictions — matches the trt-llm recipe's `expr_gold_metric`. Used by AIP-875/876 (AIME24/25). Requires the `[accuracy]` extras. |
-| 5 | `LightevalLatexGrader` | `graders/lighteval_grader.py` | `lighteval_latex` | **IMPLEMENTED with the AIME loader.** Same shape as `LightevalExprGrader` but the gold extractor uses `LatexExtractionConfig` — matches the trt-llm recipe's `latex_gold_metric`. Used by AIP-879 (MATH-500). Requires the `[accuracy]` extras. |
-| 6 | `LightevalGPQAGrader` | `graders/lighteval_grader.py` | `lighteval_gpqa` | **IMPLEMENTED with the AIME loader.** Wraps `MultilingualExtractiveMatchMetric` with `IndicesExtractionConfig(prefix_for_extraction="NativeLetters")` to extract A/B/C/D in both gold and prediction — matches the trt-llm recipe's `gpqa_metric`. Used by AIP-880 (GPQA-Diamond). Requires the `[accuracy]` extras. |
+| 3 | `CodeExecutionGrader` | `graders/code_execution.py` | `code_execution` | **IMPLEMENTED with the LCB CodeGeneration loader.** Wraps lighteval's `codegen_metrics` to grade LCB-style code-generation responses by sandboxed execution: extracts the response's code block via lighteval's `extract_code`, runs it against the bundled public + private test cases in a `ProcessPoolExecutor` with `num_process_evaluate=8`, and reports pass@1. Requires the `[accuracy]` extras (lighteval); raises `RuntimeError` at construction if missing. Used by AIP-881 (LCB CodeGen). |
+| 4 | `LightevalExprGrader` | `graders/lighteval_grader.py` | `lighteval_expr` | **IMPLEMENTED for AIME24/AIME25.** Wraps lighteval's `MultilingualExtractiveMatchMetric` configured with `ExprExtractionConfig` for gold and `(ExprExtractionConfig, LatexExtractionConfig(boxed_match_priority=0))` for predictions — matches the trt-llm recipe's `expr_gold_metric`. Requires the `[accuracy]` extras. |
+| 5 | `LightevalLatexGrader` | `graders/lighteval_grader.py` | `lighteval_latex` | **IMPLEMENTED for MATH-500.** Same shape as `LightevalExprGrader` but the gold extractor uses `LatexExtractionConfig` — matches the trt-llm recipe's `latex_gold_metric`. Requires the `[accuracy]` extras. |
+| 6 | `LightevalGPQAGrader` | `graders/lighteval_grader.py` | `lighteval_gpqa` | **IMPLEMENTED for GPQA-Diamond.** Wraps `MultilingualExtractiveMatchMetric` with `IndicesExtractionConfig(prefix_for_extraction="NativeLetters")` to extract A/B/C/D in both gold and prediction — matches the trt-llm recipe's `gpqa_metric`. Requires the `[accuracy]` extras. |
+| 7 | `LightevalGSM8KGrader` | `graders/gsm8k_grader.py` | `lighteval_gsm8k` | **IMPLEMENTED for GSM8K.** Extracts the number after `####` from the gold answer and the last number from the model response, then compares numerically so integer/decimal spellings match. |
+| 8 | `ExactMatchGrader` | `graders/exact_match.py` | `exact_match` | **IMPLEMENTED with the HellaSwag and BigBench loaders.** Strict `pred.strip() == gold.strip()` grader matching DeepEval's `Scorer.exact_match_score` (case-sensitive, no normalization). Used by HellaSwag and BigBench-Hard for trt-llm reference parity. |
 
-| 7 | `ExactMatchGrader` | `graders/exact_match.py` | `exact_match` | **IMPLEMENTED with the HellaSwag loader.** Strict `pred.strip() == gold.strip()` grader matching DeepEval's `Scorer.exact_match_score` (case-sensitive, no normalization). Used by HellaSwag and BigBench-Hard for trt-llm reference parity. |
-
-### Still Stubbed
+### Implementation Status
 
 _All graders are now implemented._
 
-**Each grader has 2 methods to implement:**
+**Each grader implements 2 methods:**
 
 ```python
 async def grade(self, response_text: str, ground_truth: str, **kwargs) -> GradingResult
@@ -176,10 +176,11 @@ All benchmarks use `AIPerfLoggerMixin` and must implement 1 method.
 | 5 | `AIME24Benchmark` | `benchmarks/aime24.py` | `aime24` | `lighteval_expr` | 0 | **IMPLEMENTED.** Loads `HuggingFaceH4/aime_2024` (train split) and emits the bare problem text as a single user message — no instruction prefix, no few-shot priming. Mirrors the trt-llm benchmark recipe's `acc_bench_lighteval.py` configuration (`few_shots_split=None`, `generation_size=32768`). Pairs with `lighteval_expr` for the recipe's `expr_gold_metric` extraction. |
 | 6 | `AIME25Benchmark` | `benchmarks/aime25.py` | `aime25` | `lighteval_expr` | 0 | **IMPLEMENTED.** Same lighteval-aligned shape as `AIME24Benchmark` but pointed at `yentinglin/aime_2025` (the recipe's `aime25` task config). Identical prompt rendering, generation size, and grader pairing. |
 | 7 | `Math500Benchmark` | `benchmarks/math_500.py` | `math_500` | `lighteval_latex` | 0 | **IMPLEMENTED.** Loads `HuggingFaceH4/MATH-500` (test split). Same lighteval-aligned shape as AIME24/25, but `ground_truth` is the full `solution` text (containing `\boxed{answer}`); `LightevalLatexGrader` extracts the boxed expression at grade time. Per-row `task` = `subject` so the accuracy CSV breaks down by MATH subject. |
-| 8 | `GPQADiamondBenchmark` | `benchmarks/gpqa_diamond.py` | `gpqa_diamond` | `lighteval_gpqa` | 0 | **IMPLEMENTED.** Loads `Idavidrein/gpqa` (subset `gpqa_diamond`, train split). Renders the simple-evals prompt template with **SHA-256-seeded deterministic A/B/C/D shuffling** of the correct + 3 distractor answers — one intentional deviation from the recipe's stochastic `random.randint(0, 3)` so gold positions reproduce across runs. Per-row `task` = `High-level domain` so the accuracy CSV breaks down by physics/chemistry/biology. |
-| 9 | `LCBCodeGenerationBenchmark` | `benchmarks/lcb_codegeneration.py` | `lcb_codegeneration` | `code_execution` | 0 | **IMPLEMENTED.** Loads `livecodebench/code_generation_lite` (test split). Serializes the LCB-style test-case payload (starter_code, public + private test cases, upstream metadata) into `BenchmarkProblem.ground_truth` as an orjson blob so `CodeExecutionGrader` can wrap lighteval's `codegen_metrics` and run the generated code against the bundled test cases. |
+| 8 | `GSM8KBenchmark` | `benchmarks/gsm8k.py` | `gsm8k` | `lighteval_gsm8k` | 0 | **IMPLEMENTED.** Loads GSM8K grade-school math word problems. Gold answers carry the raw `#### <number>` marker; `LightevalGSM8KGrader` extracts the final numeric answer at grade time. |
+| 9 | `GPQADiamondBenchmark` | `benchmarks/gpqa_diamond.py` | `gpqa_diamond` | `lighteval_gpqa` | 0 | **IMPLEMENTED.** Loads `Idavidrein/gpqa` (subset `gpqa_diamond`, train split). Renders the simple-evals prompt template with **SHA-256-seeded deterministic A/B/C/D shuffling** of the correct + 3 distractor answers — one intentional deviation from the recipe's stochastic `random.randint(0, 3)` so gold positions reproduce across runs. Per-row `task` = `High-level domain` so the accuracy CSV breaks down by physics/chemistry/biology. |
+| 10 | `LCBCodeGenerationBenchmark` | `benchmarks/lcb_codegeneration.py` | `lcb_codegeneration` | `code_execution` | 0 | **IMPLEMENTED.** Loads `livecodebench/code_generation_lite` (test split). Serializes the LCB-style test-case payload (starter_code, public + private test cases, upstream metadata) into `BenchmarkProblem.ground_truth` as an orjson blob so `CodeExecutionGrader` can wrap lighteval's `codegen_metrics` and run the generated code against the bundled test cases. |
 
-### Still Stubbed
+### Implementation Status
 
 _All benchmarks are now implemented._
 
@@ -210,22 +211,22 @@ async def process_record(
 
 **Reference implementation:** `MetricRecordProcessor` in `src/aiperf/post_processors/metric_record_processor.py`
 
-### AccuracyResultsProcessor — IMPLEMENTED in PR #815
+### AccuracyAccumulator — IMPLEMENTED in PR #815 (accumulator pipeline)
 
-**File:** `src/aiperf/accuracy/accuracy_results_processor.py`
+**File:** `src/aiperf/accuracy/accuracy_accumulator.py`
 **Parent:** `AIPerfLifecycleMixin`
-**Implements:** `ResultsProcessorProtocol`
-**Plugin key:** `accuracy_results` (under `results_processor`)
+**Implements:** accumulator `process_record` / `summarize` contract (see `AccumulatorProtocol`)
+**Plugin key:** `accuracy_results` (under `accumulator`, `record_types: [metric_records]`)
 **Disables via:** `PostProcessorDisabled` when `not cfg.accuracy.enabled`
 
-This class is fully implemented and serves as the canonical reference for aggregating per-task accuracy metrics.
+This class is fully implemented and serves as the canonical reference for aggregating per-task accuracy metrics from routed `metric_records`.
 
 ```python
-async def process_result(self, record_data: MetricRecordsData) -> None         # IMPLEMENTED in PR #815
-async def summarize(self) -> list[MetricResult]                                # IMPLEMENTED in PR #815
+async def process_record(self, record_data: MetricRecordsData) -> None                # IMPLEMENTED in PR #815
+async def summarize(self, _ctx: SummaryContext | None = None) -> list[MetricResult]    # IMPLEMENTED in PR #815
 ```
 
-**Reference implementation:** `MetricResultsProcessor` in `src/aiperf/post_processors/metric_results_processor.py`
+**Reference implementation:** `MetricsAccumulator` in `src/aiperf/metrics/accumulator.py`
 
 ---
 
@@ -268,7 +269,7 @@ async def export(self) -> None                                                 #
 
 ## Plugin Registration
 
-All stubs are registered in `src/aiperf/plugin/plugins.yaml` and `src/aiperf/plugin/categories.yaml`.
+Accuracy plugins are registered in `src/aiperf/plugin/plugins.yaml` and `src/aiperf/plugin/categories.yaml`.
 
 ### New Plugin Categories
 
@@ -287,7 +288,7 @@ All stubs are registered in `src/aiperf/plugin/plugins.yaml` and `src/aiperf/plu
 | Category | Plugin Key | Class |
 |----------|-----------|-------|
 | `record_processor` | `accuracy_record` | `AccuracyRecordProcessor` |
-| `results_processor` | `accuracy_results` | `AccuracyResultsProcessor` |
+| `accumulator` | `accuracy_results` | `AccuracyAccumulator` |
 | `console_exporter` | `accuracy` | `AccuracyConsoleExporter` |
 | `data_exporter` | `accuracy_csv` | `AccuracyDataExporter` |
 
@@ -297,16 +298,16 @@ All stubs are registered in `src/aiperf/plugin/plugins.yaml` and `src/aiperf/plu
 
 ### Method Count Summary
 
-| Component | Implemented | Still Stubbed | Methods per Stub | Remaining Methods |
+| Component | Implemented | Stubbed | Methods per Stub | Remaining Methods |
 |-----------|-------------|---------------|------------------|-------------------|
-| Graders | 7 (all) | 0 | — | 0 |
-| Benchmarks | 9 (all) | 0 | — | 0 |
+| Graders | 8 (all) | 0 | — | 0 |
+| Benchmarks | 10 (all) | 0 | — | 0 |
 | Record Processor | 1 (`AccuracyRecordProcessor`) | 0 | — | 0 |
-| Results Processor | 1 (`AccuracyResultsProcessor`) | 0 | — | 0 |
+| Accuracy Accumulator | 1 (`AccuracyAccumulator`) | 0 | — | 0 |
 | Console Exporter | 1 (`AccuracyConsoleExporter`) | 0 | — | 0 |
 | Data Exporter | 1 (`AccuracyDataExporter`) | 0 | — | 0 |
 | Stub-plugin Validator | 1 (`AccuracyConfig._reject_stub_plugins`, idle until next stub) | 0 | — | 0 |
-| **Total** | **21** | **0** | | **0** |
+| **Total** | **23** | **0** | | **0** |
 
 ### Self-Disabling Pattern
 
@@ -314,7 +315,7 @@ Processors and exporters raise their `Disabled` exception **in `__init__`** when
 
 ### Suggested Implementation Order
 
-The processors, exporters, all seven graders, and all nine benchmarks are wired end-to-end. There is no remaining stub work. The `AccuracyConfig._reject_stub_plugins()` validator stays in the codebase as a guard for any future stub introduced via `is_implemented: false` in `plugins.yaml`.
+The processors, exporters, all eight graders, and all ten benchmarks are wired end-to-end. There is no remaining stub work. The `AccuracyConfig._reject_stub_plugins()` validator stays in the codebase as a guard for any future stub introduced via `is_implemented: false` in `plugins.yaml`.
 
 ### Key Files for Reference
 
@@ -323,7 +324,7 @@ The processors, exporters, all seven graders, and all nine benchmarks are wired 
 | **Canonical grader** | `src/aiperf/accuracy/graders/multiple_choice.py` |
 | **Canonical benchmark** | `src/aiperf/accuracy/benchmarks/mmlu.py` |
 | **Canonical record processor** | `src/aiperf/accuracy/accuracy_record_processor.py` |
-| **Canonical results processor** | `src/aiperf/accuracy/accuracy_results_processor.py` |
+| **Canonical accuracy accumulator** | `src/aiperf/accuracy/accuracy_accumulator.py` |
 | **Canonical console exporter** | `src/aiperf/accuracy/accuracy_console_exporter.py` |
 | **Canonical data exporter** | `src/aiperf/accuracy/accuracy_data_exporter.py` |
 | Disabled exception pattern | `src/aiperf/post_processors/raw_record_writer_processor.py:47` |
