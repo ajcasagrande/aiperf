@@ -3,11 +3,96 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AIPerf · SLURM + Velo from scratch</title>
-    <script type="module" crossorigin src="./assets/index-mHJz8lNj.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CJVp7POh.css">
+    <title>AIPerf · Explainers</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #141414;
+        --panel: #1a1a1a;
+        --text: #e4e4e4;
+        --muted: #e4e4e48d;
+        --green: #3fa266;
+        --stroke: #e4e4e41f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 48px 24px;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .eyebrow {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 32px;
+        line-height: 1.15;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.55;
+        margin: 0 0 28px;
+      }
+      .grid {
+        display: grid;
+        gap: 12px;
+      }
+      a.card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--panel);
+        border: 1px solid var(--stroke);
+        border-radius: 10px;
+        padding: 18px 18px 16px;
+      }
+      a.card:hover {
+        border-color: var(--green);
+      }
+      .card-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .card-title span {
+        color: var(--green);
+      }
+      .card-body {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <main>
+      <div class="eyebrow">AIPerf · Explainers</div>
+      <h1>Interactive walkthroughs</h1>
+      <p class="lede">
+        Short, self-contained pages that explain how AIPerf pieces fit together.
+        More explainers can land here later as sibling folders.
+      </p>
+      <div class="grid">
+        <a class="card" href="./slurm-explainer/">
+          <div class="card-title"><span>SLURM + Velo</span> from scratch</div>
+          <div class="card-body">
+            Step-by-step slideshow for how SLURM launches cellular AIPerf runs and how Velo wires the control plane.
+          </div>
+        </a>
+      </div>
+    </main>
   </body>
 </html>
