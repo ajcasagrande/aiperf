@@ -18,6 +18,7 @@
 - Each branch's tree must be a strict prefix of the intended final feature; no compatibility shim that is absent from the source tree is allowed.
 - Copy production changes only after first creating the focused tests from the source commit and observing the expected RED failure, except for generated/configuration-only artifacts.
 - Every PR runs and passes: `pre-commit run --all-files`, `make validate-plugin-schemas`, `make test`, `make test-zmq`, `uv run pytest -m component_integration -n auto`, `uv run pytest -m integration -n auto`, and its focused suite. Run `uv run python tools/generate_crd.py --check` on branches containing CRD generation.
+- After every full test gate, run the `aiperf-code-review` skill against that PR branch, inspect its living document and receipts, and resolve every confirmed or partially confirmed finding. A task review may begin only after the code-review result is clean; retain the review evidence in the SDD workspace or the branch's ignored `artifacts/` directory.
 - Record the exact command, exit code, and commit SHA in the SDD ledger for every required gate. A failed environment-dependent command is not waived; diagnose and fix it or record a concrete external blocker.
 - Before final handoff, verify the final delivery branch tree matches `1286d559bc` exactly, excluding only the planning/specification documents and intentional stack metadata commits.
 
@@ -81,7 +82,7 @@ Run the focused tests, generated plugin/schema artifacts when touched, and `make
 
 - [ ] **Step 4: Run the complete mergeability gate**
 
-Run every command in Global Constraints, capture outputs in the ledger, then commit with `feat(k8s): add runtime and configuration contracts`.
+Run every command in Global Constraints, then run a clean `aiperf-code-review` skill check, capture its document/receipt paths and outputs in the ledger, then commit with `feat(k8s): add runtime and configuration contracts`.
 
 ### Task 3: Build PR 2, Kubernetes API, CRD, and manifest contracts
 
@@ -107,7 +108,7 @@ Run `uv run python tools/generate_crd.py`, then `uv run python tools/generate_cr
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): add Kubernetes workload contracts` only after all Global Constraint gates pass.
+Run a clean `aiperf-code-review` skill check after all Global Constraint gates pass; commit with `feat(k8s): add Kubernetes workload contracts` only after its confirmed findings are resolved.
 
 ### Task 4: Build PR 3, Kubernetes pod execution
 
@@ -133,7 +134,7 @@ Run controller/worker/records focused suites and `make test-imports`.
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): run AIPerf services in worker pods`.
+Run a clean `aiperf-code-review` skill check after the full gate and commit with `feat(k8s): run AIPerf services in worker pods` only after review findings are resolved.
 
 ### Task 5: Build PR 4, job operator and results API
 
@@ -159,7 +160,7 @@ Run job operator, result-server, and component-integration focused suites; verif
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): add AIPerfJob operator and results API`.
+Run a clean `aiperf-code-review` skill check after the full gate and commit with `feat(k8s): add AIPerfJob operator and results API` only after review findings are resolved.
 
 ### Task 6: Build PR 5, job-centric Kubernetes CLI
 
@@ -185,7 +186,7 @@ Run `make generate-all-docs`, focused CLI tests, JSON-output tests, and import c
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): add AIPerfJob Kubernetes CLI`.
+Run a clean `aiperf-code-review` skill check after the full gate and commit with `feat(k8s): add AIPerfJob Kubernetes CLI` only after review findings are resolved.
 
 ### Task 7: Build PR 6, sweep orchestration
 
@@ -211,7 +212,7 @@ Run sweep-controller and operator sweep suites, plus focused CLI tests and gener
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): add cluster sweep orchestration`.
+Run a clean `aiperf-code-review` skill check after the full gate and commit with `feat(k8s): add cluster sweep orchestration` only after review findings are resolved.
 
 ### Task 8: Build PR 7, dashboard
 
@@ -237,7 +238,7 @@ Run dashboard/server/router/accessibility suites and static UI harness tests.
 
 - [ ] **Step 4: Run the complete mergeability gate and commit**
 
-Commit with `feat(k8s): add operator dashboard`.
+Run a clean `aiperf-code-review` skill check after the full gate and commit with `feat(k8s): add operator dashboard` only after review findings are resolved.
 
 ### Task 9: Build PR 8, delivery and final equivalence audit
 
@@ -263,4 +264,4 @@ Run Helm lint/template/chart consistency, CRD generation check, image build, and
 
 - [ ] **Step 4: Run the complete mergeability gate, commit, and prove final equivalence**
 
-Commit with `feat(k8s): package Kubernetes operator deployment`. Compare `git diff --name-status 1286d559bc HEAD` and `git diff --quiet 1286d559bc HEAD -- . ':(exclude)docs/superpowers/**'`; both must demonstrate no implementation-tree divergence. Record the exact proof in the ledger.
+Run a clean `aiperf-code-review` skill check after the full gate. Commit with `feat(k8s): package Kubernetes operator deployment`. Compare `git diff --name-status 1286d559bc HEAD` and `git diff --quiet 1286d559bc HEAD -- . ':(exclude)docs/superpowers/**'`; both must demonstrate no implementation-tree divergence. Record the exact proof and code-review evidence in the ledger.

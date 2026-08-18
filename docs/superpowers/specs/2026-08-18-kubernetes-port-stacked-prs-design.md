@@ -10,6 +10,7 @@
 - Create new `ajc/k8s-*` branches only. Do not force-push or rewrite the existing branch.
 - Each PR carries its focused tests and behavior-specific documentation. Generated artifacts stay with their source.
 - Intermediate PRs must import and pass their focused test suite. Full cluster deployment is deferred to the final delivery PR.
+- Every PR must have a clean `aiperf-code-review` skill result before it is eligible for merge. Run that review after the full test gate, retain its living document and runtime receipts as review evidence, and resolve every confirmed finding before progressing the stack.
 
 ## Dependency model
 
