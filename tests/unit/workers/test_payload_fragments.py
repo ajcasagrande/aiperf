@@ -63,7 +63,10 @@ class TestByteEquality:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": "describe"},
-                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,AA"},
+                    },
                 ],
             }
         ]
@@ -91,7 +94,7 @@ class TestByteEquality:
 
     def test_large_body_with_expensive_escapes(self):
         # AgentX prompts run to megabytes and are full of quotes and newlines.
-        body = ('{ "key": "value" }\n' * 40000)
+        body = '{ "key": "value" }\n' * 40000
         assert_identical(chat_payload([{"role": "user", "content": body}]))
 
 

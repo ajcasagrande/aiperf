@@ -356,7 +356,9 @@ def test_warmup_credit_counts_are_memoized_and_stay_exact() -> None:
         _ts_conv("b", [0.0, 1500.0, 2500.0]),
         _ts_conv("c", [0.0, 900.0]),
     ]
-    src = _build(convs, ["a", "b", "c"], concurrency=3, start_min_ratio=0.5, start_max_ratio=0.5)
+    src = _build(
+        convs, ["a", "b", "c"], concurrency=3, start_min_ratio=0.5, start_max_ratio=0.5
+    )
 
     first_counts = src.warmup_credit_counts_by_lane
     first_total = src.warmup_credit_count
@@ -367,9 +369,7 @@ def test_warmup_credit_counts_are_memoized_and_stay_exact() -> None:
     expected = tuple(
         1
         if traj.snapshot is None
-        else sum(
-            1 for st in traj.snapshot.states if st.warmup_turn_index is not None
-        )
+        else sum(1 for st in traj.snapshot.states if st.warmup_turn_index is not None)
         for traj in src.trajectories
     )
     assert first_counts == expected
