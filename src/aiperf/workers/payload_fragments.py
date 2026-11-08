@@ -47,9 +47,18 @@ _ENVELOPE_HEAD = b'{"messages":['
 _ENVELOPE_SEP = b","
 _ENVELOPE_TAIL = b"]"
 
-#: Per-process budget for retained encoded fragments. A miss re-encodes one
-#: message, so this only trades a little CPU for a hard memory ceiling.
-DEFAULT_FRAGMENT_BUDGET_BYTES = 64 * 1024 * 1024
+#: Per-process budget for retained encoded fragments; 0 (the default) disables
+#: the cache entirely.
+#:
+#: Disabled by default because the entry holds a STRONG reference to the source
+#: message dict so its ``id()`` cannot be recycled, and the budget only accounts
+#: for the encoded bytes -- not the pinned dict. Measured in a worker at just 50
+#: lanes: 776 MiB retained across 8,799 entries, i.e. ~15 MB per lane, against a
+#: nominal 64 MiB budget. At 50k lanes that is hundreds of GiB to save one
+#: orjson re-encode per turn, which is not a trade worth making. Re-enable with
+#: AIPERF_PAYLOAD_FRAGMENT_BUDGET_BYTES when memory is not the binding
+#: constraint, and note that the budget under-counts while the dict is pinned.
+DEFAULT_FRAGMENT_BUDGET_BYTES = 0
 _BUDGET_ENV = "AIPERF_PAYLOAD_FRAGMENT_BUDGET_BYTES"
 
 
@@ -69,6 +78,8 @@ class _FragmentCache:
         self._budget_bytes = budget_bytes
 
     def get(self, message: dict[Any, Any]) -> bytes | None:
+        if self._budget_bytes <= 0:
+            return None
         key = id(message)
         fragment = self._entries.get(key)
         if fragment is None:
@@ -81,6 +92,8 @@ class _FragmentCache:
         return fragment
 
     def put(self, message: dict[Any, Any], fragment: bytes) -> None:
+        if self._budget_bytes <= 0:
+            return
         key = id(message)
         if key in self._entries:
             self._retained_bytes -= len(self._entries[key])
