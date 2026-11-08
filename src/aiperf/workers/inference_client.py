@@ -139,11 +139,23 @@ class InferenceClient(AIPerfLifecycleMixin):
             wire_payload = formatted_payload if is_multipart else encoded
         else:
             request_info.payload_bytes = formatted_payload
-        return await self.transport.send_request(
+        record = await self.transport.send_request(
             request_info,
             payload=wire_payload,
             first_token_callback=first_token_callback,
         )
+        # The record already carries whatever the pipeline still needs; holding
+        # the same multi-megabyte wire body on the live RequestInfo keeps it
+        # alive for the whole credit. Multi-MB agentic prompts make those
+        # retained serialization bytes a large per-lane memory term -- much
+        # larger than the decoded conversation, which copy-on-write already
+        # shares. ``_enrich_request_record`` strips the record's copy under
+        # ``strip_record_payload_bytes``; this clears the worker-side original
+        # for the same reason. Nothing reads it after dispatch: the transport
+        # has already consumed ``wire_payload``.
+        if self.strip_record_payload_bytes:
+            request_info.payload_bytes = None
+        return record
 
     async def _send_request_internal(
         self,
