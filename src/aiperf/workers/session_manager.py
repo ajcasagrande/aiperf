@@ -3,7 +3,7 @@
 
 """User session management for multi-turn conversation optimization."""
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from aiperf.common.enums import ConversationBranchMode, ConversationContextMode
 from aiperf.common.models import AIPerfBaseModel
@@ -21,12 +21,53 @@ def _compute_is_fork_parent(conversation: Conversation) -> bool:
     return any(b.mode == ConversationBranchMode.FORK for b in conversation.branches)
 
 
+def clone_turn_containers(turn: Turn) -> Turn:
+    """Copy a ``Turn`` and every container a cache-bust mutator can write.
+
+    The worker's cache-bust marker mutators assign to list
+    slots (``raw_messages[:] = ...``, ``images[:] = ...``, ``contents[0] =
+    ...``, ``raw_system.insert(...)``, ``turn.texts = ...``) and replace message
+    dicts rather than editing them. The dicts, parts and strings therefore stay
+    shared; only the ``Turn`` and its list containers (and each ``Text``, whose
+    ``contents`` list is written) become private.
+    """
+    return turn.model_copy(
+        update={
+            "raw_messages": None
+            if turn.raw_messages is None
+            else list(turn.raw_messages),
+            "raw_tools": None if turn.raw_tools is None else list(turn.raw_tools),
+            "raw_system": None if turn.raw_system is None else list(turn.raw_system),
+            "texts": [
+                text.model_copy(update={"contents": list(text.contents)})
+                for text in turn.texts
+            ],
+            "images": list(turn.images),
+            "audios": list(turn.audios),
+            "videos": list(turn.videos),
+            "raw_payload": None if turn.raw_payload is None else dict(turn.raw_payload),
+        }
+    )
+
+
 class UserSession(AIPerfBaseModel):
     """
     User session for multi-turn processing.
 
-    Stores full conversation data and turn list (including assistant responses) to enable building requests
-    with conversation context.
+    A session is a cursor over a conversation, not a copy of it. ``conversation``
+    is the worker's decoded conversation, shared by every session replaying that
+    trace, and must be treated as read-only. Per-session state is ``turn_list``
+    (pointers to shared ``Turn`` objects plus this session's captured
+    responses) and the copy-on-write table behind :meth:`own_turn`: a ``Turn``
+    is cloned only when a mutator first writes to it, at most once per session.
+    """
+
+    _cow: dict[int, tuple[Turn, Turn]] = PrivateAttr(default_factory=dict)
+    """Copy-on-write table: ``id(turn) -> (turn, private copy)``.
+
+    Holds the key object strongly so its ``id()`` cannot be recycled while the
+    entry lives. A private copy maps to itself, which is how :meth:`own_turn`
+    recognises a turn it already owns.
     """
 
     x_correlation_id: str = Field(
@@ -39,7 +80,9 @@ class UserSession(AIPerfBaseModel):
         "Set on first turn to ensure all turns in a conversation hit the same backend.",
     )
     conversation: Conversation = Field(
-        ..., description="Full conversation data from DatasetManager"
+        ...,
+        description="Conversation from DatasetManager, shared with every other "
+        "session replaying it. Read-only: write through ``own_turn``.",
     )
     turn_list: list[Turn] = Field(
         default_factory=list,
@@ -144,6 +187,11 @@ class UserSession(AIPerfBaseModel):
 
         if self.context_mode == ConversationContextMode.MESSAGE_ARRAY_WITH_RESPONSES:
             self.turn_list = [turn]
+            # Each turn carries its whole history, so a private copy of a past
+            # turn holds O(history) pointers. Nothing reads a dropped turn
+            # again, and the cache-bust writes are re-derived every credit, so
+            # retaining those copies would only rebuild the O(turns^2) clone.
+            self._cow.clear()
         else:
             # Delta-encoded modes accumulate. For ``DELTAS_WITH_RESPONSES``
             # (e.g. weka agentic_replay), if a caller skips ahead past
@@ -165,6 +213,32 @@ class UserSession(AIPerfBaseModel):
             self.turn_list.append(turn)
         self.turn_index = turn_index
         return turn
+
+    def own_turn(self, turn: Turn) -> Turn:
+        """Return this session's private copy of ``turn``, cloning on first write.
+
+        Call immediately before writing to a turn reached through
+        ``turn_list``. The first call for a shared turn clones its containers
+        (:func:`clone_turn_containers`) and swaps the copy into ``turn_list`` in
+        place of the original; later calls, with either the original or the
+        copy, return the same copy. A turn this session does not own -- the
+        shared conversation's, or a FORK parent's seeded into ``turn_list`` --
+        is never written.
+
+        Only call this when the write will change the turn: a no-op write
+        would spend a clone for nothing.
+        """
+        entry = self._cow.get(id(turn))
+        if entry is not None and entry[0] is turn:
+            return entry[1]
+        private = clone_turn_containers(turn)
+        self._cow[id(turn)] = (turn, private)
+        self._cow[id(private)] = (private, private)
+        turn_list = self.turn_list
+        for idx, existing in enumerate(turn_list):
+            if existing is turn:
+                turn_list[idx] = private
+        return private
 
     def should_store_response(self) -> bool:
         """Whether assistant responses should be stored based on context mode.

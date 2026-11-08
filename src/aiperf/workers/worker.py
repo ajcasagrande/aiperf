@@ -88,6 +88,8 @@ from aiperf.workers.inference_client import InferenceClient
 from aiperf.workers.session_manager import UserSession, UserSessionManager
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from aiperf.config.resolution.plan import BenchmarkRun
     from aiperf.transports.base_transports import FirstTokenCallback
 
@@ -276,9 +278,15 @@ def _find_effective_raw_system(turn_list: list[Turn]) -> list[dict] | None:
     the front of the system section must therefore prefer ``system_message``
     when both are present; callers marking the tail must prefer these blocks.
     """
+    turn = _find_effective_raw_system_turn(turn_list)
+    return None if turn is None else turn.raw_system
+
+
+def _find_effective_raw_system_turn(turn_list: list[Turn]) -> Turn | None:
+    """The turn whose ``raw_system`` :func:`_find_effective_raw_system` returns."""
     for turn in reversed(turn_list):
         if turn.raw_system is not None:
-            return turn.raw_system
+            return turn
     return None
 
 
@@ -315,10 +323,16 @@ def _find_first_system_message(turn_list: list[Turn]) -> list[dict] | None:
     accumulating delta mode (system in ``turn_list[0]``, deltas in
     ``turn_list[1..]``).
     """
+    turn = _find_first_system_turn(turn_list)
+    return None if turn is None else turn.raw_messages
+
+
+def _find_first_system_turn(turn_list: list[Turn]) -> Turn | None:
+    """The turn whose ``raw_messages`` :func:`_find_first_system_message` returns."""
     for turn in turn_list:
         raw = turn.raw_messages
         if raw and isinstance(raw[0], dict) and raw[0].get("role") == "system":
-            return raw
+            return turn
     return None
 
 
@@ -376,68 +390,53 @@ def _inject_marker_into_first_user_text(
     first.contents[0] = (marker + existing) if is_prefix else (existing + marker)
 
 
-def _clone_conversation_for_session(conversation: Conversation) -> Conversation:
-    """Give one session private containers over shared, immutable content.
-
-    A session decodes its whole conversation and holds it until the session
-    ends. At 50,000 lanes over 393 traces every trace is decoded and held about
-    127 times, which costs hundreds of GiB; decoding once per worker and
-    cloning per session keeps the message payloads shared.
-
-    Cache-bust and media-uuid suffixing mutate only *containers*: they assign to
-    list slots (``raw_messages[:] = ...``, ``images[:] = ...``,
-    ``contents[0] = ...``, ``turn.texts = ...``) and replace dicts rather than
-    editing them. The message dicts, parts and strings are therefore safe to
-    share, while every list container and ``Turn`` object the mutators can
-    write to must be private to the session.
-    """
-
-    def clone_turn(turn: Turn) -> Turn:
-        return turn.model_copy(
-            update={
-                "raw_messages": None
-                if turn.raw_messages is None
-                else list(turn.raw_messages),
-                "raw_tools": None if turn.raw_tools is None else list(turn.raw_tools),
-                "raw_system": None
-                if turn.raw_system is None
-                else list(turn.raw_system),
-                "texts": [
-                    text.model_copy(update={"contents": list(text.contents)})
-                    for text in turn.texts
-                ],
-                "images": list(turn.images),
-                "audios": list(turn.audios),
-                "videos": list(turn.videos),
-                "raw_payload": None
-                if turn.raw_payload is None
-                else dict(turn.raw_payload),
-            }
-        )
-
-    return conversation.model_copy(
-        update={"turns": [clone_turn(turn) for turn in conversation.turns]}
+def _first_user_text_has_marker(turn: Turn, marker: str, *, is_prefix: bool) -> bool:
+    """Whether :func:`_inject_marker_into_first_user_text` would leave ``turn`` as is."""
+    if not turn.texts or not turn.texts[0].contents:
+        return False
+    return _content_has_marker_at_edge(
+        turn.texts[0].contents[0], marker, is_prefix=is_prefix
     )
 
 
 def _inject_marker_at_first_user(
-    turn_list: list[Turn], marker: str, *, is_prefix: bool
+    turn_list: list[Turn],
+    marker: str,
+    *,
+    is_prefix: bool,
+    own: Callable[[Turn], Turn] | None = None,
 ) -> None:
     """Inject ``marker`` at the first user turn (raw_messages or texts).
 
     Wraps the lookup + dispatch shared by SYSTEM_* fallback (sub-path 3
     in :func:`_apply_cache_bust`) and the FIRST_TURN_* path. No-op when
     there is no user-bearing turn at all.
+
+    ``own`` is the session's copy-on-write hook (``UserSession.own_turn``). It
+    is called only when the marker is not already there, so a turn is cloned on
+    its first real write and never for the idempotent re-marks of later
+    credits. ``None`` writes ``turn_list``'s turns in place.
     """
+    if not marker:
+        return
     user_turn = _find_first_user_turn(turn_list)
     if user_turn is None:
         return
     if user_turn.raw_messages:
-        _inject_marker_into_first_user_turn(
-            user_turn.raw_messages, marker, is_prefix=is_prefix
-        )
-    else:
-        _inject_marker_into_first_user_text(user_turn, marker, is_prefix=is_prefix)
+        messages = list(user_turn.raw_messages)
+        _inject_marker_into_first_user_turn(messages, marker, is_prefix=is_prefix)
+        if _any_replaced(messages, user_turn.raw_messages):
+            target = own(user_turn) if own is not None else user_turn
+            target.raw_messages[:] = messages
+        return
+    if _first_user_text_has_marker(user_turn, marker, is_prefix=is_prefix):
+        return
+    target = own(user_turn) if own is not None else user_turn
+    _inject_marker_into_first_user_text(target, marker, is_prefix=is_prefix)
+
+
+def _any_replaced(new: list, old: list) -> bool:
+    return any(item is not before for item, before in zip(new, old, strict=True))
 
 
 def _apply_cache_bust(
@@ -447,8 +446,12 @@ def _apply_cache_bust(
 ) -> str | None:
     """Dispatch cache-bust marker injection for a single credit.
 
-    Mutates the appropriate turn's ``raw_messages`` (or ``texts``) in-place
-    when the marker attaches to the trace's pre-rendered messages. Returns
+    Writes the marker into the appropriate turn's ``raw_messages`` (or
+    ``texts``) when it attaches to the trace's pre-rendered messages. Every
+    write goes through ``session.own_turn``: the turns in ``turn_list`` belong
+    to the worker's shared decoded conversation, so a write clones that one
+    turn for this session first and the other sessions replaying the trace
+    keep the pristine original. Returns
     the (possibly modified) ``system_message`` string for the caller to
     forward into request building.
 
@@ -475,13 +478,14 @@ def _apply_cache_bust(
     if not marker or target == CacheBustTarget.NONE:
         return system_message
 
+    own = session.own_turn
+
     # FORK children share the parent's KV cache by design: they seed turn_list
     # from the parent (the SAME Turn objects) and must send the parent's exact
     # prefix to hit its cache. The parent already injected its marker into those
-    # shared turns, so the child inherits it for free — re-busting here would
-    # diverge the child's prefix from the parent's (cache miss) AND mutate the
-    # parent's shared, read-only Turn objects (stacking markers). So cache-bust
-    # is a no-op for FORK children. SPAWN children start fresh (no shared turns)
+    # turns, so the child inherits it for free — re-busting here would diverge
+    # the child's prefix from the parent's (cache miss). So the marker is not
+    # injected for FORK children. SPAWN children start fresh (no shared turns)
     # and root sessions own their prefix, so both are busted normally.
     if (
         session.parent_correlation_id is not None
@@ -509,13 +513,14 @@ def _apply_cache_bust(
             marker=marker,
             target=target,
             is_prefix=is_prefix,
+            own=own,
         )
 
     # Mark the effective prefix's opening user turn every credit (idempotent).
     # Unconditional rather than turn_index==0-gated so a seeded mid-trajectory
     # resume (turn_list back-filled with turns 0..k_i at a credit whose
     # turn_index > 0) still marks the true wire prefix.
-    _inject_marker_at_first_user(prefix_turns, marker, is_prefix=is_prefix)
+    _inject_marker_at_first_user(prefix_turns, marker, is_prefix=is_prefix, own=own)
     return system_message
 
 
@@ -527,6 +532,7 @@ def _apply_system_target_cache_bust(
     marker: str,
     target: CacheBustTarget,
     is_prefix: bool,
+    own: Callable[[Turn], Turn] | None = None,
 ) -> str | None:
     """Inject a ``SYSTEM_PREFIX`` / ``SYSTEM_SUFFIX`` / ``WARMUP_ISOLATION_SYSTEM`` marker for one credit.
 
@@ -563,19 +569,32 @@ def _apply_system_target_cache_bust(
          ``FIRST_TURN_*`` semantics so a seeded mid-trajectory resume still
          marks the prefix.
 
+    Every turn write goes through ``own`` (copy-on-write, see
+    :func:`_inject_marker_at_first_user`), and only when it changes the turn.
+
     Returns the (possibly modified) ``system_message``.
     """
-    raw_system_blocks = _find_effective_raw_system(all_turns)
-    if system_message is not None and (is_prefix or raw_system_blocks is None):
+    raw_system_turn = _find_effective_raw_system_turn(all_turns)
+    if system_message is not None and (is_prefix or raw_system_turn is None):
         return _apply_cache_bust_to_system_message(system_message, marker, target)
-    if raw_system_blocks is not None:
-        _inject_marker_into_raw_system(raw_system_blocks, marker, is_prefix=is_prefix)
+    if raw_system_turn is not None:
+        blocks = list(raw_system_turn.raw_system)
+        _inject_marker_into_raw_system(blocks, marker, is_prefix=is_prefix)
+        if len(blocks) != len(raw_system_turn.raw_system):
+            target_turn = own(raw_system_turn) if own is not None else raw_system_turn
+            target_turn.raw_system[:] = blocks
         return system_message
-    raw_system = _find_first_system_message(prefix_turns)
-    if raw_system is not None:
-        _inject_marker_into_raw_messages(raw_system, marker, is_prefix=is_prefix)
+    system_turn = _find_first_system_turn(prefix_turns)
+    if system_turn is not None:
+        messages = list(system_turn.raw_messages)
+        _inject_marker_into_raw_messages(messages, marker, is_prefix=is_prefix)
+        if _any_replaced(messages, system_turn.raw_messages):
+            target_turn = own(system_turn) if own is not None else system_turn
+            target_turn.raw_messages[:] = messages
     else:
-        _inject_marker_at_first_user(prefix_turns, marker, is_prefix=is_prefix)
+        _inject_marker_at_first_user(
+            prefix_turns, marker, is_prefix=is_prefix, own=own
+        )
     return system_message
 
 
@@ -779,8 +798,9 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         self._dataset_client = ClientStoreClass(client_metadata=msg.client_metadata)
         await self._dataset_client.initialize()
         self.session_manager.set_default_context_mode(msg.metadata.default_context_mode)
-        # Decoded conversations are cached per worker and cloned per session
-        # (_clone_conversation_for_session). Decoding a multi-MB conversation on
+        # Decoded conversations are cached per worker and shared by every
+        # session replaying them; a session clones a turn only on its first
+        # cache-bust write (UserSession.own_turn). Decoding a multi-MB conversation on
         # the worker's event loop for every session is both the biggest stall
         # source and, at 50k lanes, the dominant memory consumer.
         self._conversation_cache: OrderedDict[tuple[str, int], Conversation] = (
@@ -1680,12 +1700,13 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         *,
         credit_context: CreditContext,
     ) -> Conversation:
-        """Return a session-private clone of this conversation.
+        """Return the worker's shared decoded copy of this conversation.
 
-        The decoded conversation is cached and shared; each session gets its own
-        containers over the shared payload (see
-        :func:`_clone_conversation_for_session`), so a trace replayed by many
-        lanes is decoded once per worker rather than once per lane.
+        The decoded conversation is cached and shared by every session that
+        replays it, so a trace replayed by many lanes is decoded once per
+        worker rather than once per lane, and a session holds pointers into it
+        rather than a copy. Sessions must not write to it: cache-bust writes go
+        through ``UserSession.own_turn``, which clones only the turn written.
 
         The key includes ``num_turns`` because the PAYLOAD_BYTES reconstruction
         loops ``range(num_turns)`` and the cheap-path scan uses the credit's
@@ -1704,7 +1725,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
                 self._conversation_cache.popitem(last=False)
         else:
             self._conversation_cache.move_to_end(key)
-        return _clone_conversation_for_session(cached)
+        return cached
 
     async def _retrieve_conversation_for_session(
         self,

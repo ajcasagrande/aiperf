@@ -14,8 +14,9 @@ composition time and, at send time, reserves the exact length and writes
 the Python equivalent for the chat path.
 
 Why a per-message cache rather than a per-session joined prefix: the worker
-already decodes each conversation once and hands every session a shallow clone
-that shares the message dicts (``worker.py`` ``_clone_conversation_for_session``).
+already decodes each conversation once and every session points at that shared
+copy; a cache-bust write clones only the written turn's containers and keeps
+its message dicts (``session_manager.py`` ``UserSession.own_turn``).
 Message dicts are therefore shared process-wide, so one encoded fragment serves
 every session replaying that trace. A per-session joined-prefix buffer would
 instead store one full copy of the conversation per live session, which is the
