@@ -154,11 +154,12 @@ def limit_tracemalloc_to_sampled_workers(
     import tracemalloc
     import zlib
 
-    if not tracemalloc.is_tracing():
-        return
     try:
         fraction = float(raw)
+        nframes = int(os.environ.get("PYTHONTRACEMALLOC") or 0)
     except ValueError:
+        return
+    if nframes <= 0:
         return
     sampled = (
         service_type == ServiceType.WORKER
@@ -167,6 +168,10 @@ def limit_tracemalloc_to_sampled_workers(
     )
     if not sampled:
         tracemalloc.stop()
+    elif not tracemalloc.is_tracing():
+        # Fork-started children inherit the parent's tracing state, and the
+        # parent already stopped it here, so PYTHONTRACEMALLOC is not re-read.
+        tracemalloc.start(nframes)
 
 
 def schedule_one_shot_tracemalloc_dump() -> None:
