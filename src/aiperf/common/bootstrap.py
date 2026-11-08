@@ -136,6 +136,39 @@ def _attribute_top_sites(snapshot, top_stats, pid: int) -> list[bytes]:
     return out
 
 
+def limit_tracemalloc_to_sampled_workers(
+    service_type: ServiceType, service_id: str | None
+) -> None:
+    """Stop tracing in every process except a sampled fraction of workers.
+
+    ``PYTHONTRACEMALLOC`` turns tracing on in every process, and at 50k lanes
+    tracing all ~100 workers inflates the heap far enough to distort (or OOM)
+    the run being measured. With ``AIPERF_TRACEMALLOC_WORKER_FRACTION`` set,
+    only workers whose id hashes below that fraction keep tracing; the rest,
+    and every non-worker service, stop it at startup so their memory stays
+    representative of an untraced run.
+    """
+    raw = os.environ.get("AIPERF_TRACEMALLOC_WORKER_FRACTION")
+    if not raw:
+        return
+    import tracemalloc
+    import zlib
+
+    if not tracemalloc.is_tracing():
+        return
+    try:
+        fraction = float(raw)
+    except ValueError:
+        return
+    sampled = (
+        service_type == ServiceType.WORKER
+        and service_id is not None
+        and zlib.crc32(service_id.encode()) / 0xFFFFFFFF < fraction
+    )
+    if not sampled:
+        tracemalloc.stop()
+
+
 def schedule_one_shot_tracemalloc_dump() -> None:
     """Dump the heap once, after ``AIPERF_TRACEMALLOC_DUMP_AFTER_SECS`` seconds.
 
@@ -257,6 +290,7 @@ def bootstrap_and_run_service(
     # allocation sites to this service's log, which is how the per-lane memory
     # cost gets attributed instead of guessed at. Needs PYTHONTRACEMALLOC set
     # before interpreter start; otherwise it reports that it is not tracing.
+    limit_tracemalloc_to_sampled_workers(service_type, service_id)
     register_sigusr2_tracemalloc_dump()
     # Signal delivery is unreliable when the main thread is inside the event
     # loop, so also offer a timer-based one-shot dump for heap attribution.
