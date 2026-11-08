@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+import weakref
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
@@ -100,6 +101,14 @@ if TYPE_CHECKING:
 # hold the whole corpus costs workers x corpus, i.e. roughly 0.5 TB at the
 # 393-trace corpus with 100 workers. A miss costs one re-decode at session
 # creation, which is cheap next to that, so a small working set is enough.
+#
+# The bound only governs what is kept with NO session holding it. Every decoded
+# conversation that a live session still references is also findable through
+# ``Worker._live_conversations`` (a weak-value map), so a new lane on a trace that
+# other lanes are already replaying borrows their copy instead of decoding its
+# own. At ~500 lanes per worker over a 393-trace corpus, a 16-entry LRU alone hit
+# almost never, so each lane held a private ~14 MB decode of a trace that other
+# lanes in the same process had already decoded.
 _CONVERSATION_CACHE_MAX_ENTRIES = 16
 
 
@@ -758,6 +767,13 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         self._conversation_cache: OrderedDict[tuple[str, int], Conversation] = (
             OrderedDict()
         )
+        # Every decoded conversation still referenced anywhere (by a live
+        # session or the LRU above), so concurrent lanes on one trace share a
+        # single decode. Weak values: an entry disappears with its last holder,
+        # so this never extends a conversation's lifetime.
+        self._live_conversations: weakref.WeakValueDictionary[
+            tuple[str, int], Conversation
+        ] = weakref.WeakValueDictionary()
         self._dataset_configured_event = asyncio.Event()
         # True when the mmap dataset ships pre-encoded per-turn payload bytes
         # (PAYLOAD_BYTES format); enables the verbatim-replay fast path.
@@ -809,6 +825,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         # the worker's event loop for every session is both the biggest stall
         # source and, at 50k lanes, the dominant memory consumer.
         self._conversation_cache.clear()
+        self._live_conversations.clear()
         if isinstance(msg.client_metadata, MemoryMapClientMetadata):
             self._is_payload_bytes = (
                 msg.client_metadata.format == MemoryMapFormat.PAYLOAD_BYTES
@@ -1719,15 +1736,20 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         credit = credit_context.credit
         key = (credit.conversation_id, credit.num_turns)
         cached = self._conversation_cache.get(key)
+        if cached is not None:
+            self._conversation_cache.move_to_end(key)
+            return cached
+        cached = self._live_conversations.get(key)
         if cached is None:
             cached = await self._retrieve_conversation_for_session(
                 credit_context=credit_context,
             )
-            self._conversation_cache[key] = cached
-            if len(self._conversation_cache) > _CONVERSATION_CACHE_MAX_ENTRIES:
-                self._conversation_cache.popitem(last=False)
-        else:
-            self._conversation_cache.move_to_end(key)
+            # Another lane may have decoded the same key across the await;
+            # keep the first copy so the two lanes still share one.
+            cached = self._live_conversations.setdefault(key, cached)
+        self._conversation_cache[key] = cached
+        if len(self._conversation_cache) > _CONVERSATION_CACHE_MAX_ENTRIES:
+            self._conversation_cache.popitem(last=False)
         return cached
 
     async def _retrieve_conversation_for_session(
