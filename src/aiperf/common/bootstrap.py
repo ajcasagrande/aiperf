@@ -84,7 +84,9 @@ def register_sigusr2_tracemalloc_dump() -> None:
             snapshot = tracemalloc.take_snapshot()
             lines = [b"=== tracemalloc top allocation sites (lineno) ===\n"]
             for stat in snapshot.statistics("lineno")[:25]:
-                lines.append(f"{stat.size / 1048576:9.2f} MiB  {stat.count:8d}  {stat.traceback[0]}\n".encode())
+                lines.append(
+                    f"{stat.size / 1048576:9.2f} MiB  {stat.count:8d}  {stat.traceback[0]}\n".encode()
+                )
             total = sum(stat.size for stat in snapshot.statistics("filename"))
             lines.append(f"=== total traced: {total / 1048576:.1f} MiB ===\n".encode())
             os.write(2, b"".join(lines))
@@ -93,6 +95,44 @@ def register_sigusr2_tracemalloc_dump() -> None:
 
     with contextlib.suppress(ValueError, RuntimeError, AttributeError):
         signal.signal(signal.SIGUSR2, _dump)
+
+
+def _attribute_top_sites(snapshot, top_stats, pid: int) -> list[bytes]:
+    """Group each top allocation site by its nearest AIPerf caller chain.
+
+    A shared site such as ``BaseModel.__init__`` says nothing about which model
+    is being built; walking each trace outward to the first AIPerf frames does.
+    """
+    out: list[bytes] = []
+    for stat in top_stats:
+        site = stat.traceback[0]
+        buckets: dict[tuple[str, ...], list[int]] = {}
+        for trace in snapshot.traces:
+            frames = list(trace.traceback)
+            # Locate the allocation frame regardless of the stored frame order.
+            if frames[0].filename == site.filename and frames[0].lineno == site.lineno:
+                ordered = frames
+            elif (
+                frames[-1].filename == site.filename
+                and frames[-1].lineno == site.lineno
+            ):
+                ordered = frames[::-1]
+            else:
+                continue
+            callers = tuple(
+                f"{frame.filename.rsplit('/aiperf/', 1)[-1]}:{frame.lineno}"
+                for frame in ordered[1:]
+                if "/aiperf/" in frame.filename and "pydantic" not in frame.filename
+            )[:3]
+            bucket = buckets.setdefault(callers or ("<no aiperf frame>",), [0, 0])
+            bucket[0] += trace.size
+            bucket[1] += 1
+        out.append(f"--- callers of {site} [pid={pid}] ---\n".encode())
+        ranked = sorted(buckets.items(), key=lambda item: item[1][0], reverse=True)
+        for callers, (size, count) in ranked[:12]:
+            chain = " <- ".join(callers)
+            out.append(f"{size / 1048576:9.2f} MiB {count:8d}  {chain}\n".encode())
+    return out
 
 
 def schedule_one_shot_tracemalloc_dump() -> None:
@@ -132,12 +172,14 @@ def schedule_one_shot_tracemalloc_dump() -> None:
             out = [
                 f"=== tracemalloc heap dump [pid={os.getpid()} comm={who}] ===\n".encode()
             ]
-            for stat in snapshot.statistics("lineno")[:20]:
+            top = snapshot.statistics("lineno")[:20]
+            for stat in top:
                 out.append(
                     f"{stat.size / 1048576:9.2f} MiB {stat.count:8d}  {stat.traceback[0]}\n".encode()
                 )
             total = sum(stat.size for stat in snapshot.statistics("filename"))
             out.append(f"=== total traced: {total / 1048576:.1f} MiB ===\n".encode())
+            out.extend(_attribute_top_sites(snapshot, top[:4], os.getpid()))
             os.write(2, b"".join(out))
         except Exception:  # noqa: BLE001 - diagnostics must never kill the service
             os.write(2, b"tracemalloc: dump failed\n")
