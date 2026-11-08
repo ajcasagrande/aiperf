@@ -198,7 +198,7 @@ class PhaseRunner(TaskManagerMixin):
         )
         self._replay_barrier = (
             ReplayBarrierCoordinator(
-                self._conversation_source.dataset_metadata,
+                self._conversation_source.replay_predecessor_graph,
                 scheduler=self._scheduler,
                 root_idle_gap_cap_seconds=self._root_idle_gap_cap_seconds(),
             )

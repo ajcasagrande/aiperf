@@ -9,7 +9,10 @@ from aiperf.common.enums import CreditPhase
 from aiperf.common.models import DatasetMetadata
 from aiperf.credit.structs import Credit, TurnToSend
 from aiperf.plugin.enums import DatasetSamplingStrategy
-from aiperf.timing.replay_dependencies import ReplayBarrierCoordinator
+from aiperf.timing.replay_dependencies import (
+    ReplayBarrierCoordinator,
+    ReplayPredecessorGraph,
+)
 from tests.unit.dataset.loader.test_weka_overlap_groups import _load
 
 pytestmark = pytest.mark.component_integration
@@ -22,7 +25,9 @@ async def test_loaded_abc_group_joins_before_d() -> None:
         conversations=[conversation.to_metadata() for conversation in conversations],
         sampling_strategy=DatasetSamplingStrategy.SEQUENTIAL,
     )
-    coordinator = ReplayBarrierCoordinator(metadata)
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(metadata)
+    )
     coordinator.activate()
     root = next(
         conversation for conversation in metadata.conversations if conversation.is_root

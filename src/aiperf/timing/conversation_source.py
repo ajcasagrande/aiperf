@@ -22,6 +22,7 @@ from aiperf.common.enums import CacheBustTarget, ConversationBranchMode
 from aiperf.common.models import ConversationMetadata, DatasetMetadata, TurnMetadata
 from aiperf.credit.structs import Credit, TurnToSend
 from aiperf.dataset.protocols import DatasetSamplingStrategyProtocol
+from aiperf.timing.replay_dependencies import ReplayPredecessorGraph
 from aiperf.timing.strategies.cache_bust import build_cache_bust_marker
 
 
@@ -183,11 +184,21 @@ class ConversationSource:
         self._metadata_lookup: dict[str, ConversationMetadata] = {
             conv.conversation_id: conv for conv in dataset_metadata.conversations
         }
+        self._replay_predecessor_graph: ReplayPredecessorGraph | None = None
 
     @property
     def dataset_metadata(self) -> DatasetMetadata:
         """Dataset metadata."""
         return self._dataset_metadata
+
+    @property
+    def replay_predecessor_graph(self) -> ReplayPredecessorGraph:
+        """Recorded replay frontier, built on first use and shared by all phases."""
+        if self._replay_predecessor_graph is None:
+            self._replay_predecessor_graph = ReplayPredecessorGraph.from_dataset(
+                self._dataset_metadata
+            )
+        return self._replay_predecessor_graph
 
     def _marker_for_session(
         self, conversation_id: str, x_correlation_id: str, *, retain: bool

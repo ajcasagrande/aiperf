@@ -29,6 +29,7 @@ from aiperf.dataset.dataset_samplers import SequentialSampler
 from aiperf.plugin.enums import DatasetSamplingStrategy
 from aiperf.timing.replay_dependencies import (
     ReplayBarrierCoordinator,
+    ReplayPredecessorGraph,
     ReplayResumeBoundary,
 )
 from aiperf.timing.strategies.agentic_replay import AgenticReplayStrategy
@@ -2786,7 +2787,7 @@ async def test_global_idle_cap_rechecks_after_barrier_defers_near_timer(
         progress=progress,
         dataset=dataset,
     )
-    barrier = ReplayBarrierCoordinator(dataset)
+    barrier = ReplayBarrierCoordinator(ReplayPredecessorGraph.from_dataset(dataset))
     barrier.activate()
     root_id = "f59e6655-5dc3-47ce-a8c7-8d6ee31ff1b0"
     issued: list[tuple[str, int]] = []

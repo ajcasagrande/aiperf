@@ -161,24 +161,51 @@ class _RootBarrierState:
     """Whether this idle interval has already consumed its full cap budget."""
 
 
+@dataclass(frozen=True, slots=True)
+class ReplayPredecessorGraph:
+    """Immutable per-dataset replay frontier, shared by every phase's barrier.
+
+    Built once per dataset rather than once per phase: each phase runner owns a
+    ``ReplayBarrierCoordinator``, and rebuilding the graph per phase kept one
+    full copy per phase alive in the timing manager. Only gated turns are
+    stored; a turn with no recorded predecessors is simply absent.
+    """
+
+    predecessors: dict[ReplayTurnKey, tuple[ReplayTurnKey, ...]]
+    """Gated request -> the requests that must complete before it may issue."""
+    request_count: int
+    """Total requests in the dataset, gated or not (for the activation log)."""
+
+    @classmethod
+    def from_dataset(cls, dataset_metadata: DatasetMetadata) -> ReplayPredecessorGraph:
+        predecessors: dict[ReplayTurnKey, tuple[ReplayTurnKey, ...]] = {}
+        request_count = 0
+        for conversation in dataset_metadata.conversations:
+            request_count += len(conversation.turns)
+            for turn_index, turn in enumerate(conversation.turns):
+                refs = turn.replay_predecessors
+                if not refs:
+                    continue
+                predecessors[
+                    ReplayTurnKey(conversation.conversation_id, turn_index)
+                ] = tuple(
+                    ReplayTurnKey(ref.conversation_id, ref.turn_index) for ref in refs
+                )
+        return cls(predecessors=predecessors, request_count=request_count)
+
+
 class ReplayBarrierCoordinator:
     """Release requests only after their recorded frontier has completed."""
 
     def __init__(
         self,
-        dataset_metadata: DatasetMetadata,
+        graph: ReplayPredecessorGraph,
         *,
         scheduler: LoopScheduler | None = None,
         root_idle_gap_cap_seconds: float | None = None,
     ) -> None:
-        self._predecessors: dict[ReplayTurnKey, tuple[ReplayTurnKey, ...]] = {}
-        for conversation in dataset_metadata.conversations:
-            for turn_index, turn in enumerate(conversation.turns):
-                key = ReplayTurnKey(conversation.conversation_id, turn_index)
-                self._predecessors[key] = tuple(
-                    ReplayTurnKey(ref.conversation_id, ref.turn_index)
-                    for ref in turn.replay_predecessors
-                )
+        self._graph = graph
+        self._predecessors = graph.predecessors
         self._roots: dict[str, _RootBarrierState] = {}
         self._dispatch_tasks: set[asyncio.Task] = set()
         self._active = False
@@ -231,7 +258,7 @@ class ReplayBarrierCoordinator:
         _logger.info(
             "Replay interval barriers active: %d requests, %d gated turns, "
             "join-widths=%s",
-            len(self._predecessors),
+            self._graph.request_count,
             sum(widths.values()),
             dict(sorted(widths.items())),
         )

@@ -19,6 +19,7 @@ from aiperf.credit.structs import Credit, TurnToSend
 from aiperf.plugin.enums import DatasetSamplingStrategy
 from aiperf.timing.replay_dependencies import (
     ReplayBarrierCoordinator,
+    ReplayPredecessorGraph,
     ReplayResumeBoundary,
 )
 
@@ -77,7 +78,9 @@ def _credit(
 
 @pytest.mark.asyncio
 async def test_abc_issue_together_and_d_waits_for_every_member() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
 
@@ -106,7 +109,9 @@ async def test_abc_issue_together_and_d_waits_for_every_member() -> None:
 
 @pytest.mark.asyncio
 async def test_any_terminal_outcome_releases_barrier() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     for name in "abcd":
@@ -123,7 +128,9 @@ async def test_any_terminal_outcome_releases_barrier() -> None:
 
 @pytest.mark.asyncio
 async def test_runtime_roots_are_independent() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     await coordinator.submit(_turn("d", "one"), lambda: _record_issue(issued, "one:d"))
@@ -151,7 +158,7 @@ async def test_idle_watchdog_advances_only_the_completed_runtime_root(
 
     scheduler.cap_pending_delay_for_group.side_effect = advance
     coordinator = ReplayBarrierCoordinator(
-        _metadata(),
+        ReplayPredecessorGraph.from_dataset(_metadata()),
         scheduler=scheduler,
         root_idle_gap_cap_seconds=cap_seconds,
     )
@@ -177,7 +184,7 @@ async def test_idle_watchdog_covers_initial_profiling_idle() -> None:
 
     scheduler.cap_pending_delay_for_group.side_effect = advance
     coordinator = ReplayBarrierCoordinator(
-        _metadata(),
+        ReplayPredecessorGraph.from_dataset(_metadata()),
         scheduler=scheduler,
         root_idle_gap_cap_seconds=0.01,
     )
@@ -193,7 +200,7 @@ async def test_idle_watchdog_covers_initial_profiling_idle() -> None:
 async def test_initial_idle_watchdog_advances_real_group_timer() -> None:
     scheduler = LoopScheduler()
     coordinator = ReplayBarrierCoordinator(
-        _metadata(),
+        ReplayPredecessorGraph.from_dataset(_metadata()),
         scheduler=scheduler,
         root_idle_gap_cap_seconds=0.02,
     )
@@ -216,7 +223,7 @@ async def test_new_request_cancels_runtime_root_idle_watchdog() -> None:
     """Overlapping work prevents an idle cap from advancing replay timers."""
     scheduler = MagicMock()
     coordinator = ReplayBarrierCoordinator(
-        _metadata(),
+        ReplayPredecessorGraph.from_dataset(_metadata()),
         scheduler=scheduler,
         root_idle_gap_cap_seconds=0.05,
     )
@@ -235,7 +242,7 @@ async def test_idle_watchdog_retries_when_advanced_turn_is_barrier_blocked() -> 
     """A blocked candidate cannot consume the cap and strand later timers."""
     scheduler = LoopScheduler()
     coordinator = ReplayBarrierCoordinator(
-        _metadata(),
+        ReplayPredecessorGraph.from_dataset(_metadata()),
         scheduler=scheduler,
         root_idle_gap_cap_seconds=0.02,
     )
@@ -272,7 +279,9 @@ async def test_idle_watchdog_retries_when_advanced_turn_is_barrier_blocked() -> 
 
 @pytest.mark.asyncio
 async def test_scalar_peak_would_slip_d_after_only_one_completion() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     for name in "abcd":
@@ -288,7 +297,9 @@ async def test_scalar_peak_would_slip_d_after_only_one_completion() -> None:
 
 @pytest.mark.asyncio
 async def test_pending_turns_exposes_deferred_dispatch_for_phase_handoff() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     pending_turn = _turn("d")
@@ -313,7 +324,9 @@ async def test_pending_turns_exposes_deferred_dispatch_for_phase_handoff() -> No
 
 @pytest.mark.asyncio
 async def test_retained_child_dispatch_reports_deferred_not_rejected() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
 
     result = await coordinator.submit(
@@ -328,7 +341,9 @@ async def test_retained_child_dispatch_reports_deferred_not_rejected() -> None:
 
 @pytest.mark.asyncio
 async def test_paused_releases_retain_ready_pending_for_phase_handoff() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     pending_turn = _turn("d")
@@ -350,7 +365,9 @@ async def test_paused_releases_retain_ready_pending_for_phase_handoff() -> None:
 
 @pytest.mark.asyncio
 async def test_paused_releases_retain_new_ready_submissions() -> None:
-    coordinator = ReplayBarrierCoordinator(_metadata())
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(_metadata())
+    )
     coordinator.activate()
     issued: list[str] = []
     pending_turn = _turn("d")
@@ -409,7 +426,9 @@ async def test_resumed_prefix_is_exact_and_submission_order_independent(
             ),
         ],
     )
-    coordinator = ReplayBarrierCoordinator(metadata)
+    coordinator = ReplayBarrierCoordinator(
+        ReplayPredecessorGraph.from_dataset(metadata)
+    )
     coordinator.seed_completed_prefixes("root", (ReplayResumeBoundary("flat", 1),))
     coordinator.activate()
     issued: list[tuple[str, int]] = []
