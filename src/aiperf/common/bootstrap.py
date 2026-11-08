@@ -54,6 +54,47 @@ def register_sigusr1_faulthandler() -> None:
         faulthandler.register(signal.SIGUSR1, all_threads=True, chain=False)
 
 
+def register_sigusr2_tracemalloc_dump() -> None:
+    """Register a SIGUSR2 handler that dumps top tracemalloc allocation sites.
+
+    Diagnostic for "where did this process's heap go". ``kill -USR2 <pid>``
+    writes the largest allocation sites, with one representative traceback
+    each, to stderr (so it lands in that service's log).
+
+    Requires ``PYTHONTRACEMALLOC`` to be set *before interpreter start*:
+    ``tracemalloc.start()`` called later only records allocations made after
+    the call, so a runtime-only start would report almost nothing. When tracing
+    is off the handler says so rather than printing an empty ranking.
+
+    The dump is written with ``os.write`` on fd 2 rather than through the
+    logging stack: a signal handler can fire while a logging call holds its
+    lock, and re-entering it would deadlock the process we are trying to
+    inspect.
+    """
+    if not hasattr(signal, "SIGUSR2"):
+        return
+
+    def _dump(_signum: int, _frame: object) -> None:
+        try:
+            import tracemalloc
+
+            if not tracemalloc.is_tracing():
+                os.write(2, b"tracemalloc: not tracing (set PYTHONTRACEMALLOC)\n")
+                return
+            snapshot = tracemalloc.take_snapshot()
+            lines = [b"=== tracemalloc top allocation sites (lineno) ===\n"]
+            for stat in snapshot.statistics("lineno")[:25]:
+                lines.append(f"{stat.size / 1048576:9.2f} MiB  {stat.count:8d}  {stat.traceback[0]}\n".encode())
+            total = sum(stat.size for stat in snapshot.statistics("filename"))
+            lines.append(f"=== total traced: {total / 1048576:.1f} MiB ===\n".encode())
+            os.write(2, b"".join(lines))
+        except Exception:  # noqa: BLE001 - a diagnostic must never kill the service
+            os.write(2, b"tracemalloc: dump failed\n")
+
+    with contextlib.suppress(ValueError, RuntimeError, AttributeError):
+        signal.signal(signal.SIGUSR2, _dump)
+
+
 def bootstrap_and_run_service(
     service_type: ServiceType,
     *,
@@ -119,6 +160,11 @@ def bootstrap_and_run_service(
     # non-cooperative subprocess pool. The SystemController registers the same
     # handler so the whole process tree is poke-able.
     register_sigusr1_faulthandler()
+    # Heap-dump signal: `kill -USR2 <pid>` writes the largest tracemalloc
+    # allocation sites to this service's log, which is how the per-lane memory
+    # cost gets attributed instead of guessed at. Needs PYTHONTRACEMALLOC set
+    # before interpreter start; otherwise it reports that it is not tracing.
+    register_sigusr2_tracemalloc_dump()
 
     from aiperf.plugin import plugins
     from aiperf.plugin.enums import PluginType
