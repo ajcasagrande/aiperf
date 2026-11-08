@@ -344,6 +344,39 @@ def test_warmup_credit_count_matches_dispatchable_states_mixed_trajectories() ->
     assert dispatchable == 3
 
 
+def test_warmup_credit_counts_are_memoized_and_stay_exact() -> None:
+    """The warmup return path asks for these on every credit return.
+
+    Both properties must return the same objects on repeat access so the
+    per-return cost is O(1), and the cached values must equal a fresh
+    recomputation from the trajectories.
+    """
+    convs = [
+        _ts_conv("a", [0.0, 1000.0, 2000.0, 3000.0]),
+        _ts_conv("b", [0.0, 1500.0, 2500.0]),
+        _ts_conv("c", [0.0, 900.0]),
+    ]
+    src = _build(convs, ["a", "b", "c"], concurrency=3, start_min_ratio=0.5, start_max_ratio=0.5)
+
+    first_counts = src.warmup_credit_counts_by_lane
+    first_total = src.warmup_credit_count
+    # Identity, not just equality: a rebuild would allocate a new tuple.
+    assert src.warmup_credit_counts_by_lane is first_counts
+    assert src.warmup_credit_count == first_total
+
+    expected = tuple(
+        1
+        if traj.snapshot is None
+        else sum(
+            1 for st in traj.snapshot.states if st.warmup_turn_index is not None
+        )
+        for traj in src.trajectories
+    )
+    assert first_counts == expected
+    assert first_total == sum(expected)
+    assert len(first_counts) == len(src.trajectories)
+
+
 def test_equal_start_ratios_accepted_strictly_greater_rejected() -> None:
     """``start_min_ratio == start_max_ratio`` is accepted (deterministic t_star) while ``start_min_ratio > start_max_ratio`` raises ValueError."""
     convs = [_ts_conv("c", [0.0, 1000.0, 2000.0, 3000.0])]
