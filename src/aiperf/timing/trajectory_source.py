@@ -220,6 +220,11 @@ def validate_dataset_wrap_policy(
         )
 
 
+#: Distinguishes "this instance has no memo attribute at all" (assembled with
+#: ``__new__``) from "the memo is present but empty".
+_UNMEMOIZED = object()
+
+
 class TrajectorySource(ConversationSource):
     """ConversationSource that samples a fixed set of trajectories with a randomized
     per-trajectory start position drawn from [start_min_ratio, start_max_ratio] of
@@ -292,6 +297,15 @@ class TrajectorySource(ConversationSource):
         # ``validate_dataset_wrap_policy``.
         self._target_size = concurrency
         self.trajectories: list[Trajectory] = self._build_trajectories()
+        # Per-lane warmup primer counts and their total are fully determined by
+        # ``self.trajectories`` (each lane's snapshot is created during the
+        # build and never reassigned), and the warmup return path asks for them
+        # on every credit return. Recomputing them there is O(lanes) per
+        # return, i.e. quadratic over the phase: at 50k lanes that pinned the
+        # single timing-manager thread at a full core and held throughput to
+        # ~40 req/s. Memoize on first use.
+        self._warmup_credit_counts_by_lane: tuple[int, ...] | None = None
+        self._warmup_credit_count: int | None = None
 
         if not self.trajectories:
             raise EmptyTracePoolError(
@@ -429,6 +443,9 @@ class TrajectorySource(ConversationSource):
         send the join turn n, so n-1 is still its warmup turn). Streams whose
         first request is at/after t* contribute nothing to warm.
         """
+        cached = getattr(self, "_warmup_credit_counts_by_lane", _UNMEMOIZED)
+        if cached is not None and cached is not _UNMEMOIZED:
+            return cached
         counts: list[int] = []
         for trajectory in self.trajectories:
             if trajectory.snapshot is None:
@@ -441,12 +458,24 @@ class TrajectorySource(ConversationSource):
                         if state.warmup_turn_index is not None
                     )
                 )
-        return tuple(counts)
+        result = tuple(counts)
+        # Only instances built through __init__ own the cache attribute; one
+        # assembled with __new__ (tests, tooling) must keep recomputing so a
+        # later reassignment of ``trajectories`` cannot serve a stale value.
+        if cached is not _UNMEMOIZED:
+            self._warmup_credit_counts_by_lane = result
+        return result
 
     @property
     def warmup_credit_count(self) -> int:
         """Total mandatory snapshot primers across all trajectory lanes."""
-        return sum(self.warmup_credit_counts_by_lane)
+        cached = getattr(self, "_warmup_credit_count", _UNMEMOIZED)
+        if cached is not None and cached is not _UNMEMOIZED:
+            return cached
+        total = sum(self.warmup_credit_counts_by_lane)
+        if cached is not _UNMEMOIZED:
+            self._warmup_credit_count = total
+        return total
 
     def _build_trajectories(self) -> list[Trajectory]:
         """Sample one trajectory per concurrency lane straight from the sampler.
