@@ -751,6 +751,13 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         # Dataset client for direct data access (eliminates DatasetManager bottleneck)
         # Initialized when DatasetConfiguredNotification is received via factory
         self._dataset_client: DatasetClientStoreProtocol | None = None
+        # Decoded conversations shared by every session replaying them, keyed on
+        # (conversation_id, num_turns). Created here rather than only on dataset
+        # configuration so a borrow before configuration cannot hit a missing
+        # attribute; _on_dataset_configured resets it for the new dataset.
+        self._conversation_cache: OrderedDict[tuple[str, int], Conversation] = (
+            OrderedDict()
+        )
         self._dataset_configured_event = asyncio.Event()
         # True when the mmap dataset ships pre-encoded per-turn payload bytes
         # (PAYLOAD_BYTES format); enables the verbatim-replay fast path.
@@ -801,9 +808,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         # cache-bust write (UserSession.own_turn). Decoding a multi-MB conversation on
         # the worker's event loop for every session is both the biggest stall
         # source and, at 50k lanes, the dominant memory consumer.
-        self._conversation_cache: OrderedDict[tuple[str, int], Conversation] = (
-            OrderedDict()
-        )
+        self._conversation_cache.clear()
         if isinstance(msg.client_metadata, MemoryMapClientMetadata):
             self._is_payload_bytes = (
                 msg.client_metadata.format == MemoryMapFormat.PAYLOAD_BYTES
