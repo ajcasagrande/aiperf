@@ -95,6 +95,49 @@ def register_sigusr2_tracemalloc_dump() -> None:
         signal.signal(signal.SIGUSR2, _dump)
 
 
+def schedule_one_shot_tracemalloc_dump() -> None:
+    """Dump the heap once, after ``AIPERF_TRACEMALLOC_DUMP_AFTER_SECS`` seconds.
+
+    A signal-triggered dump is unreliable here: CPython runs signal handlers on
+    the main thread, and in these services the main thread sits inside the
+    event loop or a blocking C call, so ``kill -USR2`` can be deferred
+    indefinitely. A timer thread always fires.
+
+    Gated by the env var so it costs nothing unless explicitly requested, and
+    one-shot so the (GIL-holding) ``take_snapshot`` walk happens once.
+    """
+    raw = os.environ.get("AIPERF_TRACEMALLOC_DUMP_AFTER_SECS")
+    if not raw:
+        return
+    try:
+        delay = float(raw)
+    except ValueError:
+        return
+    import threading
+
+    def _later() -> None:
+        time.sleep(delay)
+        try:
+            import tracemalloc
+
+            if not tracemalloc.is_tracing():
+                os.write(2, b"tracemalloc: not tracing (set PYTHONTRACEMALLOC)\n")
+                return
+            snapshot = tracemalloc.take_snapshot()
+            out = [b"=== tracemalloc heap dump ===\n"]
+            for stat in snapshot.statistics("lineno")[:20]:
+                out.append(
+                    f"{stat.size / 1048576:9.2f} MiB {stat.count:8d}  {stat.traceback[0]}\n".encode()
+                )
+            total = sum(stat.size for stat in snapshot.statistics("filename"))
+            out.append(f"=== total traced: {total / 1048576:.1f} MiB ===\n".encode())
+            os.write(2, b"".join(out))
+        except Exception:  # noqa: BLE001 - diagnostics must never kill the service
+            os.write(2, b"tracemalloc: dump failed\n")
+
+    threading.Thread(target=_later, name="tracemalloc-dump", daemon=True).start()
+
+
 def bootstrap_and_run_service(
     service_type: ServiceType,
     *,
@@ -165,6 +208,9 @@ def bootstrap_and_run_service(
     # cost gets attributed instead of guessed at. Needs PYTHONTRACEMALLOC set
     # before interpreter start; otherwise it reports that it is not tracing.
     register_sigusr2_tracemalloc_dump()
+    # Signal delivery is unreliable when the main thread is inside the event
+    # loop, so also offer a timer-based one-shot dump for heap attribution.
+    schedule_one_shot_tracemalloc_dump()
 
     from aiperf.plugin import plugins
     from aiperf.plugin.enums import PluginType
