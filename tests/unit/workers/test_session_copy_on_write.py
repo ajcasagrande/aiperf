@@ -3,8 +3,8 @@
 """Sessions share the worker's decoded conversation and copy a turn on write.
 
 The worker hands every session replaying a trace the *same* decoded
-``Conversation`` (``Worker._borrow_conversation_for_session``). Cache-bust and
-media-uuid writes must therefore land in a session-private copy of the turn
+``Conversation`` (``Worker._borrow_conversation_for_session``). Cache-bust
+writes must therefore land in a session-private copy of the turn
 (``UserSession.own_turn``), never in the shared one: a marker leaking into the
 shared turn would put session A's marker on session B's wire and break the
 cache isolation the marker exists to provide.
@@ -24,7 +24,7 @@ from aiperf.common.models.dataset_models import Conversation, Image, Text, Turn
 from aiperf.credit.structs import Credit
 from aiperf.endpoints.openai_chat import ChatEndpoint
 from aiperf.plugin.enums import EndpointType
-from aiperf.timing.strategies.cache_bust import build_cache_bust_marker, rid_digest
+from aiperf.timing.strategies.cache_bust import build_cache_bust_marker
 from aiperf.workers.payload_fragments import encode_payload_bytes
 from aiperf.workers.session_manager import UserSession, UserSessionManager
 from aiperf.workers.worker import _apply_cache_bust
@@ -101,7 +101,6 @@ def _bust(session: UserSession, marker: str, target: CacheBustTarget) -> None:
         session,
         _credit(marker, target, session.x_correlation_id),
         session.conversation.system_message,
-        media_uuids=True,
     )
 
 
@@ -176,26 +175,6 @@ def test_busting_one_session_leaves_other_sessions_pristine(
     assert _snapshot(conversation) == pristine_turns
 
 
-def test_media_uuid_suffix_stays_in_the_busting_session() -> None:
-    conversation = _raw_messages_conversation()
-    manager = UserSessionManager()
-    session_a = _start(manager, "a", conversation)
-    session_b = _start(manager, "b", conversation)
-    target = CacheBustTarget.SYSTEM_SUFFIX
-    marker = _marker(0, target)
-
-    _bust(session_a, marker, target)
-
-    suffix = f"-{rid_digest(marker)}"
-    turn_a = session_a.turn_list[0]
-    assert turn_a.raw_messages[1]["content"][1]["uuid"] == f"1111{suffix}"
-    assert turn_a.images[0].uuids == [f"1111{suffix}"]
-    turn_b = session_b.turn_list[0]
-    assert turn_b.raw_messages[1]["content"][1]["uuid"] == "1111"
-    assert turn_b.images[0].uuids == ["1111"]
-    assert conversation.turns[0].images[0].uuids == ["1111"]
-
-
 def test_a_turn_is_copied_once_and_untouched_turns_are_never_copied() -> None:
     """Re-marking on later credits is idempotent and must not clone again."""
     conversation = _raw_messages_conversation(
@@ -216,7 +195,7 @@ def test_a_turn_is_copied_once_and_untouched_turns_are_never_copied() -> None:
     session.advance_turn(1)
     _bust(session, marker, target)
     assert session.turn_list[0] is private_first
-    # Turn 1 carries no system message and no media: nothing writes it.
+    # Turn 1 carries no system message: nothing writes it.
     assert session.turn_list[1] is conversation.turns[1]
 
 
