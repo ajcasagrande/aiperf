@@ -124,7 +124,14 @@ def schedule_one_shot_tracemalloc_dump() -> None:
                 os.write(2, b"tracemalloc: not tracing (set PYTHONTRACEMALLOC)\n")
                 return
             snapshot = tracemalloc.take_snapshot()
-            out = [b"=== tracemalloc heap dump ===\n"]
+            try:
+                with open("/proc/self/comm") as comm_file:
+                    who = comm_file.read().strip()
+            except OSError:
+                who = "?"
+            out = [
+                f"=== tracemalloc heap dump [pid={os.getpid()} comm={who}] ===\n".encode()
+            ]
             for stat in snapshot.statistics("lineno")[:20]:
                 out.append(
                     f"{stat.size / 1048576:9.2f} MiB {stat.count:8d}  {stat.traceback[0]}\n".encode()
