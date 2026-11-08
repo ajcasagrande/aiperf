@@ -7,8 +7,6 @@ import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-import orjson
-
 from aiperf.common.enums import RequestContentType
 from aiperf.common.mixins import AIPerfLifecycleMixin
 from aiperf.common.models import (
@@ -21,6 +19,7 @@ from aiperf.common.models import (
 from aiperf.common.redact import redact_headers
 from aiperf.plugin import plugins
 from aiperf.plugin.enums import PluginType, TransportType
+from aiperf.workers.payload_fragments import encode_payload_bytes
 
 if TYPE_CHECKING:
     from aiperf.transports.base_transports import FirstTokenCallback
@@ -131,7 +130,7 @@ class InferenceClient(AIPerfLifecycleMixin):
         # and the server's form parser would reject them (422, prompt=null).
         wire_payload: dict[str, Any] | bytes = formatted_payload
         if isinstance(formatted_payload, dict):
-            encoded = orjson.dumps(formatted_payload)
+            encoded = encode_payload_bytes(formatted_payload)
             request_info.payload_bytes = encoded
             is_multipart = (
                 self.model_endpoint.endpoint.request_content_type
