@@ -592,9 +592,7 @@ def _apply_system_target_cache_bust(
             target_turn = own(system_turn) if own is not None else system_turn
             target_turn.raw_messages[:] = messages
     else:
-        _inject_marker_at_first_user(
-            prefix_turns, marker, is_prefix=is_prefix, own=own
-        )
+        _inject_marker_at_first_user(prefix_turns, marker, is_prefix=is_prefix, own=own)
     return system_message
 
 
