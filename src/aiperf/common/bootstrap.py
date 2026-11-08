@@ -107,23 +107,23 @@ def _attribute_top_sites(snapshot, top_stats, pid: int) -> list[bytes]:
     sites = {
         (stat.traceback[0].filename, stat.traceback[0].lineno): {} for stat in top_stats
     }
-    for trace in snapshot.traces:
-        frames = list(trace.traceback)
-        # Locate the allocation frame regardless of the stored frame order.
-        buckets = sites.get((frames[0].filename, frames[0].lineno))
-        ordered = frames
-        if buckets is None:
-            buckets = sites.get((frames[-1].filename, frames[-1].lineno))
-            ordered = frames[::-1]
+    # Walk the raw ``(domain, size, frames, total_nframe)`` tuples rather than
+    # ``snapshot.traces``: materializing a Trace and Frame object per frame for
+    # millions of traces holds the GIL for minutes in a loaded worker, long
+    # enough for the run to end before the dump is written. Raw frames are
+    # ``(filename, lineno)`` pairs, most recent call first.
+    for raw in snapshot.traces._traces:
+        size, frames = raw[1], raw[2]
+        buckets = sites.get(frames[0]) if frames else None
         if buckets is None:
             continue
         callers = tuple(
-            f"{frame.filename.rsplit('/aiperf/', 1)[-1]}:{frame.lineno}"
-            for frame in ordered[1:]
-            if "/aiperf/" in frame.filename and "pydantic" not in frame.filename
+            f"{filename.rsplit('/aiperf/', 1)[-1]}:{lineno}"
+            for filename, lineno in frames[1:]
+            if "/aiperf/" in filename and "pydantic" not in filename
         )[:3]
         bucket = buckets.setdefault(callers or ("<no aiperf frame>",), [0, 0])
-        bucket[0] += trace.size
+        bucket[0] += size
         bucket[1] += 1
     for stat in top_stats:
         site = stat.traceback[0]
