@@ -104,29 +104,30 @@ def _attribute_top_sites(snapshot, top_stats, pid: int) -> list[bytes]:
     is being built; walking each trace outward to the first AIPerf frames does.
     """
     out: list[bytes] = []
+    sites = {
+        (stat.traceback[0].filename, stat.traceback[0].lineno): {} for stat in top_stats
+    }
+    for trace in snapshot.traces:
+        frames = list(trace.traceback)
+        # Locate the allocation frame regardless of the stored frame order.
+        buckets = sites.get((frames[0].filename, frames[0].lineno))
+        ordered = frames
+        if buckets is None:
+            buckets = sites.get((frames[-1].filename, frames[-1].lineno))
+            ordered = frames[::-1]
+        if buckets is None:
+            continue
+        callers = tuple(
+            f"{frame.filename.rsplit('/aiperf/', 1)[-1]}:{frame.lineno}"
+            for frame in ordered[1:]
+            if "/aiperf/" in frame.filename and "pydantic" not in frame.filename
+        )[:3]
+        bucket = buckets.setdefault(callers or ("<no aiperf frame>",), [0, 0])
+        bucket[0] += trace.size
+        bucket[1] += 1
     for stat in top_stats:
         site = stat.traceback[0]
-        buckets: dict[tuple[str, ...], list[int]] = {}
-        for trace in snapshot.traces:
-            frames = list(trace.traceback)
-            # Locate the allocation frame regardless of the stored frame order.
-            if frames[0].filename == site.filename and frames[0].lineno == site.lineno:
-                ordered = frames
-            elif (
-                frames[-1].filename == site.filename
-                and frames[-1].lineno == site.lineno
-            ):
-                ordered = frames[::-1]
-            else:
-                continue
-            callers = tuple(
-                f"{frame.filename.rsplit('/aiperf/', 1)[-1]}:{frame.lineno}"
-                for frame in ordered[1:]
-                if "/aiperf/" in frame.filename and "pydantic" not in frame.filename
-            )[:3]
-            bucket = buckets.setdefault(callers or ("<no aiperf frame>",), [0, 0])
-            bucket[0] += trace.size
-            bucket[1] += 1
+        buckets = sites[(site.filename, site.lineno)]
         out.append(f"--- callers of {site} [pid={pid}] ---\n".encode())
         ranked = sorted(buckets.items(), key=lambda item: item[1][0], reverse=True)
         for callers, (size, count) in ranked[:12]:
