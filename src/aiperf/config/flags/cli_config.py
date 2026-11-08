@@ -2649,6 +2649,19 @@ class CLIConfig(BaseConfig):
         CLIParameter(name=("--unsafe-override",), group=Groups.SCENARIO),
     ] = False
 
+    agentx_fast: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="AgentX fast path: mandatory snapshot primers only "
+            "(no additional warmup requests) and a 1,200-second profiling "
+            "window. Requires an AgentX scenario ('agentx' or "
+            "'inferencex-agentx-mvp') and invalidates the submission. Use for "
+            "throughput iteration, not for InferenceX submission runs.",
+        ),
+        CLIParameter(name=("--agentx-fast",), group=Groups.SCENARIO),
+    ] = False
+
     ##############################################################################
     # Warmup
     ##############################################################################
@@ -2701,11 +2714,13 @@ class CLIConfig(BaseConfig):
     warmup_requests_per_lane: Annotated[
         int | None,
         Field(
-            gt=0,
+            ge=0,
             description="Deterministic agentic cache-pressure warmup request "
             "budget per concurrency lane, additional to mandatory snapshot "
             "primers. For example, 10 with concurrency 16 sends 160 additional "
-            "cache-pressure requests after the primers. Mutually exclusive with "
+            "cache-pressure requests after the primers. 0 disables the "
+            "additional budget, leaving only the mandatory snapshot primers "
+            "(one per active lane). Mutually exclusive with "
             "--agentic-cache-warmup-duration.",
         ),
         CLIParameter(

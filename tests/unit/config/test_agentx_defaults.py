@@ -87,3 +87,17 @@ def test_duration_warmup_does_not_inject_request_warmup() -> None:
     phase = config.benchmark.get_profiling_phases()[0]
     assert phase.agentic_cache_warmup_duration == 60
     assert phase.warmup_requests_per_lane is None
+
+
+def test_agentx_fast_cli_flag_reaches_benchmark_config() -> None:
+    """The flag is plain data; the ScenarioResolver applies its locks later."""
+    config = resolve_config(
+        CLIConfig(
+            scenario="agentx",
+            model_names=["test-model"],
+            public_dataset="semianalysis_cc_traces_weka_062126",
+            agentx_fast=True,
+        )
+    )
+
+    assert config.benchmark.agentx_fast is True

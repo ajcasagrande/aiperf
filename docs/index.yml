@@ -261,6 +261,8 @@ navigation:
     path: kubernetes/gpu-telemetry.md
   - page: Direct Mode (no operator)
     path: kubernetes/direct-mode.md
+  - page: Bare Pod Mode
+    path: kubernetes/bare-pod.md
   - page: Adaptive Search on Kubernetes
     path: kubernetes/adaptive-search.md
   - page: User-Defined Output Files

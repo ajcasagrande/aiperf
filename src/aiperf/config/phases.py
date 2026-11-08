@@ -376,13 +376,14 @@ class BasePhaseConfig(AdaptiveScalePhaseMixin, BaseConfig):
         int | None,
         Field(
             default=None,
-            gt=0,
+            ge=0,
             description="AGENTIC_REPLAY only: deterministic cache-pressure "
             "warmup request budget per concurrency lane, additional to "
             "mandatory snapshot primers. The total warmup request target is "
             "the primer count plus this value multiplied by the number of live "
-            "trajectory lanes. Mutually exclusive with "
-            "agentic_cache_warmup_duration.",
+            "trajectory lanes. 0 disables the additional budget, leaving only "
+            "the mandatory snapshot primers (one per active lane). Mutually "
+            "exclusive with agentic_cache_warmup_duration.",
         ),
     ]
 

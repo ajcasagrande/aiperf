@@ -640,17 +640,19 @@ def _assemble_envelope_dict(cli: CLIConfig) -> dict[str, Any]:
 def _apply_scenario_fields(nested: dict[str, Any], cli: CLIConfig) -> None:
     """Write the scenario-lock fields onto the benchmark body.
 
-    ``scenario`` / ``unsafe_override`` are plain data on ``BenchmarkConfig``
-    (the lock is applied later by ``ScenarioResolver``). They are NOT envelope
-    keys, so ``_wrap_under_envelope`` moves them under ``benchmark:``. Only
-    written when the user explicitly set them, to keep ``model_fields_set``
-    clean for downstream "was this set?" checks.
+    ``scenario`` / ``unsafe_override`` / ``agentx_fast`` are plain data on
+    ``BenchmarkConfig`` (the lock is applied later by ``ScenarioResolver``).
+    They are NOT envelope keys, so ``_wrap_under_envelope`` moves them under
+    ``benchmark:``. Only written when the user explicitly set them, to keep
+    ``model_fields_set`` clean for downstream "was this set?" checks.
     """
     set_fields = cli.model_fields_set
     if "scenario" in set_fields:
         nested["scenario"] = cli.scenario
     if "unsafe_override" in set_fields:
         nested["unsafe_override"] = cli.unsafe_override
+    if "agentx_fast" in set_fields:
+        nested["agentx_fast"] = cli.agentx_fast
 
 
 # (CLIConfig field, sweep key) for the --parameter-sweep-* knobs, shared by

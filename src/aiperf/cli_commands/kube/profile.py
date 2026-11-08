@@ -72,6 +72,16 @@ _OPERATOR_PARAM = Parameter(
     negative=(),
     help="Force operator deployment without probing the cluster-scoped AIPerfJob CRD. Use this with a pre-provisioned namespace when RBAC is namespace-scoped.",
 )
+_BARE_POD_PARAM = Parameter(
+    name="--bare-pod",
+    negative=(),
+    help=(
+        "Run the whole benchmark in a single bare Pod: one ConfigMap plus one "
+        "kind: Pod, applied directly with no operator, JobSet, or CRD probe. "
+        "Mutually exclusive with --operator and --no-operator. The Pod is "
+        "retained after it finishes so results can be copied out."
+    ),
+)
 
 
 def _try_load_aiperfjob_cr(path: Any) -> dict | None:
@@ -362,6 +372,7 @@ async def profile(
     dry_run: Annotated[bool, _DRY_RUN_PARAM] = False,
     operator: Annotated[bool, _OPERATOR_PARAM] = False,
     no_operator: Annotated[bool, _NO_OPERATOR_PARAM] = False,
+    bare_pod: Annotated[bool, _BARE_POD_PARAM] = False,
 ) -> None:
     """Run a benchmark in Kubernetes.
 
@@ -393,6 +404,11 @@ async def profile(
         # CI/CD: deploy and exit immediately
         aiperf kube profile --model Qwen/Qwen3-0.6B \\
             --url http://server:8000 --image aiperf:latest --detach
+
+        # High-concurrency single-Pod run (no operator, no JobSet)
+        aiperf kube profile --model Qwen/Qwen3-0.6B \\
+            --url http://server:8000 --image aiperf:latest \\
+            --concurrency 50000 --total-workers 100 --bare-pod
     """
 
     from aiperf import cli_utils
@@ -405,6 +421,13 @@ async def profile(
     if operator and no_operator:
         cli_utils.raise_startup_error_and_exit(
             "Cannot use both --operator and --no-operator",
+            title="Error Running Kubernetes Benchmark",
+        )
+    if bare_pod and (operator or no_operator):
+        conflicting = "--operator" if operator else "--no-operator"
+        cli_utils.raise_startup_error_and_exit(
+            f"Cannot use --bare-pod with {conflicting}: --bare-pod always deploys "
+            "a single Pod directly and never uses the operator.",
             title="Error Running Kubernetes Benchmark",
         )
 
@@ -426,6 +449,21 @@ async def profile(
             kube_options.kubeconfig,
             kube_options.kube_context,
         )
+        if bare_pod:
+            from aiperf.cli_commands.kube.profile_deploy_bare import deploy_bare_pod
+
+            await deploy_bare_pod(
+                config,
+                kube_options,
+                name,
+                namespace,
+                deployment_spec=spec,
+                dry_run=dry_run,
+                detach=detach,
+                no_wait=no_wait,
+            )
+            return
+
         _print_memory_estimate(config, kube_options, spec)
 
         use_operator = not no_operator

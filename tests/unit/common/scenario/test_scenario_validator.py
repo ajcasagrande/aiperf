@@ -25,6 +25,7 @@ def _build_run(
     *,
     scenario: str | None = "inferencex-agentx-mvp",
     unsafe_override: bool = False,
+    agentx_fast: bool = False,
     dataset: dict[str, Any] | None = None,
     streaming: bool | None = None,
     extra: dict[str, Any] | None = None,
@@ -66,6 +67,8 @@ def _build_run(
         body["scenario"] = scenario
     if unsafe_override:
         body["unsafe_override"] = True
+    if agentx_fast:
+        body["agentx_fast"] = True
 
     cfg = BenchmarkConfig.model_validate(body)
     return BenchmarkRun(
@@ -711,3 +714,62 @@ def test_random_seed_auto_filled_through_resolver_chain() -> None:
     assert run.random_seed is None
     build_default_resolver_chain().resolve_all(run)
     assert run.random_seed is not None
+
+
+def test_agentx_fast_locks_primers_only_and_short_profile() -> None:
+    """The fast path is a throughput-iteration profile, not a submission run."""
+    run = _build_run(
+        scenario="agentx",
+        agentx_fast=True,
+        duration=3600,
+        profiling_overrides={"warmup_requests_per_lane": 10},
+        streaming=True,
+        extra={"ignore_eos": True},
+    )
+
+    outcome = apply_scenario(run)
+
+    phase = run.cfg.get_profiling_phases()[0]
+    assert phase.duration == 1200
+    assert phase.warmup_requests_per_lane == 0
+    assert outcome.submission_valid is False
+    assert "agentx_fast" in outcome.submission_invalid_reasons
+    assert "agentx_fast" in outcome.applied_locks
+
+
+def test_agentx_fast_rejects_accuracy_runs() -> None:
+    from aiperf.config.accuracy import AccuracyConfig
+
+    run = _build_run(
+        scenario="agentx",
+        agentx_fast=True,
+        streaming=True,
+        extra={"ignore_eos": True},
+    )
+    run.cfg.accuracy = AccuracyConfig(benchmark="mmlu")
+
+    with pytest.raises(ScenarioLockError, match="not accuracy runs"):
+        apply_scenario(run)
+
+
+def test_agentx_fast_overrides_short_duration_before_validation() -> None:
+    """A short explicit duration must not trip the scenario floor under fast mode."""
+    run = _build_run(
+        scenario="agentx",
+        agentx_fast=True,
+        duration=60,
+        streaming=True,
+        extra={"ignore_eos": True},
+    )
+
+    outcome = apply_scenario(run)
+
+    assert run.cfg.get_profiling_phases()[0].duration == 1200
+    assert outcome.violations == []
+
+
+def test_agentx_fast_without_scenario_rejected() -> None:
+    run = _build_run(scenario=None, agentx_fast=True)
+
+    with pytest.raises(ScenarioLockError, match="requires an AgentX scenario"):
+        apply_scenario(run)

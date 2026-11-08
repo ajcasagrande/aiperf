@@ -1369,6 +1369,11 @@ Lock all benchmark invariants for a named scenario ('agentx' or 'inferencex-agen
 Convert scenario lock errors to warnings; stamps submission_valid=false in the aggregate output. No-op without --scenario.
 <br/>_Flag (no value required)_
 
+#### `--agentx-fast`
+
+AgentX fast path: mandatory snapshot primers only (no additional warmup requests) and a 1,200-second profiling window. Requires an AgentX scenario ('agentx' or 'inferencex-agentx-mvp') and invalidates the submission. Use for throughput iteration, not for InferenceX submission runs.
+<br/>_Flag (no value required)_
+
 ### Warmup
 
 #### `--warmup-request-count`, `--num-warmup-requests` `<int>`
@@ -1388,8 +1393,8 @@ Additional agentic replay warmup duration in seconds. After the normal snapshot 
 
 #### `--warmup-requests-per-lane` `<int>`
 
-Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. Mutually exclusive with --agentic-cache-warmup-duration.
-<br/>_Constraints: > 0_
+Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. 0 disables the additional budget, leaving only the mandatory snapshot primers (one per active lane). Mutually exclusive with --agentic-cache-warmup-duration.
+<br/>_Constraints: ≥ 0_
 
 #### `--agentic-warmup-grace-period` `<float>`
 
@@ -2110,6 +2115,11 @@ Force operator deployment without probing the cluster-scoped AIPerfJob CRD. Use 
 #### `--no-operator`
 
 Force direct deployment without the operator. On a real (non-dry-run) deploy this is enabled automatically if the AIPerfJob CRD is not installed on the cluster; --dry-run never probes, so it always previews operator mode unless you pass this flag.
+
+#### `--bare-pod`
+
+Run the whole benchmark in a single bare Pod: one ConfigMap plus one kind: Pod, applied directly with no operator, JobSet, or CRD probe. Mutually exclusive with --operator and --no-operator. The Pod is retained after it finishes so results can be copied out.
+<br/>_Flag (no value required)_
 
 <hr/>
 
@@ -3030,6 +3040,11 @@ Lock all benchmark invariants for a named scenario ('agentx' or 'inferencex-agen
 Convert scenario lock errors to warnings; stamps submission_valid=false in the aggregate output. No-op without --scenario.
 <br/>_Flag (no value required)_
 
+#### `--agentx-fast`
+
+AgentX fast path: mandatory snapshot primers only (no additional warmup requests) and a 1,200-second profiling window. Requires an AgentX scenario ('agentx' or 'inferencex-agentx-mvp') and invalidates the submission. Use for throughput iteration, not for InferenceX submission runs.
+<br/>_Flag (no value required)_
+
 ### Warmup
 
 #### `--warmup-request-count`, `--num-warmup-requests` `<int>`
@@ -3049,8 +3064,8 @@ Additional agentic replay warmup duration in seconds. After the normal snapshot 
 
 #### `--warmup-requests-per-lane` `<int>`
 
-Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. Mutually exclusive with --agentic-cache-warmup-duration.
-<br/>_Constraints: > 0_
+Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. 0 disables the additional budget, leaving only the mandatory snapshot primers (one per active lane). Mutually exclusive with --agentic-cache-warmup-duration.
+<br/>_Constraints: ≥ 0_
 
 #### `--agentic-warmup-grace-period` `<float>`
 
@@ -4686,6 +4701,11 @@ Lock all benchmark invariants for a named scenario ('agentx' or 'inferencex-agen
 Convert scenario lock errors to warnings; stamps submission_valid=false in the aggregate output. No-op without --scenario.
 <br/>_Flag (no value required)_
 
+#### `--agentx-fast`
+
+AgentX fast path: mandatory snapshot primers only (no additional warmup requests) and a 1,200-second profiling window. Requires an AgentX scenario ('agentx' or 'inferencex-agentx-mvp') and invalidates the submission. Use for throughput iteration, not for InferenceX submission runs.
+<br/>_Flag (no value required)_
+
 ### Warmup
 
 #### `--warmup-request-count`, `--num-warmup-requests` `<int>`
@@ -4705,8 +4725,8 @@ Additional agentic replay warmup duration in seconds. After the normal snapshot 
 
 #### `--warmup-requests-per-lane` `<int>`
 
-Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. Mutually exclusive with --agentic-cache-warmup-duration.
-<br/>_Constraints: > 0_
+Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. 0 disables the additional budget, leaving only the mandatory snapshot primers (one per active lane). Mutually exclusive with --agentic-cache-warmup-duration.
+<br/>_Constraints: ≥ 0_
 
 #### `--agentic-warmup-grace-period` `<float>`
 
@@ -5404,6 +5424,11 @@ Output an AIPerfJob or AIPerfSweep CR (requires the operator).
 #### `--no-operator`
 
 Output raw K8s manifests (Namespace, RBAC, ConfigMap, JobSet).
+
+#### `--bare-pod`
+
+Output one Pod running the whole benchmark (no operator, no JobSet).
+<br/>_Flag (no value required)_
 
 <hr/>
 
@@ -6849,6 +6874,11 @@ Lock all benchmark invariants for a named scenario ('agentx' or 'inferencex-agen
 Convert scenario lock errors to warnings; stamps submission_valid=false in the aggregate output. No-op without --scenario.
 <br/>_Flag (no value required)_
 
+#### `--agentx-fast`
+
+AgentX fast path: mandatory snapshot primers only (no additional warmup requests) and a 1,200-second profiling window. Requires an AgentX scenario ('agentx' or 'inferencex-agentx-mvp') and invalidates the submission. Use for throughput iteration, not for InferenceX submission runs.
+<br/>_Flag (no value required)_
+
 ### Warmup
 
 #### `--warmup-request-count`, `--num-warmup-requests` `<int>`
@@ -6868,8 +6898,8 @@ Additional agentic replay warmup duration in seconds. After the normal snapshot 
 
 #### `--warmup-requests-per-lane` `<int>`
 
-Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. Mutually exclusive with --agentic-cache-warmup-duration.
-<br/>_Constraints: > 0_
+Deterministic agentic cache-pressure warmup request budget per concurrency lane, additional to mandatory snapshot primers. For example, 10 with concurrency 16 sends 160 additional cache-pressure requests after the primers. 0 disables the additional budget, leaving only the mandatory snapshot primers (one per active lane). Mutually exclusive with --agentic-cache-warmup-duration.
+<br/>_Constraints: ≥ 0_
 
 #### `--agentic-warmup-grace-period` `<float>`
 

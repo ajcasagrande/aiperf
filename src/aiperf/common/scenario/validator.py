@@ -75,6 +75,18 @@ def apply_scenario(run: BenchmarkRun) -> ScenarioOutcome:
     """
     scenario_name = getattr(run.cfg, "scenario", None)
     if scenario_name is None:
+        if bool(getattr(run.cfg, "agentx_fast", False)):
+            raise ScenarioLockError(
+                [
+                    ScenarioViolation(
+                        flag="--agentx-fast",
+                        current_value=None,
+                        required_value="--scenario agentx",
+                        message="--agentx-fast requires an AgentX scenario",
+                    )
+                ],
+                bypassable=False,
+            )
         outcome = ScenarioOutcome()
         run.resolved.scenario_outcome = outcome
         return outcome
@@ -91,6 +103,7 @@ def apply_scenario(run: BenchmarkRun) -> ScenarioOutcome:
     _apply_forbid_input_truncation(run, spec, violations, applied)
     _apply_require_loader(run, spec, violations, applied)
     _apply_require_cache_bust(run, spec, violations, applied)
+    agentx_fast = _apply_agentx_fast(run, spec, applied)
     _apply_duration(run, spec, violations, applied)
     _apply_trajectory_ratios(run, spec, applied)
     _apply_inter_turn_delay_cap(run, spec, violations, applied)
@@ -113,12 +126,15 @@ def apply_scenario(run: BenchmarkRun) -> ScenarioOutcome:
     if violations and unsafe:
         for v in violations:
             _logger.warning("Scenario violation (override active): %s", v)
+        reasons = ["unsafe_override"]
+        if agentx_fast:
+            reasons.append("agentx_fast")
         outcome = ScenarioOutcome(
             scenario_name=spec.name,
             applied_locks=applied,
             violations=violations,
             submission_valid=False,
-            submission_invalid_reasons=["unsafe_override"],
+            submission_invalid_reasons=reasons,
         )
         run.resolved.scenario_outcome = outcome
         return outcome
@@ -127,7 +143,8 @@ def apply_scenario(run: BenchmarkRun) -> ScenarioOutcome:
         scenario_name=spec.name,
         applied_locks=applied,
         violations=[],
-        submission_valid=True,
+        submission_valid=not agentx_fast,
+        submission_invalid_reasons=["agentx_fast"] if agentx_fast else [],
     )
     run.resolved.scenario_outcome = outcome
     return outcome
@@ -583,6 +600,62 @@ def _resolve_cache_bust_config(run: BenchmarkRun) -> Any | None:
         if cache_bust is not None:
             return cache_bust
     return getattr(dataset, "cache_bust", None)
+
+
+AGENTX_FAST_PROFILE_DURATION_SECONDS = 1200.0
+"""Profiling window the AgentX fast path locks."""
+
+AGENTX_FAST_WARMUP_REQUESTS_PER_LANE = 0
+"""Warmup budget the AgentX fast path locks: mandatory snapshot primers only."""
+
+
+def _apply_agentx_fast(
+    run: BenchmarkRun,
+    spec: ScenarioSpec,
+    applied: list[str],
+) -> bool:
+    """Apply the AgentX fast path, returning whether it was requested.
+
+    The fast path exists for throughput iteration: it shortens the profiling
+    window to 1,200 seconds and the warmup budget to the mandatory snapshot
+    primers only (no additional cache-pressure requests).
+    That is deliberately not the InferenceX submission profile, so the run is
+    stamped ``submission_valid=False``.
+
+    Raises:
+        ScenarioLockError: ``--agentx-fast`` is set on a non-AgentX scenario,
+            on an accuracy run, or on a config with no profiling phase.
+    """
+    if not bool(getattr(run.cfg, "agentx_fast", False)):
+        return False
+
+    def reject(message: str) -> None:
+        raise ScenarioLockError(
+            [
+                ScenarioViolation(
+                    flag="--agentx-fast",
+                    current_value=spec.name,
+                    required_value="agentx or inferencex-agentx-mvp",
+                    message=message,
+                )
+            ],
+            bypassable=False,
+        )
+
+    if spec.name not in _AGENTX_SCENARIOS:
+        reject(f"--agentx-fast applies only to AgentX scenarios, not {spec.name!r}")
+    if getattr(run.cfg, "accuracy", None) is not None:
+        reject("--agentx-fast applies only to AgentX throughput, not accuracy runs")
+
+    profiling_phases = run.cfg.get_profiling_phases()
+    if not profiling_phases:
+        reject("--agentx-fast requires a profiling phase")
+
+    for phase in profiling_phases:
+        phase.duration = AGENTX_FAST_PROFILE_DURATION_SECONDS
+        phase.warmup_requests_per_lane = AGENTX_FAST_WARMUP_REQUESTS_PER_LANE
+    applied.append("agentx_fast")
+    return True
 
 
 def _apply_duration(

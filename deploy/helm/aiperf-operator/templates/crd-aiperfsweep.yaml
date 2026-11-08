@@ -1004,6 +1004,12 @@ spec:
                     description: Convert scenario lock errors to warnings; stamps submission_valid=false in the resolved scenario
                       outcome. No-op without ``scenario``. Plain data; consumed by the ScenarioResolver.
                     default: false
+                  agentxFast:
+                    type: boolean
+                    description: 'AgentX fast path: mandatory snapshot primers only (no additional warmup requests) and a
+                      1,200-second profiling window. Requires an AgentX scenario and invalidates the submission (the shortened
+                      warmup is not the InferenceX submission profile). Plain data; consumed by the ScenarioResolver.'
+                    default: false
                 required:
                 - endpoint
                 x-kubernetes-validations: []

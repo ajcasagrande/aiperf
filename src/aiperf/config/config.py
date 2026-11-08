@@ -412,6 +412,19 @@ class BenchmarkConfig(BaseConfig, BenchmarkHelpersMixin):
         ),
     ]
 
+    agentx_fast: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="AgentX fast path: mandatory snapshot primers only "
+            "(no additional warmup requests) and a 1,200-second profiling "
+            "window. Requires an AgentX scenario and invalidates the "
+            "submission (the shortened warmup is not the InferenceX "
+            "submission profile). Plain data; consumed by the "
+            "ScenarioResolver.",
+        ),
+    ]
+
     # ==========================================================================
     # VALIDATORS
     # ==========================================================================

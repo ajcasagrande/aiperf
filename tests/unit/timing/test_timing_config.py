@@ -384,3 +384,23 @@ class TestPhaseRequestRate:
         )
         object.__setattr__(phase, "rate", 7.5)
         assert _phase_request_rate(phase) is None
+
+
+def test_agentic_warmup_zero_additional_budget_uses_concurrency_backstop() -> None:
+    """0 means primers only; the count backstop must still be positive."""
+    from aiperf.config.phases import ConcurrencyPhase
+    from aiperf.plugin.enums import PhaseType
+    from aiperf.timing.config import _build_agentic_warmup_config
+
+    phase = ConcurrencyPhase(
+        name="profiling",
+        type=PhaseType.CONCURRENCY,
+        concurrency=8,
+        duration=60,
+        warmup_requests_per_lane=0,
+    )
+
+    config = _build_agentic_warmup_config(phase)
+
+    assert config.warmup_requests_per_lane == 0
+    assert config.total_expected_requests == 8

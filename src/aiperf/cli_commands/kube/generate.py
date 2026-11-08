@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import sys
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from cyclopts import App, Parameter
 
@@ -14,6 +15,10 @@ from aiperf.config import AIPerfConfig
 from aiperf.config.flags.cli_config import KubeCLIConfig
 from aiperf.config.kube import KubeOptions
 from aiperf.kubernetes.cr_refs import AIPERF_API_VERSION
+
+if TYPE_CHECKING:
+    from aiperf.config.deployment import DeploymentConfig
+    from aiperf.kubernetes.bare_pod import BarePodTopology
 
 app = App(name="generate")
 
@@ -44,6 +49,140 @@ def _reject_orchestrated_direct_workload(config: AIPerfConfig) -> None:
         "or submit it directly with `aiperf kube sweep ...`.",
         title="Kubernetes Operator Required",
     )
+
+
+def _reject_orchestrated_bare_pod_workload(config: AIPerfConfig) -> None:
+    """Reject workloads a single bare Pod cannot execute faithfully."""
+    from aiperf.kubernetes.sweep_routing import requires_sweep_controller
+
+    if not requires_sweep_controller(config):
+        return
+
+    from aiperf import cli_utils
+
+    cli_utils.raise_startup_error_and_exit(
+        "`--bare-pod` renders exactly one Pod running one benchmark; it cannot "
+        "own parameter-sweep or multi-run orchestration.\n"
+        "Use `aiperf kube generate --operator ...` to emit an AIPerfSweep CR, "
+        "or submit it directly with `aiperf kube sweep ...`.",
+        title="Single Benchmark Required",
+    )
+
+
+def _resolve_bare_pod_workers(config: AIPerfConfig, kube_options: KubeOptions) -> int:
+    """Resolve the worker-process count for the Pod's single container.
+
+    An explicit ``--total-workers`` owns the count. Otherwise
+    ``benchmark.runtime.workers`` from YAML is canonical. A bare Pod has no
+    pod-divisibility constraint, so the ``KubeOptions`` default is used
+    verbatim when neither is authored.
+    """
+    if "total_workers" in kube_options.model_fields_set:
+        return kube_options.total_workers
+    configured = config.benchmark.runtime.workers
+    if isinstance(configured, int) and not isinstance(configured, bool):
+        return configured
+    return kube_options.total_workers
+
+
+def _print_manifests_yaml(manifests: list[dict[str, Any]]) -> None:
+    """Emit all manifests as a multi-document YAML stream to stdout."""
+    import ruamel.yaml
+
+    yaml = ruamel.yaml.YAML()
+    yaml.default_flow_style = False
+    for i, manifest in enumerate(manifests):
+        if i > 0:
+            sys.stdout.write("---\n")
+        yaml.dump(manifest, sys.stdout)
+
+
+def _print_bare_pod_summary(
+    config: AIPerfConfig,
+    topology: BarePodTopology,
+    deploy_config: DeploymentConfig,
+) -> None:
+    """Narrate the single-Pod sizing on stderr, leaving stdout parseable."""
+    from aiperf.kubernetes import console as kube_console
+
+    kube_console.stderr_console.print(
+        "Bare Pod sizing: "
+        f"{topology.total_workers} workers, "
+        f"{topology.record_processors} record processors, "
+        f"{topology.max_concurrency} peak concurrent requests "
+        f"({topology.connections_per_worker} per worker), "
+        f"ephemeral ports {topology.port_range_start}-{topology.port_range_end}.",
+        highlight=False,
+    )
+    if deploy_config.resource_mode == "none":
+        return
+
+    from aiperf.kubernetes.memory_estimator import estimate_memory
+
+    try:
+        estimate_config = config.model_copy(deep=True)
+        estimate_config.benchmark.runtime.record_processors = topology.record_processors
+        estimate_config.benchmark.runtime.record_processors_per_pod = (
+            topology.record_processors
+        )
+        estimate = estimate_memory(
+            estimate_config,
+            total_workers=topology.total_workers,
+            workers_per_pod=topology.total_workers,
+            connections_per_worker=topology.connections_per_worker,
+        )
+    except ValueError as exc:
+        kube_console.stderr_console.print(
+            f"Memory estimation skipped: {exc}", highlight=False
+        )
+        return
+    # Mirrors the manifest sizing: worker estimate plus the fixed controller
+    # reserve for the whole run's metric-array bookkeeping.
+    memory_mib = estimate.worker_pod.total_peak_mib + 8192
+    kube_console.stderr_console.print(
+        f"Estimated memory: ~{math.ceil(memory_mib / 1024)} GiB "
+        "(worker estimate plus 8 GiB controller reserve).",
+        highlight=False,
+    )
+
+
+def _dump_bare_pod_manifests(
+    *,
+    config: AIPerfConfig,
+    kube_options: KubeOptions,
+    name: str,
+    namespace: str,
+    deployment_spec: dict[str, Any] | None = None,
+) -> None:
+    """Render a ConfigMap and one Pod for a single-container benchmark."""
+    from aiperf.cli_commands.kube._kube_common import pin_default_direct_image
+    from aiperf.kubernetes.bare_pod import (
+        build_bare_pod_manifests,
+        resolve_bare_pod_topology,
+    )
+
+    if deployment_spec is None:
+        deploy_config = kube_options.to_deployment_config()
+    else:
+        from aiperf.kubernetes.spec_converter import extract_deployment_config
+
+        deploy_config = extract_deployment_config(deployment_spec)
+    pin_default_direct_image(deploy_config)
+
+    total_workers = _resolve_bare_pod_workers(config, kube_options)
+    topology = resolve_bare_pod_topology(
+        config, total_workers, pod_template=deploy_config.pod_template
+    )
+    manifests = build_bare_pod_manifests(
+        config=config,
+        kube_options=kube_options,
+        name=name,
+        namespace=namespace,
+        deploy_config=deploy_config,
+        topology=topology,
+    )
+    _print_manifests_yaml(manifests)
+    _print_bare_pod_summary(config, topology, deploy_config)
 
 
 def _ensure_sweep_block(spec: dict[str, Any], config: AIPerfConfig) -> None:
@@ -287,13 +426,22 @@ async def generate(
             help="Output raw K8s manifests (Namespace, RBAC, ConfigMap, JobSet).",
         ),
     ] = False,
+    bare_pod: Annotated[
+        bool,
+        Parameter(
+            name="--bare-pod",
+            negative=(),
+            help="Output one Pod running the whole benchmark (no operator, no JobSet).",
+        ),
+    ] = False,
 ) -> None:
     """Generate Kubernetes YAML manifests for an AIPerf benchmark.
 
     Specify --operator to output the matching workload CR (AIPerfJob for one
-    run, AIPerfSweep for parameter sweeps and multi-run workloads), or
+    run, AIPerfSweep for parameter sweeps and multi-run workloads),
     --no-operator to output raw manifests (Namespace, RBAC, ConfigMap, JobSet)
-    that work without the operator.
+    that work without the operator, or --bare-pod to output a single Pod that
+    runs every worker and record processor in one container.
 
     Examples:
         # Generate the matching operator workload CR
@@ -302,14 +450,24 @@ async def generate(
         # Generate raw manifests (no operator needed)
         aiperf kube generate --no-operator --model Qwen/Qwen3-0.6B --url localhost:8000 --image aiperf:latest
 
+        # Generate a single high-concurrency Pod
+        aiperf kube generate --bare-pod --concurrency 50000 --total-workers 100 --model Qwen/Qwen3-0.6B --url localhost:8000 --image aiperf:latest
+
         # Pipe directly to kubectl
         aiperf kube generate --no-operator ... | kubectl apply -f -
     """
     from aiperf import cli_utils
 
-    if not operator and not no_operator:
+    if bare_pod and (operator or no_operator):
+        conflicting = "--operator" if operator else "--no-operator"
         cli_utils.raise_startup_error_and_exit(
-            "Specify --operator (AIPerfJob CR) or --no-operator (raw manifests)",
+            f"Cannot use both --bare-pod and {conflicting}: choose one output form",
+            title="Error Generating Kubernetes Manifests",
+        )
+    if not operator and not no_operator and not bare_pod:
+        cli_utils.raise_startup_error_and_exit(
+            "Specify --operator (AIPerfJob CR), --no-operator (raw manifests), "
+            "or --bare-pod (single Pod)",
             title="Error Generating Kubernetes Manifests",
         )
     if operator and no_operator:
@@ -343,7 +501,16 @@ async def generate(
         yaml = ruamel.yaml.YAML()
         yaml.default_flow_style = False
 
-        if no_operator:
+        if bare_pod:
+            _reject_orchestrated_bare_pod_workload(config)
+            _dump_bare_pod_manifests(
+                config=config,
+                kube_options=kube_options,
+                name=name,
+                namespace=namespace,
+                deployment_spec=spec,
+            )
+        elif no_operator:
             _reject_orchestrated_direct_workload(config)
             config = _dump_raw_manifests(
                 config=config,
@@ -362,4 +529,5 @@ async def generate(
             }
             yaml.dump(cr, sys.stdout)
 
-        _print_memory_estimate(config, kube_options, spec)
+        if not bare_pod:
+            _print_memory_estimate(config, kube_options, spec)

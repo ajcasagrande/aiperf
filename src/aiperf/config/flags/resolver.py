@@ -954,6 +954,8 @@ def _apply_scenario_overrides(out: dict[str, Any], cli: CLIConfig) -> None:
         out["scenario"] = cli.scenario
     if "unsafe_override" in set_fields:
         out["unsafe_override"] = cli.unsafe_override
+    if "agentx_fast" in set_fields:
+        out["agentx_fast"] = cli.agentx_fast
 
 
 def _apply_optional_section(

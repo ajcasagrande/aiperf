@@ -616,6 +616,14 @@ end-to-start delay.
 exclusive: choose a time-bounded warmup or a deterministic request-bounded
 warmup.
 
+For throughput iteration, `--agentx-fast` locks the shortest useful AgentX
+profile: mandatory snapshot primers only (no additional warmup requests) and a
+1,200-second profiling window. It requires an AgentX scenario and rejects
+accuracy runs. Because the shortened warmup is not the InferenceX submission
+profile, the run is stamped `submission_valid=false` with `agentx_fast` in
+`submission_invalid_reasons`. Use it while tuning a server; drop it for a run
+you intend to submit.
+
 These requests remain part of warmup, so they are excluded from exported
 request metrics. They are reported separately under the top-level
 `warmup_metrics` key of `profile_export_aiperf.json`. `profile_export.jsonl`

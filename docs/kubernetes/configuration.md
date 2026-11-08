@@ -341,6 +341,10 @@ explicit `--namespace` is also supplied, `profile` assumes the namespace was
 pre-provisioned and does not attempt to create it. `--operator` and
 `--no-operator` are mutually exclusive.
 
+A third deployment form, `--bare-pod`, renders one `ConfigMap` plus one
+`kind: Pod` with no operator, CRD, or JobSet. It is the single-node shape for
+high-concurrency runs; see [Bare Pod Mode](bare-pod.md).
+
 When an `AIPerfJob` CR is passed to `profile --no-operator` or
 `generate --no-operator`, direct mode preserves the fields that JobSet can
 represent, including `imagePullPolicy`, `resourceMode`, `keepFailedPods`,

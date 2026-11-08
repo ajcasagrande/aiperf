@@ -134,6 +134,7 @@ _ROUTED_OUTSIDE_SECTIONS: frozenset[str] = frozenset(
         # scenario lock, via _apply_scenario_overrides
         "scenario",
         "unsafe_override",
+        "agentx_fast",
         # magic-list sweep topology, read by promote_benchmark_magic_lists
         "sweep_type",
         # inter-turn delay cap, carried onto trace datasets by build_dataset

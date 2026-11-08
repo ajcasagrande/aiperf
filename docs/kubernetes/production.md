@@ -345,6 +345,17 @@ Each worker maintains up to `connectionsPerWorker` concurrent requests (default:
 
 For high-concurrency benchmarks, scale workers rather than increasing connections per worker. This distributes the load across pods and nodes.
 
+### Single-Node Runs with a Bare Pod
+
+When the benchmark must fit on one node -- most notably the 50,000-concurrency
+SemiAnalysis AgentX workload, whose outbound connections are bounded by a
+single network namespace -- use `--bare-pod` instead of the JobSet topology. It
+renders one `ConfigMap` and one `kind: Pod` with the controller, workers, and
+record processors as child processes, and widens the Pod's ephemeral port range
+to hold the connection budget. A single bare Pod is the single-node shape and
+maps directly to one Slurm node. See [Bare Pod Mode](bare-pod.md) for the
+topology, port math, sizing table, and limitations.
+
 ---
 
 ## Results Server

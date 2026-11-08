@@ -376,10 +376,10 @@ class CreditPhaseConfig(AIPerfBaseModel):
     )
     warmup_requests_per_lane: int | None = Field(
         default=None,
-        gt=0,
+        ge=0,
         description="Deterministic cache-pressure warmup wire-request budget "
-        "per live agentic replay lane. Mutually exclusive with "
-        "agentic_cache_warmup_duration_sec.",
+        "per live agentic replay lane. 0 leaves only the mandatory snapshot "
+        "primers. Mutually exclusive with agentic_cache_warmup_duration_sec.",
     )
 
     artifact_dir: Path | None = Field(
@@ -656,11 +656,17 @@ def _build_agentic_warmup_config(phase: PhaseConfig) -> CreditPhaseConfig | None
     requests_per_lane = getattr(phase, "warmup_requests_per_lane", None)
     cache_warmup_request_cap = (
         concurrency * requests_per_lane
-        if concurrency is not None and requests_per_lane is not None
+        if concurrency is not None
+        and requests_per_lane is not None
+        and requests_per_lane > 0
         else None
     )
     if cache_warmup_request_cap is not None:
         total_expected_requests = cache_warmup_request_cap
+    elif requests_per_lane == 0:
+        # No additional budget: the mandatory snapshot primers drive completion.
+        # Use one-per-lane as a count backstop; the primer total is at most that.
+        total_expected_requests = concurrency
     elif cache_warmup_duration is not None:
         total_expected_requests = None
     else:
