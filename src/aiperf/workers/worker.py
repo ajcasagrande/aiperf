@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
 from aiperf.common.aiperf_logger import AIPerfLogger
@@ -89,6 +90,24 @@ from aiperf.workers.session_manager import UserSession, UserSessionManager
 if TYPE_CHECKING:
     from aiperf.config.resolution.plan import BenchmarkRun
     from aiperf.transports.base_transports import FirstTokenCallback
+
+
+# Bound on decoded conversations held per worker. This must stay well below the
+# corpus size: a conversation is ~14 MB decoded, and round-robin credit routing
+# means every worker eventually sees every trace, so a cache large enough to
+# hold the whole corpus costs workers x corpus, i.e. roughly 0.5 TB at the
+# 393-trace corpus with 100 workers. A miss costs one re-decode at session
+# creation, which is cheap next to that, so a small working set is enough.
+_CONVERSATION_CACHE_MAX_ENTRIES = Environment.WORKER.CONVERSATION_CACHE_MAX_ENTRIES
+"""Decoded conversations retained per worker (LRU), env-tunable.
+
+A miss costs one decode plus, once the string dedup below is active, one
+dedup pass over that conversation -- so the bound trades memory against
+repeated decode work. 16 was chosen when a decoded conversation cost ~14 MB
+and a large cache held the whole 393-trace corpus per worker (~0.5 TB at 100
+workers). With repeated large strings collapsed at decode the per-conversation
+footprint is far smaller, so a larger bound may now be affordable; measure
+before raising the default."""
 
 
 def _phase_needs_first_token_callback(phase) -> bool:
@@ -366,6 +385,50 @@ def _inject_marker_into_first_user_text(
     first.contents[0] = (marker + existing) if is_prefix else (existing + marker)
 
 
+def _clone_conversation_for_session(conversation: Conversation) -> Conversation:
+    """Give one session private containers over shared, immutable content.
+
+    A session decodes its whole conversation and holds it until the session
+    ends. At 50,000 lanes over 393 traces every trace is decoded and held about
+    127 times, which costs hundreds of GiB; decoding once per worker and
+    cloning per session keeps the message payloads shared.
+
+    Cache-bust and media-uuid suffixing mutate only *containers*: they assign to
+    list slots (``raw_messages[:] = ...``, ``images[:] = ...``,
+    ``contents[0] = ...``, ``turn.texts = ...``) and replace dicts rather than
+    editing them. The message dicts, parts and strings are therefore safe to
+    share, while every list container and ``Turn`` object the mutators can
+    write to must be private to the session.
+    """
+
+    def clone_turn(turn: Turn) -> Turn:
+        return turn.model_copy(
+            update={
+                "raw_messages": None
+                if turn.raw_messages is None
+                else list(turn.raw_messages),
+                "raw_tools": None if turn.raw_tools is None else list(turn.raw_tools),
+                "raw_system": None
+                if turn.raw_system is None
+                else list(turn.raw_system),
+                "texts": [
+                    text.model_copy(update={"contents": list(text.contents)})
+                    for text in turn.texts
+                ],
+                "images": list(turn.images),
+                "audios": list(turn.audios),
+                "videos": list(turn.videos),
+                "raw_payload": None
+                if turn.raw_payload is None
+                else dict(turn.raw_payload),
+            }
+        )
+
+    return conversation.model_copy(
+        update={"turns": [clone_turn(turn) for turn in conversation.turns]}
+    )
+
+
 def _inject_marker_at_first_user(
     turn_list: list[Turn], marker: str, *, is_prefix: bool
 ) -> None:
@@ -457,11 +520,10 @@ def _apply_cache_bust(
             is_prefix=is_prefix,
         )
 
-    # Mark the effective prefix's opening user turn every credit (idempotent).
-    # Unconditional rather than turn_index==0-gated so a seeded mid-trajectory
-    # resume (turn_list back-filled with turns 0..k_i at a credit whose
-    # turn_index > 0) still marks the true wire prefix.
-    _inject_marker_at_first_user(prefix_turns, marker, is_prefix=is_prefix)
+    # FIRST_TURN_* targets are applied by the endpoint when it builds the wire
+    # messages (``BaseEndpoint.apply_cache_bust_marker``), not by mutating the
+    # session's turns here. Mutating stored ``marker + content`` for the
+    # session's life cost a full copy of the message per context reset.
     return system_message
 
 
@@ -725,6 +787,15 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         self._dataset_client = ClientStoreClass(client_metadata=msg.client_metadata)
         await self._dataset_client.initialize()
         self.session_manager.set_default_context_mode(msg.metadata.default_context_mode)
+        # Decoded conversations are cached per worker and cloned per session
+        # (_clone_conversation_for_session). Decoding a multi-MB conversation on
+        # the worker's event loop for every session is both the biggest stall
+        # source and, at 50k lanes, the dominant memory consumer.
+        self._conversation_cache: OrderedDict[str, Conversation] = OrderedDict()
+        # (conversation_id, cached_turns, credit_turns) already reported, so a
+        # dataset that varies a conversation's turn count is announced once
+        # rather than on every credit.
+        self._reported_turn_count_mismatches: set[tuple[str, int, int]] = set()
         if isinstance(msg.client_metadata, MemoryMapClientMetadata):
             self._is_payload_bytes = (
                 msg.client_metadata.format == MemoryMapFormat.PAYLOAD_BYTES
@@ -1089,7 +1160,7 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         credit = credit_context.credit
         session = self.session_manager.get(x_correlation_id)
         if session is None:
-            _conversation = await self._retrieve_conversation_for_session(
+            _conversation = await self._borrow_conversation_for_session(
                 credit_context=credit_context,
             )
             session = self.session_manager.create_and_store(
@@ -1614,6 +1685,60 @@ class Worker(BaseComponentService, ProcessHealthMixin):
             conversation_id, credit_context
         )
 
+    async def _borrow_conversation_for_session(
+        self,
+        *,
+        credit_context: CreditContext,
+    ) -> Conversation:
+        """Return a session-private clone of this conversation.
+
+        The decoded conversation is cached and shared; each session gets its own
+        containers over the shared payload (see
+        :func:`_clone_conversation_for_session`), so a trace replayed by many
+        lanes is decoded once per worker rather than once per lane.
+
+        The cache is keyed on the conversation id alone. The PAYLOAD_BYTES
+        reconstruction loops ``range(num_turns)``, so a cached conversation has
+        exactly the turn count it was built with; a later credit for the same id
+        carrying a different count would be handed the wrong-sized object and
+        ``advance_turn`` would read past its end. That is asserted on the hit
+        path instead of being encoded in the key, so one conversation occupies
+        one entry and a mismatch is reported rather than silently multiplied
+        into a second entry.
+        """
+        credit = credit_context.credit
+        key = credit.conversation_id
+        cached = self._conversation_cache.get(key)
+        if cached is not None and len(cached.turns) != credit.num_turns:
+            # Same conversation rebuilt for a different turn count. Do not serve
+            # the cached one: its turn list is the wrong length. Fetch a correct
+            # copy without caching it, and say so once per (id, count) pair so a
+            # dataset that varies the count is visible rather than mysterious.
+            mismatch = (key, len(cached.turns), credit.num_turns)
+            if mismatch not in self._reported_turn_count_mismatches:
+                self._reported_turn_count_mismatches.add(mismatch)
+                self.warning(
+                    f"Conversation {key!r} was cached with {len(cached.turns)} "
+                    f"turn(s) but this credit declares {credit.num_turns}; "
+                    "serving an uncached reconstruction. Keying the cache on the "
+                    "turn count is the alternative if this is common."
+                )
+            return _clone_conversation_for_session(
+                await self._retrieve_conversation_for_session(
+                    credit_context=credit_context
+                )
+            )
+        if cached is None:
+            cached = await self._retrieve_conversation_for_session(
+                credit_context=credit_context,
+            )
+            self._conversation_cache[key] = cached
+            if len(self._conversation_cache) > _CONVERSATION_CACHE_MAX_ENTRIES:
+                self._conversation_cache.popitem(last=False)
+        else:
+            self._conversation_cache.move_to_end(key)
+        return _clone_conversation_for_session(cached)
+
     async def _retrieve_conversation_for_session(
         self,
         *,
@@ -1707,7 +1832,8 @@ class Worker(BaseComponentService, ProcessHealthMixin):
         Flow:
         1. Update task statistics (total and success/failure counts)
         2. Wrap record in InferenceResultsMessage
-        3. Push to RecordProcessor via PUSH socket (fire-and-forget)
+        3. Push to RecordProcessor via PUSH socket (fire-and-forget). This channel
+           is encoded as msgpack, not JSON: see ``aiperf.zmq.inference_results_wire``.
 
         Note: Uses execute_async() to avoid blocking on network I/O.
         """

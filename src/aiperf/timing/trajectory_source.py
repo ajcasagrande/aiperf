@@ -220,6 +220,11 @@ def validate_dataset_wrap_policy(
         )
 
 
+#: Distinguishes "this instance has no memo attribute at all" (assembled with
+#: ``__new__``) from "the memo is present but empty".
+_UNMEMOIZED = object()
+
+
 class TrajectorySource(ConversationSource):
     """ConversationSource that samples a fixed set of trajectories with a randomized
     per-trajectory start position drawn from [start_min_ratio, start_max_ratio] of
@@ -291,6 +296,10 @@ class TrajectorySource(ConversationSource):
         # or a one-pass / in-corpus session budget; see
         # ``validate_dataset_wrap_policy``.
         self._target_size = concurrency
+        # Memos must exist before ``trajectories`` is assigned: the setter
+        # invalidates them, and the assignment below goes through the setter.
+        self._warmup_credit_counts_by_lane: tuple[int, ...] | None = None
+        self._warmup_credit_count: int | None = None
         self.trajectories: list[Trajectory] = self._build_trajectories()
 
         if not self.trajectories:
@@ -320,6 +329,29 @@ class TrajectorySource(ConversationSource):
             )
 
         self._log_trajectory_summary()
+
+    @property
+    def trajectories(self) -> list[Trajectory]:
+        """Per-lane trajectories, in lane order.
+
+        The warmup primer counts memoized below are derived from this list, so
+        every assignment invalidates them. ``finalize_phase`` replaces the whole
+        list at the warmup -> profiling handoff
+        (``_build_handoff_trajectories``); without invalidation the memos keep
+        answering with the pre-handoff counts.
+
+        Readers today all run during warmup, before that handoff, so the stale
+        value is not observed - but it is a trap for the next caller, and it is
+        cheap to close here.
+        """
+        return self._trajectories
+
+    @trajectories.setter
+    def trajectories(self, value: list[Trajectory]) -> None:
+        self._trajectories = value
+        # Force re-derivation on next read; see warmup_credit_counts_by_lane.
+        self._warmup_credit_counts_by_lane = None
+        self._warmup_credit_count = None
 
     @property
     def cache_bust_ledger(self) -> CacheBustLedger:
@@ -429,6 +461,9 @@ class TrajectorySource(ConversationSource):
         send the join turn n, so n-1 is still its warmup turn). Streams whose
         first request is at/after t* contribute nothing to warm.
         """
+        cached = getattr(self, "_warmup_credit_counts_by_lane", _UNMEMOIZED)
+        if cached is not None and cached is not _UNMEMOIZED:
+            return cached
         counts: list[int] = []
         for trajectory in self.trajectories:
             if trajectory.snapshot is None:
@@ -441,12 +476,24 @@ class TrajectorySource(ConversationSource):
                         if state.warmup_turn_index is not None
                     )
                 )
-        return tuple(counts)
+        result = tuple(counts)
+        # Only instances built through __init__ own the cache attribute; one
+        # assembled with __new__ (tests, tooling) must keep recomputing so a
+        # later reassignment of ``trajectories`` cannot serve a stale value.
+        if cached is not _UNMEMOIZED:
+            self._warmup_credit_counts_by_lane = result
+        return result
 
     @property
     def warmup_credit_count(self) -> int:
         """Total mandatory snapshot primers across all trajectory lanes."""
-        return sum(self.warmup_credit_counts_by_lane)
+        cached = getattr(self, "_warmup_credit_count", _UNMEMOIZED)
+        if cached is not None and cached is not _UNMEMOIZED:
+            return cached
+        total = sum(self.warmup_credit_counts_by_lane)
+        if cached is not _UNMEMOIZED:
+            self._warmup_credit_count = total
+        return total
 
     def _build_trajectories(self) -> list[Trajectory]:
         """Sample one trajectory per concurrency lane straight from the sampler.

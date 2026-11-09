@@ -473,6 +473,7 @@ class MessagesEndpoint(BaseEndpoint):
                 {"role": "user", "content": request_info.user_context_message}
             )
         messages.extend(self.build_messages(turns))
+        messages = self.apply_cache_bust_marker(messages, request_info)
 
         # Conversation-level fields (raw_tools, raw_system) walk turns from
         # the end so FORK-mode children whose final turn does not redeclare

@@ -118,7 +118,9 @@ class TestPerCreditIntegration:
         assert instance_id not in router._sticky_sessions
 
     @pytest.mark.asyncio
-    async def test_load_balancing_across_multiple_conversations(self, benchmark_run):
+    async def test_load_balancing_across_multiple_conversations(
+        self, benchmark_run, no_affinity
+    ):
         """Test that multiple conversations are balanced across workers."""
         router = StickyCreditRouter(run=benchmark_run, service_id="test-service")
         router._router_client.send_to = AsyncMock()
@@ -316,8 +318,14 @@ class TestPerCreditIntegration:
         assert total_in_flight == 2
 
     @pytest.mark.asyncio
-    async def test_same_session_different_instances_balanced(self, benchmark_run):
-        """Test that same session sampled multiple times is balanced."""
+    async def test_same_session_instances_share_one_worker(self, benchmark_run):
+        """Repeated instances of one conversation co-locate to share its decode.
+
+        Least-loaded placement used to spread them, so two workers each decoded
+        and held their own copy of the same conversation. Affinity deliberately
+        does the opposite: one worker owns the conversation and every instance
+        of it runs there.
+        """
         router = StickyCreditRouter(run=benchmark_run, service_id="test-service")
         router._router_client.send_to = AsyncMock()
         router._register_worker("worker-A")
@@ -356,16 +364,14 @@ class TestPerCreditIntegration:
         await router.send_credit(instance2_credit)
         await router.send_credit(instance3_credit)
 
-        # Should create 3 separate assignments (different instances)
+        # Each instance still gets its own sticky entry...
         assert len(router._sticky_sessions) == 3
 
-        # Should be balanced across workers (not all to same worker)
+        # ...but all three run on the single worker owning the conversation.
         worker_loads = {
             w: router._workers[w].in_flight_credits for w in router._workers
         }
-        # At least one worker should have 2 credits, one should have 1
-        # (since 3 credits, 2 workers)
-        assert sorted(worker_loads.values()) == [1, 2]
+        assert sorted(worker_loads.values()) == [0, 3]
 
     @pytest.mark.asyncio
     async def test_worker_failure_and_reassignment(self, benchmark_run):

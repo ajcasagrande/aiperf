@@ -1103,7 +1103,7 @@ class TestRouterLoadBalancing:
             sel.add(r._router_client.send_to.call_args[0][0])
         assert all(w in {"w1", "w2", "w3"} for w in sel)
 
-    async def test_prefers_lower_load(self, benchmark_run):
+    async def test_prefers_lower_load(self, benchmark_run, no_affinity):
         r = StickyCreditRouter(run=benchmark_run, service_id="tr")
         r._router_client.send_to = AsyncMock()
         for w in ["w1", "w2", "w3"]:

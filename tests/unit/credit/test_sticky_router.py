@@ -3,6 +3,7 @@
 import asyncio
 import itertools
 from collections.abc import Awaitable, Callable
+import msgspec
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,10 +17,11 @@ from tests.unit.timing.conftest import make_credit
 SendFn = Callable[..., Awaitable[str]]
 
 
+
 class TestStickyCreditRouterFairLoadBalancing:
     """Test fair load balancing for first turns."""
 
-    async def test_routes_to_least_loaded_worker(self, benchmark_run) -> None:
+    async def test_routes_to_least_loaded_worker(self, benchmark_run, no_affinity) -> None:
         router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
         router._router_client.send_to = AsyncMock()
         router._register_worker("worker-1")
@@ -121,7 +123,7 @@ class TestStickyCreditRouterStickyRouting:
         assert instance_id not in router._sticky_sessions
 
     async def test_fallback_to_fair_load_if_assignment_missing(
-        self, benchmark_run
+        self, benchmark_run, no_affinity
     ) -> None:
         router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
         router._router_client.send_to = AsyncMock()
@@ -249,7 +251,7 @@ class TestStickyCreditRouterCompleteScenario:
         # Assignment should be cleaned up after final turn
         assert instance_id not in router._sticky_sessions
 
-    async def test_multiple_conversations_balanced(self, benchmark_run) -> None:
+    async def test_multiple_conversations_balanced(self, benchmark_run, no_affinity) -> None:
         """Test that multiple conversations are balanced across workers."""
         router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
         router._router_client.send_to = AsyncMock()
@@ -436,7 +438,7 @@ class TestStickyCreditRouterLateJoiningWorker:
         assert router._workers["worker-3"].virtual_sent_credits == 50
         assert router._workers["worker-3"].total_sent_credits == 0
 
-    async def test_late_joiner_not_preferred_over_existing(self, benchmark_run) -> None:
+    async def test_late_joiner_not_preferred_over_existing(self, benchmark_run, no_affinity) -> None:
         """Late-joining worker should not get all requests due to zero credits."""
         router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
         router._router_client.send_to = AsyncMock()
@@ -479,7 +481,7 @@ class TestStickyCreditRouterLateJoiningWorker:
         assert router._workers["worker-2"].virtual_sent_credits == 0
 
     async def test_virtual_credits_vs_total_credits_semantics(
-        self, benchmark_run
+        self, benchmark_run, no_affinity
     ) -> None:
         """Verify virtual and total credits track independently."""
         router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
@@ -1315,7 +1317,7 @@ class TestStickyCreditRouterDAGChildren:
         assert router._workers["worker-A"].active_sessions == 1
 
     async def test_send_credit_spawn_child_parent_resumes_elsewhere_keeps_worker(
-        self, two_worker_router, send
+        self, two_worker_router, send, no_affinity
     ) -> None:
         """A SPAWN child keeps its own worker after the gated parent resumes elsewhere."""
         kid_worker = await send("kid", 0, 4, parent="root")
@@ -1401,3 +1403,137 @@ class TestStickyCreditRouterDAGChildren:
         await send("pre", 1, 3, mode=spawn)
         await send("pre", 2, 3, mode=spawn)
         assert _total_active(two_worker_router) == 0
+
+
+class TestConversationAffinity:
+    """A root's first turn goes to the worker that owns its conversation.
+
+    Least-loaded placement spreads a new session to whichever worker is idlest,
+    so with L lanes drawn from C conversations each worker decodes nearly every
+    conversation. Workers are separate processes, so the decoded set is
+    duplicated per worker: at 50k lanes over 9,843 conversations that measured
+    ~3.7 GiB of private heap per worker. Affinity keeps a worker's set at
+    C/workers, which measured 487 GiB -> 304-341 GiB for the whole run.
+    """
+
+    @staticmethod
+    def _router(benchmark_run, workers: tuple[str, ...]) -> StickyCreditRouter:
+        router = StickyCreditRouter(run=benchmark_run, service_id="test-router")
+        router._router_client.send_to = AsyncMock()
+        for worker in workers:
+            router._register_worker(worker)
+        return router
+
+    @staticmethod
+    def _set_loads(router: StickyCreditRouter, loads: dict[str, int]) -> None:
+        router._workers_by_load.clear()
+        for worker_id, load in loads.items():
+            router._workers[worker_id].in_flight_credits = load
+            router._workers_by_load[load].add(worker_id)
+        router._min_load = min(loads.values())
+
+    async def test_same_conversation_always_lands_on_the_same_worker(
+        self, benchmark_run
+    ) -> None:
+        router = self._router(benchmark_run, ("w1", "w2", "w3"))
+        placed = []
+        for index in range(8):
+            credit = make_credit(
+                id=index, conv_id="conv-steady", turn=0, corr_id=f"corr-{index}"
+            )
+            await router.send_credit(credit)
+            placed.append(router._router_client.send_to.call_args[0][0])
+        assert len(set(placed)) == 1
+
+    async def test_affinity_wins_over_least_loaded(self, benchmark_run) -> None:
+        """Affinity deliberately overrides least-loaded for a root's first turn."""
+        router = self._router(benchmark_run, ("w1", "w2", "w3"))
+        owner = router._affinity_worker_id("conv-busy")
+        assert owner is not None
+        self._set_loads(
+            router, {w: (9 if w == owner else 0) for w in ("w1", "w2", "w3")}
+        )
+
+        await router.send_credit(
+            make_credit(id=1, conv_id="conv-busy", turn=0, corr_id="corr-busy")
+        )
+
+        assert router._router_client.send_to.call_args[0][0] == owner
+
+    async def test_fork_child_uses_least_loaded_not_affinity(
+        self, benchmark_run
+    ) -> None:
+        """A FORK child with no live parent entry falls back to least-loaded.
+
+        FORK children must share the parent's KV cache, so they are routed by
+        the sticky parent entry; only when that entry is gone does placement
+        fall through, and then least-loaded is right because there is no
+        lineage left to preserve.
+        """
+        router = self._router(benchmark_run, ("w1", "w2", "w3"))
+        owner = router._affinity_worker_id("conv-child")
+        assert owner is not None
+        loads = {w: (9 if w == owner else 0) for w in ("w1", "w2", "w3")}
+        self._set_loads(router, loads)
+
+        await router.send_credit(
+            make_credit(
+                id=1,
+                conv_id="conv-child",
+                turn=0,
+                corr_id="corr-child",
+                parent_correlation_id="corr-parent",
+            )
+        )
+
+        chosen = router._router_client.send_to.call_args[0][0]
+        assert chosen != owner
+        assert loads[chosen] == 0
+
+    async def test_new_conversations_balance_by_weight(self, benchmark_run) -> None:
+        """Assignment balances total weight, not the count of conversations.
+
+        Hashing balances the count, which left a worker holding heavy
+        conversations as the bottleneck; this pins each conversation to one
+        worker while placing new ones where the least work already sits.
+        """
+        router = self._router(benchmark_run, ("w1", "w2", "w3"))
+        largest = 7
+        for index in range(60):
+            await router.send_credit(
+                make_credit(
+                    id=index,
+                    conv_id=f"conv-{index}",
+                    turn=0,
+                    corr_id=f"corr-{index}",
+                    num_turns=index % largest + 1,
+                )
+            )
+
+        weights = router._worker_weight
+        assert set(weights) == {"w1", "w2", "w3"}
+        assert max(weights.values()) - min(weights.values()) <= largest
+
+    async def test_assignment_is_stable_for_the_same_conversation(
+        self, benchmark_run
+    ) -> None:
+        router = self._router(benchmark_run, ("w1", "w2", "w3"))
+        first = router._affinity_worker_id("conv-stable", 4)
+        # Later requests for the same conversation never move it, and never
+        # double-count its weight.
+        for _ in range(5):
+            assert router._affinity_worker_id("conv-stable", 4) == first
+        assert router._worker_weight[first] == 4
+
+    async def test_falls_back_when_affinity_worker_is_gone(self, benchmark_run) -> None:
+        router = self._router(benchmark_run, ("w1", "w2"))
+        owner = router._affinity_worker_id("conv-x")
+        assert owner is not None
+        router._unregister_worker(owner)
+        assert owner not in router._workers
+
+        await router.send_credit(
+            make_credit(id=1, conv_id="conv-x", turn=0, corr_id="corr-x")
+        )
+
+        assert router._router_client.send_to.call_args[0][0] in router._workers

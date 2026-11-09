@@ -16,6 +16,7 @@ Includes:
 """
 
 import asyncio
+import bisect
 import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
@@ -38,6 +39,7 @@ from aiperf.credit.messages import (
     WorkerToRouterMessage,
 )
 from aiperf.credit.structs import Credit
+
 
 if TYPE_CHECKING:
     from aiperf.config.resolution.plan import BenchmarkRun
@@ -294,6 +296,17 @@ class StickyCreditRouter(CommunicationMixin):
         # child's own id; FORK children route via their parent's key.
         self._sticky_sessions: dict[str, _StickyEntry] = {}
 
+        # Conversation-affine placement. Sorted so the conversation -> worker
+        # mapping is deterministic for a given worker set and independent of
+        # registration order. Maintained only on register/unregister (cold).
+        self._affinity_worker_ids: list[str] = []
+        self._affinity_placed = 0
+        # conversation_id -> owning worker, and the accumulated weight each
+        # worker has been assigned, so new conversations land where the least
+        # work already sits.
+        self._conversation_worker: dict[str, str] = {}
+        self._worker_weight: dict[str, int] = {}
+
         self._cancellation_pending: bool = False
         self._credits_complete: bool = False
 
@@ -391,13 +404,45 @@ class StickyCreditRouter(CommunicationMixin):
         if sticky_worker_id and sticky_worker_id in self._workers:
             worker_id = sticky_worker_id
         else:
-            # Least-loaded selection with O(k) tie-breaking where k = workers at min load.
-            # Min load lookup is O(1) due to caching.
-            least_loaded_workers = self._workers_by_load[self._min_load]
-            if len(least_loaded_workers) == 1:
+            # A root's first turn prefers the worker that owns its conversation,
+            # so a worker's decoded-conversation working set stays proportional
+            # to C/workers instead of C (see _affinity_worker_id).
+            #
+            # DAG children keep least-loaded. Pinning them to their tree's
+            # worker was tried and MEASURED WORSE: 238 GiB vs 219 GiB at
+            # 50k/600s, avg worker PSS 1.61 vs ~1.30 GiB. Grouping a tree onto
+            # one worker lowers the number of decodes but raises that worker's
+            # peak, because a tree's branches are many more conversations than
+            # the root ever needs, and peak memory is what binds here.
+            #
+            # The cache-bound sweep is NOT evidence for either side: it cannot
+            # separate child leakage from the corpus simply having more
+            # conversations than the sampler's 9,843, since branch ids and the
+            # per-turn cache key both multiply the entry count.
+            affinity_worker_id = (
+                self._affinity_worker_id(
+                    credit.conversation_id, max(1, credit.num_turns)
+                )
+                if sticky_entry is None and not is_dag_child
+                else None
+            )
+            if (
+                affinity_worker_id is not None
+                and affinity_worker_id in self._workers
+            ):
+                worker_id = affinity_worker_id
+                self._affinity_placed += 1
+                if self._affinity_placed % 5000 == 0:
+                    self.info(
+                        f"affinity placement: {self._affinity_placed} first turn(s) "
+                        f"routed by conversation over {len(self._affinity_worker_ids)} worker(s)"
+                    )
+            elif len(self._workers_by_load[self._min_load]) == 1:
                 # Pop the single worker directly. _track_credit_sent will add it to the new load level.
-                worker_id = least_loaded_workers.pop()
+                # Min load lookup is O(1) due to caching.
+                worker_id = self._workers_by_load[self._min_load].pop()
             else:
+                least_loaded_workers = self._workers_by_load[self._min_load]
                 # Multiple workers at min load - find best via single-pass scan.
                 # O(k) where k = workers at min load.
                 #
@@ -630,6 +675,45 @@ class StickyCreditRouter(CommunicationMixin):
             case _:
                 self.warning(f"Unknown message type: {type(message).__name__}")
 
+    def _affinity_worker_id(
+        self, conversation_id: str, weight: int = 1
+    ) -> str | None:
+        """Return the worker that owns ``conversation_id``, assigning it if new.
+
+        Least-loaded placement sends a new session to whichever worker is
+        idlest, so with L lanes drawn from C conversations every worker ends up
+        decoding nearly all C conversations. Workers are separate processes, so
+        the decoded working set is duplicated per worker: at 50k lanes over
+        9,843 conversations each of 100 workers held ~3.7 GiB of private heap.
+
+        Pinning a conversation to one worker makes a worker's working set
+        C/workers instead of C. The assignment is weighted rather than hashed:
+        hashing balances the *count* of conversations, but conversations differ
+        enormously in size, so a worker drawing heavy ones becomes the
+        bottleneck (two runs measured a ~0.9% throughput cost against
+        least-loaded). Here each new conversation goes to the worker carrying
+        the least accumulated weight, with ``weight`` supplied by the caller as
+        the conversation's turn count, so total work balances while lanes on a
+        worker still share one decode.
+
+        Multi-turn sessions are unaffected: the first turn establishes the
+        sticky entry exactly as before, and later turns route by it.
+        """
+        ids = self._affinity_worker_ids
+        if not ids:
+            return None
+        owner = self._conversation_worker.get(conversation_id)
+        if owner is not None:
+            if owner in self._workers:
+                return owner
+            # The owning worker went away; forget it and reassign below.
+            self._conversation_worker.pop(conversation_id, None)
+        weights = self._worker_weight
+        owner = min(ids, key=lambda worker_id: weights.get(worker_id, 0))
+        self._conversation_worker[conversation_id] = owner
+        weights[owner] = weights.get(owner, 0) + weight
+        return owner
+
     def _register_worker(self, worker_id: str) -> None:
         """Register worker for routing, create WorkerLoad entry.
 
@@ -660,6 +744,7 @@ class StickyCreditRouter(CommunicationMixin):
             # so we can cheat and just set minimum load to 0 without recalculating.
             self._min_load = 0
             self._workers_by_load[0].add(worker_id)
+            bisect.insort(self._affinity_worker_ids, worker_id)
             self._worker_available_event.set()
 
     def _unregister_worker(self, worker_id: str) -> None:
@@ -674,6 +759,19 @@ class StickyCreditRouter(CommunicationMixin):
                     f"Worker unregistered: {worker_id} (remaining={len(self._workers)})"
                 )
             self._workers_by_load[worker_load.in_flight_credits].discard(worker_id)
+            for owned in [
+                conv
+                for conv, owner in self._conversation_worker.items()
+                if owner == worker_id
+            ]:
+                self._conversation_worker.pop(owned, None)
+            self._worker_weight.pop(worker_id, None)
+            idx = bisect.bisect_left(self._affinity_worker_ids, worker_id)
+            if (
+                idx < len(self._affinity_worker_ids)
+                and self._affinity_worker_ids[idx] == worker_id
+            ):
+                del self._affinity_worker_ids[idx]
             if not self._workers:
                 self._worker_available_event.clear()
 
