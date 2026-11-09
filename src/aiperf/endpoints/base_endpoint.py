@@ -8,7 +8,7 @@ from collections.abc import Callable
 from typing import Any, ClassVar
 
 from aiperf.common.constants import SYSTEM_PROMPT_JOIN_SEP
-from aiperf.common.enums import MediaType
+from aiperf.common.enums import CacheBustTarget, MediaType
 from aiperf.common.environment import Environment
 from aiperf.common.mixins import AIPerfLoggerMixin
 from aiperf.common.models import (
@@ -256,6 +256,61 @@ class BaseEndpoint(AIPerfLoggerMixin, ABC):
             if value is not None:
                 return value
         return None
+
+    def apply_cache_bust_marker(
+        self, messages: list[dict[str, Any]], request_info: RequestInfo
+    ) -> list[dict[str, Any]]:
+        """Apply this request's cache-bust marker to the wire prefix.
+
+        The marker used to be injected by mutating the session's ``Turn`` at
+        dispatch time, which stored ``marker + content`` -- a copy of the whole
+        message, ~230 KB for an AgentX first turn -- for the life of the
+        session. A trace re-sends the same first-user message after each context
+        reset, so one lane could retain many copies of it.
+
+        Injecting here instead leaves the session holding only the original,
+        shared content: the concatenation is built per request and freed with
+        it. The wire bytes are unchanged -- same marker, same message, same
+        position. ``SYSTEM_*`` targets are not handled here; they mark the
+        per-request system message, which is already transient.
+        """
+        marker = getattr(request_info, "cache_bust_marker", None)
+        target = getattr(request_info, "cache_bust_target", None)
+        if not marker or target is None:
+            return messages
+        try:
+            cache_bust_target = CacheBustTarget(target)
+        except ValueError:
+            return messages
+        if cache_bust_target in (
+            CacheBustTarget.SYSTEM_PREFIX,
+            CacheBustTarget.SYSTEM_SUFFIX,
+            CacheBustTarget.WARMUP_ISOLATION_SYSTEM,
+        ):
+            return messages
+        is_prefix = cache_bust_target in (
+            CacheBustTarget.FIRST_TURN_PREFIX,
+            CacheBustTarget.WARMUP_ISOLATION_FIRST_TURN,
+        )
+        for index, message in enumerate(messages):
+            if not isinstance(message, dict) or message.get("role") != "user":
+                continue
+            content = message.get("content", "")
+            if isinstance(content, str):
+                messages[index] = {
+                    **message,
+                    "content": (marker + content) if is_prefix else (content + marker),
+                }
+            elif isinstance(content, list):
+                marker_part = {"type": "text", "text": marker.strip()}
+                messages[index] = {
+                    **message,
+                    "content": (
+                        [marker_part, *content] if is_prefix else [*content, marker_part]
+                    ),
+                }
+            return messages
+        return messages
 
     def build_messages(self, turns: list[Turn]) -> list[dict[str, Any]]:
         """Flatten ``turns`` into a wire-ready role/content message array.

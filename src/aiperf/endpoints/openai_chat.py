@@ -37,7 +37,10 @@ class ChatEndpoint(BaseEndpoint):
         turns = request_info.turns
         model_endpoint = request_info.model_endpoint
 
-        messages = self._format_messages(request_info, self.build_messages(turns))
+        messages = self.apply_cache_bust_marker(
+            self._format_messages(request_info, self.build_messages(turns)),
+            request_info,
+        )
 
         # Conversation-level fields walk from the end and pick the most recent
         # non-None value. Per-request overrides stay scoped to the dispatching

@@ -221,6 +221,7 @@ class ResponsesEndpoint(BaseEndpoint):
                 if request_info.user_context_message
                 else []
             )
+        rendered = self.apply_cache_bust_marker(rendered, request_info)
         instructions, merge_prefix = self._system_prompt_carrier(request_info, rendered)
 
         # A dataset that authored its own leading ``role: system`` input item
