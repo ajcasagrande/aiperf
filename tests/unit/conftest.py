@@ -950,3 +950,20 @@ def create_exporter_config(
         telemetry_results=telemetry_results,
         server_metrics_results=server_metrics_results,
     )
+
+
+@pytest.fixture
+def no_affinity(monkeypatch):
+    """Disable conversation-affine placement for a test.
+
+    A root's first turn normally goes to the worker that owns its conversation
+    (see ``TestConversationAffinity``). Tests that pin the older least-loaded
+    behavior - which affinity deliberately replaces for root sessions - opt out
+    here rather than depending on which worker a conversation happens to be
+    assigned to.
+    """
+    from aiperf.credit.sticky_router import StickyCreditRouter
+
+    monkeypatch.setattr(
+        StickyCreditRouter, "_affinity_worker_id", lambda self, conversation_id, weight=1: None
+    )
