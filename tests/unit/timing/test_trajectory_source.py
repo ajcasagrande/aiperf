@@ -17,7 +17,7 @@ from aiperf.common.scenario.base import (
     EmptyTracePoolError,
 )
 from aiperf.plugin.enums import DatasetSamplingStrategy
-from aiperf.timing.trajectory_source import TrajectorySource
+from aiperf.timing.trajectory_source import Trajectory, TrajectorySource
 from tests.unit.timing._shared_helpers import _make_dataset_metadata
 
 
@@ -350,3 +350,31 @@ def test_next_recycle_conversation_id_skips_unspawnable_roots():
 
     for _ in range(5):
         assert src.next_recycle_conversation_id() == "ok"
+
+
+def test_reassigning_trajectories_invalidates_the_warmup_memos():
+    """Replacing ``trajectories`` must drop the memoized warmup counts.
+
+    ``finalize_phase`` swaps the whole list at the warmup -> profiling handoff
+    (``_build_handoff_trajectories``). The memos are derived from that list, so
+    an assignment that does not invalidate them keeps answering with the
+    pre-handoff counts - a trap for any reader after the handoff.
+
+    Raised in review by FrankD412 against the memoization change.
+    """
+    md = _make_dataset_metadata({"a": 4, "b": 4})
+    sampler = MagicMock()
+    sampler.next_conversation_id.side_effect = ["a", "b"]
+
+    src = TrajectorySource(
+        dataset_metadata=md,
+        dataset_sampler=sampler,
+        concurrency=2,
+        random_seed=42,
+    )
+    assert src.warmup_credit_count == 2  # primes both memos
+
+    src.trajectories = [Trajectory(conversation_id="a", start_turn_index=0)]
+
+    assert src.warmup_credit_counts_by_lane == (1,)
+    assert src.warmup_credit_count == 1
