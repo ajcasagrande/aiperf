@@ -346,6 +346,7 @@ Worker management and auto-scaling configuration. Controls worker pool sizing, h
 |----------------------|---------|-------------|-------------|
 | `AIPERF_WORKER_CHECK_INTERVAL` | `1.0` | ≥ 0.1, ≤ 100000.0 | Interval in seconds between worker status checks by WorkerManager |
 | `AIPERF_WORKER_CPU_UTILIZATION_FACTOR` | `0.75` | ≥ 0.1, ≤ 1.0 | Factor multiplied by CPU count to determine default max workers (0.0-1.0). Formula: max(1, min(int(cpu_count * factor) - 1, MAX_WORKERS_CAP)) |
+| `AIPERF_WORKER_CONVERSATION_CACHE_MAX_ENTRIES` | `16` | ≥ 1 | Decoded conversations retained per worker (LRU). A miss costs one decode plus one string-dedup pass over that conversation, so this trades memory against repeated decode work. Measured at 50,000 lanes over 600 s on one configuration: bound 1 -> 388 GiB, 16 -> 219 GiB, 128 -> 272 GiB, 393 -> 281 GiB, throughput flat. Run-to-run variance on that setup is large enough (~25% on memory) that those deltas are not resolved, so treat 16 as the untuned default rather than a measured optimum, and repeat before changing it. |
 | `AIPERF_WORKER_ERROR_RECOVERY_TIME` | `3.0` | ≥ 0.1, ≤ 1000.0 | Time in seconds from last error before worker is considered healthy again |
 | `AIPERF_WORKER_HEALTH_CHECK_INTERVAL` | `2.0` | ≥ 0.1, ≤ 1000.0 | Interval in seconds between worker health check messages |
 | `AIPERF_WORKER_HIGH_LOAD_CPU_USAGE` | `85.0` | ≥ 50.0, ≤ 100.0 | CPU usage percentage threshold for considering a worker under high load |

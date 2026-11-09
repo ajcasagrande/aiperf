@@ -1670,6 +1670,18 @@ class _WorkerSettings(BaseSettings):
         description="Factor multiplied by CPU count to determine default max workers (0.0-1.0). "
         "Formula: max(1, min(int(cpu_count * factor) - 1, MAX_WORKERS_CAP))",
     )
+    CONVERSATION_CACHE_MAX_ENTRIES: int = Field(
+        ge=1,
+        default=16,
+        description="Decoded conversations retained per worker (LRU). A miss costs "
+        "one decode plus one string-dedup pass over that conversation, so this "
+        "trades memory against repeated decode work. Measured at 50,000 lanes "
+        "over 600 s on one configuration: bound 1 -> 388 GiB, 16 -> 219 GiB, "
+        "128 -> 272 GiB, 393 -> 281 GiB, throughput flat. Run-to-run variance on "
+        "that setup is large enough (~25% on memory) that those deltas are not "
+        "resolved, so treat 16 as the untuned default rather than a measured "
+        "optimum, and repeat before changing it.",
+    )
     ERROR_RECOVERY_TIME: float = Field(
         ge=0.1,
         le=1000.0,
